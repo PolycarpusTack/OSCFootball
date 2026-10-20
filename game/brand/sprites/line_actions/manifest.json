@@ -1,0 +1,558 @@
+{
+  "cell_size": [
+    192,
+    192
+  ],
+  "origin": [
+    96,
+    168
+  ],
+  "standing_height": 48,
+  "generation": "built-in image_gen",
+  "moves": {
+    "power_strike": {
+      "source": "power_strike.png",
+      "role": "striker",
+      "input": "\u2193\u2198\u2192 + Space",
+      "regions": [
+        [
+          112,
+          65,
+          363,
+          447
+        ],
+        [
+          590,
+          115,
+          370,
+          397
+        ],
+        [
+          1087,
+          56,
+          379,
+          462
+        ],
+        [
+          84,
+          560,
+          472,
+          416
+        ],
+        [
+          647,
+          569,
+          362,
+          407
+        ],
+        [
+          1076,
+          547,
+          362,
+          433
+        ]
+      ],
+      "lift": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "duration": [
+        1.5,
+        1.2,
+        0.8,
+        1.5,
+        1.0,
+        2.5
+      ],
+      "contact_frame": 3,
+      "contact_frame_1based": 4,
+      "contact_kind": "ball_strike",
+      "active_frames": [
+        3
+      ],
+      "contact_note": "Extended boot and two-arm thrust; release the fireball here.",
+      "contact_time_seconds": 0.35
+    },
+    "bulldozer_clear": {
+      "source": "bulldozer_clear.png",
+      "role": "defender",
+      "input": "\u2193\u2198\u2192 + Space",
+      "regions": [
+        [
+          70,
+          70,
+          362,
+          421
+        ],
+        [
+          644,
+          181,
+          239,
+          300
+        ],
+        [
+          1043,
+          52,
+          456,
+          418
+        ],
+        [
+          24,
+          613,
+          555,
+          211
+        ],
+        [
+          578,
+          636,
+          466,
+          224
+        ],
+        [
+          1077,
+          646,
+          451,
+          304
+        ]
+      ],
+      "lift": [
+        0,
+        0,
+        10,
+        22,
+        18,
+        0
+      ],
+      "duration": [
+        1.5,
+        1.2,
+        0.8,
+        1.5,
+        1.0,
+        2.5
+      ],
+      "contact_frame": 3,
+      "contact_frame_1based": 4,
+      "contact_kind": "body_contact",
+      "active_frames": [
+        3,
+        4
+      ],
+      "contact_note": "Horizontal charge contact; this art has no separate clearing-kick pose.",
+      "contact_time_seconds": 0.35
+    },
+    "grapple_tackle": {
+      "source": "grapple_tackle.png",
+      "role": "defender",
+      "input": "signature; binding not assigned",
+      "regions": [
+        [
+          62,
+          40,
+          418,
+          451
+        ],
+        [
+          601,
+          86,
+          354,
+          406
+        ],
+        [
+          1119,
+          41,
+          307,
+          457
+        ],
+        [
+          85,
+          540,
+          345,
+          440
+        ],
+        [
+          564,
+          552,
+          400,
+          427
+        ],
+        [
+          1084,
+          527,
+          351,
+          453
+        ]
+      ],
+      "lift": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "duration": [
+        1.3,
+        1.2,
+        0.8,
+        0.8,
+        1.0,
+        2.0
+      ],
+      "contact_frame": 1,
+      "contact_frame_1based": 2,
+      "contact_kind": "grab",
+      "active_frames": [
+        1,
+        2,
+        3
+      ],
+      "contact_note": "Forearms close around opponent. Release at frame index 4; no slam.",
+      "contact_time_seconds": 0.13
+    },
+    "laser_pass": {
+      "source": "laser_pass_v2.png",
+      "role": "midfielder",
+      "input": "\u2193\u2198\u2192 + Space",
+      "regions": [
+        [
+          73,
+          68,
+          422,
+          428
+        ],
+        [
+          535,
+          87,
+          481,
+          397
+        ],
+        [
+          1119,
+          82,
+          365,
+          411
+        ],
+        [
+          63,
+          557,
+          451,
+          409
+        ],
+        [
+          538,
+          551,
+          503,
+          415
+        ],
+        [
+          1069,
+          552,
+          413,
+          418
+        ]
+      ],
+      "lift": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "duration": [
+        1.5,
+        1.2,
+        0.8,
+        1.5,
+        1.0,
+        2.5
+      ],
+      "contact_frame": 3,
+      "contact_frame_1based": 4,
+      "contact_kind": "ball_pass",
+      "active_frames": [
+        3
+      ],
+      "contact_note": "Final v2 sheet: forward boot thrust.",
+      "contact_time_seconds": 0.35
+    },
+    "whirlwind_turn": {
+      "source": "whirlwind_turn.png",
+      "role": "midfielder",
+      "input": "signature; binding not assigned",
+      "regions": [
+        [
+          113,
+          109,
+          366,
+          375
+        ],
+        [
+          612,
+          52,
+          295,
+          378
+        ],
+        [
+          1049,
+          54,
+          457,
+          339
+        ],
+        [
+          54,
+          541,
+          503,
+          366
+        ],
+        [
+          696,
+          544,
+          289,
+          424
+        ],
+        [
+          1093,
+          557,
+          382,
+          410
+        ]
+      ],
+      "lift": [
+        0,
+        8,
+        18,
+        18,
+        5,
+        0
+      ],
+      "duration": [
+        1.5,
+        1.2,
+        0.8,
+        1.5,
+        1.0,
+        2.5
+      ],
+      "contact_frame": 2,
+      "contact_frame_1based": 3,
+      "contact_kind": "shield_turn",
+      "active_frames": [
+        2,
+        3
+      ],
+      "contact_note": "Extended-leg spin begins; use a shield/turn event rather than an automatic shot.",
+      "contact_time_seconds": 0.27
+    },
+    "cannon_punt": {
+      "source": "cannon_punt.png",
+      "role": "keeper",
+      "input": "\u2193\u2198\u2192 + Space",
+      "regions": [
+        [
+          83,
+          58,
+          362,
+          425
+        ],
+        [
+          610,
+          57,
+          351,
+          426
+        ],
+        [
+          1053,
+          103,
+          455,
+          381
+        ],
+        [
+          40,
+          535,
+          535,
+          439
+        ],
+        [
+          615,
+          555,
+          415,
+          418
+        ],
+        [
+          1117,
+          565,
+          347,
+          413
+        ]
+      ],
+      "lift": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "duration": [
+        1.5,
+        1.2,
+        0.8,
+        1.5,
+        1.0,
+        2.5
+      ],
+      "contact_frame": 3,
+      "contact_frame_1based": 4,
+      "contact_kind": "ball_punt",
+      "active_frames": [
+        3
+      ],
+      "contact_note": "Fully extended punt. Current sheet has no ball drawn in its hand poses.",
+      "contact_time_seconds": 0.35
+    },
+    "rising_fist": {
+      "source": "rising_fist.png",
+      "role": "keeper",
+      "input": "signature; binding not assigned",
+      "regions": [
+        [
+          93,
+          106,
+          333,
+          392
+        ],
+        [
+          605,
+          190,
+          304,
+          308
+        ],
+        [
+          1144,
+          7,
+          256,
+          507
+        ],
+        [
+          146,
+          502,
+          370,
+          504
+        ],
+        [
+          659,
+          598,
+          251,
+          372
+        ],
+        [
+          1114,
+          647,
+          335,
+          360
+        ]
+      ],
+      "lift": [
+        0,
+        0,
+        12,
+        22,
+        8,
+        0
+      ],
+      "duration": [
+        1.5,
+        1.2,
+        0.8,
+        1.5,
+        1.0,
+        2.5
+      ],
+      "contact_frame": 2,
+      "contact_frame_1based": 3,
+      "contact_kind": "ball_punch",
+      "active_frames": [
+        2,
+        3
+      ],
+      "contact_note": "Rising glove contact begins; next frame is the airborne follow-through.",
+      "contact_time_seconds": 0.27
+    },
+    "stepover_storm": {
+      "source": "stepover_storm.png",
+      "role": "winger",
+      "input": "signature; binding not assigned",
+      "regions": [
+        [
+          120,
+          69,
+          325,
+          424
+        ],
+        [
+          611,
+          78,
+          374,
+          406
+        ],
+        [
+          1128,
+          78,
+          299,
+          407
+        ],
+        [
+          54,
+          585,
+          459,
+          378
+        ],
+        [
+          685,
+          562,
+          274,
+          399
+        ],
+        [
+          1086,
+          573,
+          404,
+          391
+        ]
+      ],
+      "lift": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "duration": [
+        1.5,
+        0.6,
+        0.6,
+        0.6,
+        0.6,
+        2.2
+      ],
+      "contact_frame": 2,
+      "contact_frame_1based": 3,
+      "contact_kind": "feint",
+      "active_frames": [
+        1,
+        2,
+        3
+      ],
+      "contact_note": "Boot crosses the ball line; a feint trigger, not a forced ball contact.",
+      "contact_time_seconds": 0.21
+    }
+  },
+  "contact_metadata": "Suggested art contact markers; frame indices are zero-based, not wired gameplay timings."
+}

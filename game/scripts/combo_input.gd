@@ -12,7 +12,7 @@ const COMBOS := [
 	["banana", [4, 6]],       # back, forward
 ]
 const SKILL_COMBOS := [  # with the switch button, with the ball
-	["rainbow", [2, 8]],  # down, up: a flash kick
+	["rainbow", [2, 8]],  # down, up: a rising flick
 	["rainbow", [8, 2]],
 	["bckheel", [6, 4]],  # forward, back
 ]
