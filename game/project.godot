@@ -4,7 +4,7 @@ config_version=5
 
 [application]
 
-config/name="FIFA 96 Bananas"
+config/name="Old Skool Crazy Football"
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7")
 
