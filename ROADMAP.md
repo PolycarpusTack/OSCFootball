@@ -75,6 +75,8 @@ with wind-up, active and recovery windows, and counters. Details in `game/docs/c
 | C.7 | Effects sheet in play: impact burst, dust puff, spinning cards, whistle ring (`oscf_roles`), in place of the drawn-in-code effects | Open (S) |
 | C.8 | Own art for the Chaos actions that borrow FIFA 96 animations (Magnet Sole, Phalanx Wall, Captain and Bribe use `mark`; Bass Drop `gpound`; and the rest) | Open (art first, then M) |
 | C.9 | Balance pass: costs, windows and AI frequency, from playtests | Open (M) |
+| C.10 | Move list in the pause menu (inputs in the device's buttons, costs, animation preview); special picker filtered by line | Done (`move_list_test`) |
+| C.11 | Situation prompts in place of the help line; combo feedback (input trail, "need 30" flash, energy-bar notches); the move list from the title screen | Open (M) |
 
 Left out on purpose: modem/serial play, the custom team editor, the 1995 database, language
 select, camera views, the 160×120 FMVs.

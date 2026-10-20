@@ -429,7 +429,7 @@ func _human_input(h: Human, p: Footballer) -> void:
 	var aim: Vector2 = Anims.FACING_VECTORS[p.facing] if p.wish == Vector2.ZERO else p.wish.normalized()
 	if chaos:
 		if Input.is_action_just_pressed(h.action("cycle_special")):
-			h.special_index = (h.special_index + 1) % ChaosActions.MOVES.size()
+			chaos_actions.cycle(h)
 		if Input.is_action_just_pressed(h.action("special")):
 			if chaos_actions.activate(h, aim):
 				h.charging = false
@@ -1843,7 +1843,7 @@ func _add_hud() -> void:
 		help.text = "P1: WASD, Space shoot, X pass   P2: arrows, Enter shoot, Right Shift pass   "
 		if chaos:
 			help.text += "↓↘→ / ←→ then shoot: line move / banana   "
-	help.text += "Pad: stick, B shoot, A pass   Esc / Start: pause  F1: anims  F3: debug"
+	help.text += "Pad: stick, B shoot, A pass   Esc / Start: pause and MOVES  F1: anims  F3: debug"
 	help.position = Vector2(12, 694)
 	help.add_theme_font_size_override("font_size", 14)
 	layer.add_child(help)

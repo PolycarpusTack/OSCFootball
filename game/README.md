@@ -38,7 +38,11 @@ the man; 30) and the keeper's **Cannon Punt** (from the hands, far upfield, once
 clear; 30). The role moves play our own art (`brand/sprites/line_actions`).
 
 **P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
-The HUD shows the selected action and requirements. Keeper moves command your keeper
+R cycles only the moves your player's line can do (plus the keeper's and the captain's).
+The HUD shows the selected one between its neighbours, white when ready and grey when not,
+and what it still needs. **Esc → MOVES** lists every move: its input in the keyboard's or
+the gamepad's buttons, its cost and what it does, your line's moves first, with the
+animation looping beside it. Keeper moves command your keeper
 while you control an outfielder. Classic mode has none of these powers.
 See [controls, counters, costs and art](docs/chaos-actions.md) for details.
 
@@ -51,6 +55,7 @@ godot --editor --path game     # open in the Godot editor
 godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test (Chaos)
 godot --headless --path game -s res://tests/chaos_actions_test.gd                # 11 actions, counters, input and Classic isolation
 godot --headless --path game -s res://tests/role_moves_test.gd                   # line moves (↓↘→ per line) and the four signature specials
+godot --headless --path game -s res://tests/move_list_test.gd                    # pause-menu move list, special picker by line
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash

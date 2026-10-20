@@ -24,7 +24,11 @@ const MOVES := {
 	"whirlwind": {"name": "WHIRLWIND TURN", "cost": 30, "wind": 0.1, "active": 0.45, "recovery": 0.3, "anim": "whirlwind_turn", "hint": "midfielder with the ball"},
 	"fist": {"name": "RISING FIST", "cost": 30, "wind": 0.13, "active": 0.3, "recovery": 0.42, "anim": "rising_fist", "hint": "keeper, a high ball in his box"},
 }
+const PICKER_WINDOW := 3  # moves the HUD shows: the selected one and its neighbours
 const KEEPER_MOVES := ["rocket", "palm", "fist"]  # done by the team's keeper, whoever you control
+## The lines (roles) whose players can do each move; any outfielder otherwise.
+const LINES := {"rocket": "G", "palm": "G", "fist": "G", "captain": "GDMF",
+	"grapple": "D", "stepover": "MF", "whirlwind": "M"}
 const GRAPPLE_REACH := 34.0
 const STEPOVER_FREEZE := 1.0  # seconds the man in front stands frozen
 const WHIRLWIND_SHIELD := 32.0  # opponents this close can't get a foot in while he spins
@@ -40,7 +44,7 @@ var cooldown: Dictionary = {}  # per-team: stops rapid swapping between players 
 var flight: Dictionary = {}
 var ai_left := 1.5
 var ai_enabled := true
-var labels: Array[Label] = []
+var labels: Array[RichTextLabel] = []
 
 func _init(m: Match) -> void:
 	match_game = m
@@ -53,16 +57,46 @@ func _ready() -> void:
 	if not Match.chaos:
 		return
 	for h in match_game.humans:
-		var label := Label.new()
-		label.position = Vector2(16 + h.index * 640, 108)
-		label.add_theme_font_size_override("font_size", 15)
+		var label := RichTextLabel.new()
+		label.bbcode_enabled = true
+		label.fit_content = true
+		label.scroll_active = false
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.position = Vector2(16 + h.index * 640, 104)
+		label.size = Vector2(600, 0)
+		label.add_theme_font_size_override("normal_font_size", 13)
+		label.add_theme_font_size_override("bold_font_size", 15)
 		label.add_theme_color_override("font_outline_color", Color.BLACK)
 		label.add_theme_constant_override("outline_size", 5)
 		layer.add_child(label)
 		labels.append(label)
 
+## The selected move: the one at h.special_index if it suits whoever would do it, else the
+## next one that does (control moves between lines, the selection follows).
 func chosen(h: Human) -> String:
-	return MOVES.keys()[h.special_index]
+	var ids: Array = MOVES.keys()
+	for step in ids.size():
+		var id: String = ids[(h.special_index + step) % ids.size()]
+		if suits(h, id):
+			return id
+	return ids[h.special_index]
+
+## The move after the current one that suits h's player (R / period / RB).
+func cycle(h: Human) -> void:
+	h.special_index = (MOVES.keys().find(chosen(h)) + 1) % MOVES.size()
+	h.special_index = MOVES.keys().find(chosen(h))
+
+## The moves h can pick now: those for the controlled player's line, plus the keeper's
+## and the captain's (they do them, whoever h controls).
+func choices(h: Human) -> Array:
+	return MOVES.keys().filter(func(id): return suits(h, id))
+
+func suits(h: Human, id: String) -> bool:
+	var p := actor(h, id)
+	return p != null and line_can(p, id)
+
+static func line_can(p: Footballer, id: String) -> bool:
+	return p.role in LINES.get(id, "DMF")
 
 func actor(h: Human, id: String) -> Footballer:
 	if id == "captain":
@@ -104,11 +138,7 @@ func unavailable(p: Footballer, id: String) -> String:
 		return "Need %d energy" % d.cost
 	var b := match_game.ball
 	var near := p.position.distance_to(b.position)
-	var valid := true
-	if id in KEEPER_MOVES:
-		valid = p.role == "G"
-	else:
-		valid = p.role != "G"
+	var valid := line_can(p, id)
 	match id:
 		"ghost", "pinball", "boomerang", "rocket": valid = valid and p.has_ball()
 		"magnet": valid = valid and slow_loose() and near <= 27.0
@@ -117,10 +147,10 @@ func unavailable(p: Footballer, id: String) -> String:
 		"wall": valid = valid and not p.has_ball() and partner(p) != null
 		"spring", "cyclone": valid = valid and b.holder == null and b.power == "" and b.z > 12.0 and near <= 45.0
 		"palm": valid = valid and b.holder == null and match_game.in_penalty_area(p.position, p.team)
-		"grapple": valid = valid and p.role == "D" and b.holder != null and b.holder.team != p.team \
+		"grapple": valid = valid and b.holder != null and b.holder.team != p.team \
 			and p.position.distance_to(b.holder.position) <= GRAPPLE_REACH
-		"stepover": valid = valid and p.role in ["M", "F"] and p.has_ball() and match_game.opponent_ahead(p) != null
-		"whirlwind": valid = valid and p.role == "M" and p.has_ball()
+		"stepover": valid = valid and p.has_ball() and match_game.opponent_ahead(p) != null
+		"whirlwind": valid = valid and p.has_ball()
 		"fist": valid = valid and b.holder == null and b.power != "thunder" and b.z > 12.0 and near <= FIST_REACH \
 			and match_game.in_penalty_area(p.position, p.team)
 		"dive": valid = valid and match_game.nearest_opponent_distance(p) <= Match.DIVE_RANGE
@@ -424,14 +454,31 @@ func think_ai() -> void:
 				aim = (mate.position - p.position).normalized()
 			if start(p, id, aim): break
 
+## Each human's picker: a window of the moves his player can pick around the selected one
+## (yellow, pulsing when ready), the others white when ready, grey when not; then how to use it.
 func update_labels() -> void:
 	for i in labels.size():
 		var h := match_game.humans[i]
 		var id := chosen(h)
+		var all := choices(h)
+		var at := all.find(id)
+		var window := all if all.size() <= PICKER_WINDOW \
+			else range(-PICKER_WINDOW / 2, PICKER_WINDOW / 2 + 1).map(func(k): return all[(at + k + all.size()) % all.size()])
+		var strip := []
+		for c: String in window:
+			var ready := unavailable(actor(h, c), c) == ""
+			var text := "%s %d" % [MOVES[c].name, MOVES[c].cost]
+			if c == id:
+				text = "[b][color=#ffe34d]%s[/color][/b]" % ("[pulse freq=2.0 color=#ffffff60]%s[/pulse]" % text if ready else text)
+			else:
+				text = "[color=%s]%s[/color]" % ["#ffffff" if ready else "#8a8a8a", text]
+			strip.append(text)
 		var why := unavailable(actor(h, id), id)
-		labels[i].text = "%s / %d energy\n%s\n%s" % [MOVES[id].name, MOVES[id].cost,
-			"E use · R next / Pad Y · RB" if i == 0 else ", use · . next / Pad Y · RB",
-			"READY" if why == "" else why]
+		var text := "%s   [color=#bbbbbb]%d/%d[/color]\n[color=#bbbbbb]%s[/color]  %s" % ["  ·  ".join(strip), at + 1, all.size(),
+			"E use · R next · Pad Y / RB" if i == 0 else ", use · . next · Pad Y / RB",
+			"[color=#7dff7d]READY[/color]" if why == "" else "[color=#ff9d6b]%s[/color]" % why]
+		if labels[i].text != text:  # setting it restarts the pulse
+			labels[i].text = text
 		labels[i].visible = Match.chaos and not match_game.autoplay
 
 func screen(at: Vector2, height := 0.0) -> Vector2:
