@@ -104,7 +104,8 @@ func _initialize() -> void:
 	print("goal kick: lurker came within %.1f m, last touch after the kick %s" % [closest / Pitch.PX_PER_M, last_team])
 	ok = ok and closest >= Pitch.m(9.15) - 1.0 and last_team == "AND"
 	# keeper with the ball in his hands, an opposing striker right next to him: the striker
-	# must leave the box, and the keeper's pass (yours: X) must not go to him
+	# must leave the box, and the keeper's pass (yours: X) must not go to him (another
+	# opponent intercepting it is just football)
 	for side in ["BRU", "AND"]:
 		ok = await _wait_for_play("play before the %s keeper check" % side) and ok
 		var keeping = m.home if side == "BRU" else m.away
@@ -124,14 +125,15 @@ func _initialize() -> void:
 			await physics_frame
 			waited += 1.0 / 60.0
 		var gap: float = striker.position.distance_to(k.position) / Pitch.PX_PER_M
-		var first := ""
-		while first == "" and waited < 9.0:
+		var first = null
+		while first == null and waited < 9.0:
 			await physics_frame
 			waited += 1.0 / 60.0
 			if m.ball.last_touch != k and m.ball.last_touch:
-				first = m.ball.last_touch.team.short
-		print("%s keeper holding, striker alongside: %.1f m away when he played it, first touch %s" % [side, gap, first])
-		ok = ok and gap >= 9.0 and first != ("AND" if side == "BRU" else "BRU")
+				first = m.ball.last_touch
+		print("%s keeper holding, striker alongside: %.1f m away when he played it, first touch %s %s" % [
+			side, gap, first.team.short if first else "-", "(the striker)" if first == striker else ""])
+		ok = ok and gap >= 9.0 and first != striker
 
 	# a slide from behind outside the box: one foul, not one per frame of the slide
 	ok = await _wait_for_play("play before the slide") and ok
