@@ -2,8 +2,15 @@ extends SceneTree
 ## Headless smoke test of the match: kick-off, dribbling, a shot, and the AI
 ## moving the ball about. godot --headless --path game -s res://tests/smoke_test.gd
 
+const SEED := 96  # the same random sequence every run, so a failure is a regression and not bad luck
+const WAIT_LIMIT := 15.0  # seconds any wait for the match may take before the test gives up
+
+var m: Node
+
+
 func _initialize() -> void:
-	var m: Node = load("res://scenes/main.tscn").instantiate()
+	seed(SEED)
+	m = load("res://scenes/main.tscn").instantiate()
 	m.referee_cone = false  # he sees every foul: this test isn't about him (referee_test is)
 	root.add_child(m)
 	await create_timer(1.5).timeout  # kick-off pause
@@ -41,8 +48,7 @@ func _initialize() -> void:
 	var supers := []
 	m.event.connect(func(kind, _t): supers.append(kind))
 	for test in [["fireball", 100.0, 50.0], ["thunder", 100.0, 0.0]]:
-		while m.state != 1:  # wait for the kick-off after a goal
-			await physics_frame
+		ok = await _wait_for_play("the kick-off after the goal") and ok
 		p.position = Vector2(Pitch.field_rect().size.x * 0.62, Pitch.field_rect().size.y * 0.3)  # away from the kick-off crowd
 		m.ball.stop_at(p.feet_front())
 		m.ball.take(p)
@@ -67,8 +73,7 @@ func _initialize() -> void:
 		ok = ok and supers.has(test[0]) and absf(m.home.energy - test[2]) < 3.0  # dribbling refills a little
 		await create_timer(1.5).timeout
 	# out of play: Brugge knocks it over the top touchline -> Anderlecht throw-in, then play resumes
-	while m.state != 1:
-		await physics_frame
+	ok = await _wait_for_play("play after the thunder strike") and ok
 	var events := []
 	m.event.connect(func(kind, t): events.append("%s:%s" % [kind, t.short]))
 	p.position = Vector2(Pitch.field_rect().size.x * 0.4, 40.0)
@@ -89,8 +94,10 @@ func _initialize() -> void:
 	await physics_frame  # the match pushes him back on its next frame
 	await physics_frame
 	var closest := INF
-	while m.state == 4:
+	var waited_kick := 0.0
+	while m.state == 4 and waited_kick < WAIT_LIMIT:
 		await physics_frame
+		waited_kick += 1.0 / Engine.physics_ticks_per_second
 		closest = minf(closest, lurker.position.distance_to(m.ball.position))
 	await create_timer(1.0).timeout
 	var last_team: String = m.ball.last_touch.team.short if m.ball.last_touch else "-"
@@ -99,8 +106,7 @@ func _initialize() -> void:
 	# keeper with the ball in his hands, an opposing striker right next to him: the striker
 	# must leave the box, and the keeper's pass (yours: X) must not go to him
 	for side in ["BRU", "AND"]:
-		while m.state != 1:
-			await physics_frame
+		ok = await _wait_for_play("play before the %s keeper check" % side) and ok
 		var keeping = m.home if side == "BRU" else m.away
 		var k = keeping.keeper()
 		k.stats = {"gkKicking": 95}  # a poor kicker's pass can go astray to anyone
@@ -128,8 +134,7 @@ func _initialize() -> void:
 		ok = ok and gap >= 9.0 and first != ("AND" if side == "BRU" else "BRU")
 
 	# a slide from behind outside the box: one foul, not one per frame of the slide
-	while m.state != 1:
-		await physics_frame
+	ok = await _wait_for_play("play before the slide") and ok
 	var fouls := events.count("foul:AND")
 	m.chaos_actions.ai_enabled = false  # an AI special knocking the ball loose first would leave nothing to foul
 	var victim = m.home.players[6]
@@ -147,8 +152,7 @@ func _initialize() -> void:
 	Input.action_press("pass")  # take the free kick
 	await physics_frame
 	Input.action_release("pass")
-	while m.state != 1:
-		await physics_frame
+	ok = await _wait_for_play("play after the free kick") and ok
 	m.chaos_actions.ai_enabled = true
 
 	# half time: ends change, Brugge kick off; full time stops the match
@@ -163,3 +167,16 @@ func _initialize() -> void:
 	ok = ok and m.state == 6 and events.has("full time:BRU")
 	print("SMOKE TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
+
+
+## Wait for open play, at most WAIT_LIMIT seconds; false (and says what it was waiting for)
+## if the match never gets there, so a stuck restart fails the test instead of hanging it.
+func _wait_for_play(what: String) -> bool:
+	var waited := 0.0
+	while m.state != 1:
+		if waited >= WAIT_LIMIT:
+			print("gave up waiting for %s: state still %d after %.0f s" % [what, m.state, WAIT_LIMIT])
+			return false
+		await physics_frame
+		waited += 1.0 / Engine.physics_ticks_per_second
+	return true
