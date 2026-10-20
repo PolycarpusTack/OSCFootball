@@ -70,7 +70,7 @@ scripts/anim_library.gd   autoload "Anims": all player animations, frame lookup 
 scripts/pitch.gd          grass from the original texture, markings to real dimensions (18 px/m), baked into the 3D pitch's texture
 scripts/anim_viewer.gd    browse the 81 animations
 scripts/debug_overlay.gd  F3 overlay: AI decisions (Footballer.ai_state), ball ownership, match state, frame rate
-brand/                    our own art, in git: intro.ogv + intro_end.png (PTE intro), title.png (title and team select), board_oscf*.png (pitch-side boards)
+brand/                    our own art, in git: intro.ogv + intro_end.png (PTE intro), title.png (title and team select), board_*.png (pitch-side boards)
 data/league.json          the 18 Jupiler Pro League clubs: name, 3-letter code, standings, kit colours
 data/squads.json          squads and EA ratings, built by tools/build_ea_assets.py (see below)
 ```
@@ -154,6 +154,7 @@ ffmpeg -i pte-end-card-three-mascots.png -vf scale=1280:720:flags=lanczos brand/
 ffmpeg -i OSCF_full.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf_full.png
 ffmpeg -i OSCF_shor.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf.png
 ffmpeg -i OSCF_newpanel.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf_long.png
+ffmpeg -i OSCF_PTE_banner.jpeg -vf scale=512:64:flags=lanczos brand/board_pte.png
 ffmpeg -i OSCF_FullScreen.jpeg -vf scale=1280:-2:flags=lanczos brand/title.png
 ```
 
