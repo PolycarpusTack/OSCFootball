@@ -1,0 +1,134 @@
+{
+  "season": "2026-27",
+  "clubSource": "https://www.proleague.be/jpl-clubs",
+  "generation": "Built-in image generation; exact sizing and horizontal overlap blending during export",
+  "textures": [
+    {
+      "slug": "club-brugge",
+      "club": "Club Brugge",
+      "colours": "royal blue and black",
+      "prompt": "Club Brugge home supporter variant, royal blue and black; six rows; same shared texture specification.",
+      "file": "BRU.png"
+    },
+    {
+      "slug": "anderlecht",
+      "club": "RSC Anderlecht",
+      "colours": "purple and white",
+      "prompt": "Create the RSC Anderlecht home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in purple and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "AND.png"
+    },
+    {
+      "slug": "standard-liege",
+      "club": "Standard de Liège",
+      "colours": "red and white",
+      "prompt": "Create the Standard de Liège home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in red and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "STA.png"
+    },
+    {
+      "slug": "racing-genk",
+      "club": "KRC Genk",
+      "colours": "bright blue and white",
+      "prompt": "Create the KRC Genk home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in bright blue and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "GNK.png"
+    },
+    {
+      "slug": "cercle-brugge",
+      "club": "Cercle Brugge",
+      "colours": "green and black",
+      "prompt": "Create the Cercle Brugge home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in green and black, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "CER.png"
+    },
+    {
+      "slug": "kaa-gent",
+      "club": "KAA Gent",
+      "colours": "blue and white",
+      "prompt": "Create the KAA Gent home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in blue and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "GNT.png"
+    },
+    {
+      "slug": "kv-kortrijk",
+      "club": "KV Kortrijk",
+      "colours": "red and white",
+      "prompt": "Create the KV Kortrijk home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in red and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "KVK.png"
+    },
+    {
+      "slug": "kv-mechelen",
+      "club": "KV Mechelen",
+      "colours": "yellow and red",
+      "prompt": "Create the KV Mechelen home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in yellow and red, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "KVM.png"
+    },
+    {
+      "slug": "westerlo",
+      "club": "KVC Westerlo",
+      "colours": "yellow and blue",
+      "prompt": "Create the KVC Westerlo home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in yellow and blue, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "WES.png"
+    },
+    {
+      "slug": "lommel",
+      "club": "Lommel SK",
+      "colours": "green and white",
+      "prompt": "Create the Lommel SK home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in green and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "LOM.png"
+    },
+    {
+      "slug": "oh-leuven",
+      "club": "OH Leuven",
+      "colours": "white with red and green accents",
+      "prompt": "Create the OH Leuven home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in white with red and green accents, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "OHL.png"
+    },
+    {
+      "slug": "la-louviere",
+      "club": "RAAL La Louvière",
+      "colours": "green and white",
+      "prompt": "Create the RAAL La Louvière home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in green and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "RAL.png"
+    },
+    {
+      "slug": "antwerp",
+      "club": "Royal Antwerp FC",
+      "colours": "red and white",
+      "prompt": "Create the Royal Antwerp FC home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in red and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "ANT.png"
+    },
+    {
+      "slug": "union-sg",
+      "club": "Royale Union Saint-Gilloise",
+      "colours": "yellow and blue",
+      "prompt": "Create the Royale Union Saint-Gilloise home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in yellow and blue, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "USG.png"
+    },
+    {
+      "slug": "beveren",
+      "club": "SK Beveren",
+      "colours": "yellow and blue",
+      "prompt": "Create the SK Beveren home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in yellow and blue, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "BEV.png"
+    },
+    {
+      "slug": "charleroi",
+      "club": "Sporting Charleroi",
+      "colours": "black and white",
+      "prompt": "Create the Sporting Charleroi home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in black and white, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "CHA.png"
+    },
+    {
+      "slug": "stvv",
+      "club": "STVV",
+      "colours": "yellow and blue",
+      "prompt": "Create the STVV home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in yellow and blue, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "STV.png"
+    },
+    {
+      "slug": "zulte-waregem",
+      "club": "SV Zulte Waregem",
+      "colours": "red and green",
+      "prompt": "Create the SV Zulte Waregem home supporter variant of this stadium crowd texture. Dominant clothing and simple unlettered scarves in red and green, about 75% team colours with remaining neutral charcoal, grey or cream clothing. Preserve diverse skin tones. Exactly SIX tightly packed horizontal rows of simplified late-1990s football-game spectators, scattered raised arms, compact color clusters, no photographic faces. Uniform straight-on orthographic view and even lighting. Spectators edge to edge, no text, badges, banners, rails, sky or environment. Target exactly 2048x512 pixels, 4:1 aspect ratio. Horizontally seamless left/right repeat, consistent row heights and figure scale. Original reference is layout/style guide; vary individual poses and clothing patterns subtly, no conspicuous repeated groups. Each of six rows occupies one sixth of height, no extra background rows.",
+      "file": "ZWA.png"
+    }
+  ],
+  "export": "downscaled from 2048x512 to 1024x256 (Lanczos) for the game"
+}

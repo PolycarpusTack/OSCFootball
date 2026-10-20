@@ -5,7 +5,8 @@ audio and data belong to EA, so don't distribute it with them.
 
 Current state: the 18 clubs of the **Jupiler Pro League** (`data/league.json`): pick player 1's
 club and the opponent (AI, or player 2) on the team select screen. 11 a side, 4-4-2, two halves,
-in FIFA 96's 3D "Virtual Stadium" (original crowd, advertising boards, nets) seen from a
+in FIFA 96's 3D "Virtual Stadium" (stands filled with the two clubs' own supporters, the home
+fans on the long side and the far end and the away fans behind the left goal; advertising boards, nets) seen from a
 side-on TV camera; the boards that advertised the original game show OSCF (Old Skool Crazy
 Football) instead. Boots with the PTE (Polycarpus Tack Experiments) intro video and its end
 card (any key skips), then the OSCF title screen with
@@ -103,7 +104,7 @@ scripts/anim_library.gd   autoload "Anims": all player animations, frame lookup 
 scripts/pitch.gd          grass from the original texture, markings to real dimensions (18 px/m), baked into the 3D pitch's texture
 scripts/anim_viewer.gd    browse the 81 animations
 scripts/debug_overlay.gd  F3 overlay: AI decisions (Footballer.ai_state), ball ownership, match state, frame rate
-brand/                    our own art, in git: intro.ogv + intro_end.png (PTE intro), title.png (title and team select), title_music.ogg (title loop), ball/ (the ball's 8 roll frames), board_*.png (pitch-side boards)
+brand/                    our own art, in git: intro.ogv + intro_end.png (PTE intro), title.png (title and team select), title_music.ogg (title loop), ball/ (the ball's 8 roll frames), board_*.png (pitch-side boards), crowds/ (each club's supporters, <SHORT>.png; manifest.json)
 data/league.json          the 18 Jupiler Pro League clubs: name, 3-letter code, standings, kit colours
 data/squads.json          squads and EA ratings, built by tools/build_ea_assets.py (see below)
 ```
@@ -205,6 +206,10 @@ ffmpeg -i OSCF_newpanel.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf_lon
 ffmpeg -i OSCF_PTE_banner.jpeg -vf scale=512:64:flags=lanczos brand/board_pte.png
 ffmpeg -i OSCF_FullScreen.jpeg -vf scale=1280:-2:flags=lanczos brand/title.png
 ```
+
+`brand/crowds/` comes from the 18 generated 2048×512 club crowds (six rows of fans, seamless
+left/right), each scaled to 1024×256 and named by the club's short code:
+`convert club-brugge-2048x512.png -filter Lanczos -resize 1024x256! -strip brand/crowds/BRU.png`.
 
 `brand/ball/` comes from `ball_1.png` (cut out, 8 frames turned in 45° steps):
 

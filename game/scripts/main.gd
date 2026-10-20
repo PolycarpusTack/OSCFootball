@@ -48,6 +48,7 @@ const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "v
 const SQUADS := "res://data/squads.json"
 const PORTRAITS := "res://assets/portraits/"
 const CLUBS := "res://assets/clubs/"  # crests <SHORT>.png and boards <SHORT>_board.png
+const CROWDS := "res://brand/crowds/"  # each club's supporters for the stands, <SHORT>.png
 ## Sound effects from SFX_GAME.BNK, identified by their spectra (ASSUMED: not confirmed
 ## by ear): short low thuds are ball contacts, ~3.8 kHz tones the referee's whistle.
 const SFX := {
@@ -136,6 +137,8 @@ func _ready() -> void:
 		var board := CLUBS + "%s_board.png" % t.short
 		if ResourceLoader.exists(board):
 			stadium.club_boards.append(load(board))
+		var crowd := CROWDS + "%s.png" % t.short
+		stadium.club_crowds.append(load(crowd) if ResourceLoader.exists(crowd) else null)
 	add_child(stadium)
 	var squads := _load_squads()
 	for t in [home, away]:

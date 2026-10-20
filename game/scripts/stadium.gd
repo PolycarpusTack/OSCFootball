@@ -15,6 +15,7 @@ const BOARD := Vector2(8.0, 1.0)  # one board texture (128x16) in metres
 const OWN_BOARDS := {5: "res://brand/board_oscf_full.png", 8: "res://brand/board_oscf.png",
 	1: "res://brand/board_oscf_full.png", 7: "res://brand/board_oscf.png", 9: "res://brand/board_oscf_long.png",
 	4: "res://brand/board_pte.png"}
+const CROWD_TILES_UP := 5.0  # a club crowd texture (six rows of fans, 4:1) repeats this many times up the terrace
 const CAM_OFFSET := Vector3(0.0, 15.0, 42.0)  # TV camera relative to what it looks at
 const CAM_FOV := 30.0
 const CAM_FOLLOW := 3.0  # how quickly the camera catches up, 1/s
@@ -22,6 +23,7 @@ const CAM_FOLLOW := 3.0  # how quickly the camera catches up, 1/s
 var camera := Camera3D.new()
 var shake := 0.0  # seconds of camera shake left; set by the match
 var club_boards: Array[Texture2D] = []  # the two clubs' boards, mixed in with the originals; set before adding
+var club_crowds: Array[Texture2D] = []  # home and away supporters (null: the original crowd); set before adding
 
 var _look := Vector3(52.5, 0.0, 34.0)
 var _rng := RandomNumberGenerator.new()  # own generator: shaking mustn't change the match's random sequence
@@ -140,19 +142,22 @@ func _build_stands() -> void:
 		_material(load(TEX + "crowd.png")), _material(load(TEX + "crowd_stairs.png")),
 		_material(load(TEX + "crowd.png")), _material(load(TEX + "crowd_tunnel.png")),
 	]
+	var home_crowd: Texture2D = club_crowds[0] if club_crowds.size() > 0 else null
+	var away_crowd: Texture2D = club_crowds[1] if club_crowds.size() > 1 else null
 	var front := _material(load(TEX + "front.png"))
 	var roof := _material(load(TEX + "roof.png"))
 	var dark := _material(null)
 	dark.albedo_color = Color("1c1c22")
 	var s := STAND_DIST
 	var corner := 24.0  # stands run on past the corners so no sky shows through
-	# [start, direction along the stand, length, roofed]. No stand on the near (camera) side:
-	# the camera is always either in front of it (it's behind the camera) or behind it, when
-	# play is near that touchline, and then it would hide the pitch.
+	# [start, direction along the stand, length, roofed, club crowd]. No stand on the near (camera)
+	# side: the camera is always either in front of it (it's behind the camera) or behind it, when
+	# play is near that touchline, and then it would hide the pitch. The away fans are behind the
+	# left-hand goal.
 	var stands := [
-		[Vector3(-s - corner, 0, -s), Vector3.RIGHT, _length + 2 * (s + corner), true],
-		[Vector3(_length + s, 0, -s), Vector3.BACK, _width + 2 * s, true],
-		[Vector3(-s, 0, _width + s), Vector3.FORWARD, _width + 2 * s, true],
+		[Vector3(-s - corner, 0, -s), Vector3.RIGHT, _length + 2 * (s + corner), true, home_crowd],
+		[Vector3(_length + s, 0, -s), Vector3.BACK, _width + 2 * s, true, home_crowd],
+		[Vector3(-s, 0, _width + s), Vector3.FORWARD, _width + 2 * s, true, away_crowd],
 	]
 	for st in stands:
 		var start: Vector3 = st[0]
@@ -163,14 +168,22 @@ func _build_stands() -> void:
 		var rise := Vector3.UP * 14.0 + out * 22.0  # crowd terraces from the wall top
 		var seg := 12.0  # one crowd texture, metres wide (two tiers tall)
 		var count := ceili(length / seg)
+		var fans: Texture2D = st[4]
+		if fans:  # one quad for the whole stand, so the texture runs on without a seam
+			var up := Vector3.UP * wall_h
+			var e := start + along * length
+			var tile_w := rise.length() / CROWD_TILES_UP * fans.get_width() / fans.get_height()
+			_quad([start + up + rise, e + up + rise, e + up, start + up], _material(fans),
+				Vector2(length / tile_w, CROWD_TILES_UP))
 		for i in count:
 			var a := start + along * seg * i
 			var b := start + along * minf(seg * (i + 1), length)
 			var k := (b - a).length() / seg
 			var up := Vector3.UP * wall_h
 			_quad([a + up, b + up, b, a], front, Vector2(k * 1.5, 1.0))
-			var mat := crowd[i % crowd.size()] if i % 2 == 0 else crowd[0]
-			_quad([a + up + rise, b + up + rise, b + up, a + up], mat, Vector2(k, 2.0))
+			if not fans:
+				var mat := crowd[i % crowd.size()] if i % 2 == 0 else crowd[0]
+				_quad([a + up + rise, b + up + rise, b + up, a + up], mat, Vector2(k, 2.0))
 			var top := up + rise
 			_quad([a + top + Vector3.UP * 5.0, b + top + Vector3.UP * 5.0, b + top, a + top], dark)
 			if st[3]:  # roof: sloping underside from the back of the stand out over the front rows
