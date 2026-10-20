@@ -59,6 +59,11 @@ var chaos_lock := false  # controlled by ChaosActions through wind-up, active an
 var chaos_lift := 0.0  # cosmetic only; ball contacts use explicit action height windows
 var chaos_rotation := 0.0
 
+## Animations this body plays in place of the players' ones, e.g. the referee's own art:
+## {"run": "ref_run", ...}. Together with `art_material`, which replaces the kit shader.
+var anim_names := {}
+var art_material: Material = null
+
 var _anim := "xstandd"
 var _anim_time := 0.0
 var _action_left := 0.0  # while > 0 a one-shot animation plays and movement is ignored
@@ -78,7 +83,7 @@ func _ready() -> void:
 	if hair.a > 0.0:
 		kit.set_shader_parameter("hair", Vector3(hair.r, hair.g, hair.b))
 		kit.set_shader_parameter("has_hair", true)
-	_sprite.material = kit
+	_sprite.material = art_material if art_material else kit
 	_sprite.top_level = true
 	_marks.top_level = true
 	_marks.draw.connect(_draw_marks)
@@ -366,6 +371,7 @@ func perform(anim: String) -> void:
 
 
 func _play_action(anim: String, from := 0.0) -> void:
+	anim = anim_names.get(anim, anim)
 	_actions += 1
 	_anim = anim
 	_anim_time = from
@@ -384,6 +390,7 @@ func _locomotion_anim() -> String:
 
 
 func _play(anim: String) -> void:
+	anim = anim_names.get(anim, anim)
 	if anim != _anim:
 		_anim = anim
 		_anim_time = 0.0

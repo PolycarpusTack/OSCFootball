@@ -49,6 +49,7 @@ godot --headless --path game -s res://tests/ratings_test.gd                     
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
+godot --headless --path game -s res://tests/referee_art_test.gd                  # the referee's own sprites, yellow and red card
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
@@ -290,8 +291,10 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   farther out are punts and blind passes). Possession is the time on the ball (or since the
   last touch) in open play. Shoot-out kicks don't count. Man of the Match: 4 points a goal,
   2 a save, 1 a shot; level, the winners' man.
-- The referee (in black) follows play about 12 m from the ball, points to free kicks and
-  shows the cards.
+- The referee (in black) follows play about 12 m from the ball, points to free kicks,
+  shows the cards and blows the whistle. He is our own art (`assets/sprites/oscf_roles`,
+  packed by `tools/pack_oscf_referee.gd`), not FIFA 96's; the card is keyed green in the
+  sheets and drawn yellow or red by `scripts/referee_card.gdshader`.
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots
   heading past them. A keeper holding the ball in his box (AI or human) can't play it until
   opponents are 9.15 m away, which they walk to, or after six seconds.

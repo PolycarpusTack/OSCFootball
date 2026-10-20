@@ -66,6 +66,11 @@ const SFX := {
 	"whistle": "slot030", "long_whistle": "slot029", "roar": "slot021", "ooh": "slot005",
 }
 const THUNDER_HOLD := 0.8  # seconds to hold shoot for a Thunder Strike (needs a full bar)
+## The referee's own art (assets/sprites/oscf_roles) in place of the players' animations
+const REFEREE_ART := {"xstandd": "ref_idle", "walk": "ref_run", "jog": "ref_run", "run": "ref_run",
+	"rcard": "ref_card", "rpoint": "ref_point"}
+const YELLOW_CARD := Color("ffd400")
+const RED_CARD := Color("e3102b")
 
 ## Chaos Football: energy bars and super-shots. Classic Football: plain FIFA 96 rules,
 ## same players, ball and AI. Chosen on the title screen; kept between matches.
@@ -183,6 +188,9 @@ func _ready() -> void:
 	referee.ball = ball
 	referee.name = "Referee"
 	referee.speed_factor = 0.9
+	referee.anim_names = REFEREE_ART
+	referee.art_material = ShaderMaterial.new()
+	referee.art_material.shader = preload("res://scripts/referee_card.gdshader")
 	world.add_child(referee)
 
 	_start_crowd()
@@ -934,6 +942,7 @@ func book(p: Footballer, red: bool) -> void:
 	red = red or p.yellow
 	p.yellow = true
 	referee.facing = Anims.facing_from(p.position - referee.position)
+	referee.art_material.set_shader_parameter("card", RED_CARD if red else YELLOW_CARD)
 	referee.perform("rcard")
 	flash("%s CARD\n%s" % ["RED" if red else "YELLOW", p.display_name], 2.0)
 	event.emit("red card" if red else "yellow card", p.team)
@@ -1628,6 +1637,8 @@ func play_sfx(key: String, volume_db := 0.0) -> void:
 	p.stream = load("res://assets/audio/sfx/%s.wav" % SFX[key])
 	p.volume_db = volume_db
 	p.play()
+	if key.ends_with("whistle") and referee and not referee.busy():  # he's the one blowing it
+		referee.perform("ref_whistle")
 
 
 func _start_crowd() -> void:

@@ -1,11 +1,13 @@
 extends Node
-## Player animations from FIFA 96, built by tools/build_godot_assets.py.
+## Player animations from FIFA 96, built by tools/build_godot_assets.py, and the referee's
+## own art ("ref_*", RGBA, drawn without the kit shader), built by tools/pack_oscf_referee.gd.
 ##
 ## The original draws five directions (away, up-right, right, down-right,
 ## toward camera); the three left-facing ones are the right-facing frames
 ## mirrored. Facing here is 0..7 clockwise from "up".
 
 const SHEET_DIR := "res://assets/sprites/players/"
+const REFEREE_DIR := "res://assets/sprites/oscf_roles/referee/"
 const TICKS_PER_SECOND := 30.0
 const DRAWN_DIR := [0, 2, 4, 6, 8, 6, 4, 2]
 const FACING_VECTORS := [
@@ -18,9 +20,15 @@ var _anims := {}
 
 
 func _ready() -> void:
-	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(SHEET_DIR + "animations.json"))
+	_load(SHEET_DIR)
+	_load(REFEREE_DIR)
+
+
+## Every animation in `dir`: animations.json plus one sheet <anim>.png per animation.
+func _load(dir: String) -> void:
+	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(dir + "animations.json"))
 	for anim in meta:
-		var sheet: Texture2D = load(SHEET_DIR + anim + ".png")
+		var sheet: Texture2D = load(dir + anim + ".png")
 		var dirs := {}
 		for d in meta[anim]:
 			var frames := []
