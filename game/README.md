@@ -6,7 +6,9 @@ audio and data belong to EA, so don't distribute it with them.
 Current state: **Club Brugge (you) vs Anderlecht (AI)**, 11 a side, 4-4-2, two halves,
 in FIFA 96's 3D "Virtual Stadium" (original crowd, advertising boards, nets) seen from a
 side-on TV camera. Boots like the original: intro FMV (any key skips), title screen with
-the title music, Space to kick off.
+the title music, Space to kick off. Left/Right on the title screen picks **Chaos Football**
+(energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
+same players, ball and AI, no energy, combos are just shots).
 
 ## Run
 
@@ -14,13 +16,15 @@ the title music, Space to kick off.
 godot --path game              # play (intro, title, match)
 godot --path game res://scenes/main.tscn   # straight to the match
 godot --editor --path game     # open in the Godot editor
-godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test
+godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test (Chaos)
+godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 ```
 
 | Key | Action |
 |---|---|
+| Left / Right on the title screen | Chaos or Classic Football |
 | WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow) |
 | Space | with the ball: shoot on release, hold for power (aims at goal when you face it). Without: slide tackle |
 | ↓ ↘ → then Space | **Fireball** (50 energy): flat rocket, bowls over anyone in the way |
@@ -100,8 +104,10 @@ tools/.venv/bin/python -I tools/build_godot_assets.py extracted decoded game
 - `tests/demo.gd` stages three situations (Brugge attack, Anderlecht attack, foul in the box)
   and lets the AI play them out; `seed=2` gives a save, a goal and a scored penalty.
 
-## Energy and super-shots
+## Energy and super-shots (Chaos Football only)
 
+`Match.chaos` (a static var, set by the title screen) switches them off for Classic:
+`Team.gain` adds nothing, `Match.try_super` refuses, and the energy bars aren't drawn.
 Each team has a bar (top left, 0-100; the tick marks 50). It fills from completed passes
 (+6), tackles (+10), saves (+15), being fouled (+20), conceding (+25) and dribbling
 (+2.5/s). Combo directions are relative to the goal you attack, so ↓↘→ works on both

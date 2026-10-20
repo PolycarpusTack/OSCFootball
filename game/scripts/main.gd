@@ -26,6 +26,10 @@ const SFX := {
 const HALF_SECONDS := 180.0  # real seconds per half; the match clock shows 45 minutes (ASSUMED default length)
 const THUNDER_HOLD := 0.8  # seconds to hold shoot for a Thunder Strike (needs a full bar)
 
+## Chaos Football: energy bars and super-shots. Classic Football: plain FIFA 96 rules,
+## same players, ball and AI. Chosen on the title screen; kept between matches.
+static var chaos := true
+
 var ball: Ball
 var home: Team
 var away: Team
@@ -262,7 +266,7 @@ func _human_input(p: Footballer) -> void:
 
 ## Spend energy on a super-shot by `p`. False (and nothing happens) if the bar is too low.
 func try_super(p: Footballer, kind: String, target: Vector2) -> bool:
-	if p.team.energy < Supers.cost(kind) or not p.has_ball() or p.busy():
+	if not chaos or p.team.energy < Supers.cost(kind) or not p.has_ball() or p.busy():
 		return false
 	p.team.energy -= Supers.cost(kind)
 	p.super_shot(kind, target)
@@ -626,7 +630,7 @@ func _add_hud() -> void:
 	layer.add_child(panel)
 	_score_label.add_theme_font_size_override("font_size", 22)
 	panel.add_child(_score_label)
-	for i in 2:
+	for i in (2 if chaos else 0):  # energy bars: Chaos only
 		var t: Team = [home, away][i]
 		var y := 56.0 + i * 22.0
 		var back := ColorRect.new()
@@ -662,8 +666,10 @@ func _add_hud() -> void:
 	_player_label.position.y -= 40
 	layer.add_child(_player_label)
 	var help := Label.new()
-	help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  " \
-		+ "Combos then Space: ↓↘→ FIREBALL, ←→ BANANA (50)  Hold Space, full bar: THUNDER  F1: anims"
+	help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
+	if chaos:
+		help.text += "Combos then Space: ↓↘→ FIREBALL, ←→ BANANA (50)  Hold Space, full bar: THUNDER  "
+	help.text += "F1: anims"
 	help.position = Vector2(12, 690)
 	layer.add_child(help)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER)

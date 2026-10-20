@@ -60,6 +60,8 @@ func goal_defended() -> Vector2:
 
 
 func gain(amount: float) -> void:
+	if not Match.chaos:  # Classic Football has no energy bar
+		return
 	energy = clampf(energy + amount, 0.0, Supers.MAX_ENERGY)
 
 
