@@ -41,6 +41,24 @@ playtest settings, not final balance.
 | Rocket Throw | 35 | A keeper holding the ball winds up for 0.45 s and throws a long, fast aerial outlet. | Read the lane and intercept. No stun or knockback. |
 | Palm Barrage | 40 | The keeper rapidly fans his gloves for 0.7 s, parrying incoming balls within a short forward reach. | Shoot outside the reach, behind him, above the window or during recovery. Thunder Strike breaks through. |
 | Cyclone Scissor | 40 | An inverted spinning aerial kick replaces a header: a 0.25 s tell, 0.4 s contact window and 0.45 s landing recovery. | Keep the ball outside the 1.2 m reach, bait the spin or exploit the landing. The kick targets the ball and does not add an area stun. |
+| Grapple Tackle | 35 | Defenders only. Wraps up a carrier within 1.9 m: he is held for 0.6 s and the defender comes away with the ball. | Keep away from him, or dodge; stun immunity applies. The referee judges it like any Chaos rough stuff. |
+| Stepover Storm | 25 | Midfielders and strikers with the ball. The opponent right in front (2.5 m) stands frozen for 1 s; the ball stays at the feet. | Stand off: nobody in front, nothing to freeze. Immunity applies. |
+| Whirlwind Turn | 30 | Midfielders with the ball. A 0.45 s spin along the aim; opponents within 1.8 m can't get a foot in meanwhile. | Wait out the spin and the 0.3 s recovery, or cover where he's turning to. |
+| Rising Fist | 30 | The keeper, in his box: a leaping punch clears a loose ball 0.7–5.5 m high within 3.5 m, upfield. | Keep it low, or out of his reach. Thunder Strike breaks through. |
+
+## Line moves (↓↘→ + shoot)
+
+The same input, with the ball, does a different move on each line (`scripts/line_moves.gd`).
+Like the super-shots, the bar is spent only once the foot meets the ball: robbed in the
+0.35 s wind-up, it costs nothing. The AI uses them too (not the striker's, which it fires
+as a shot), and its keeper throws to a free teammate before he punts.
+
+| Line | Move | Cost | Gameplay | Counter |
+| --- | --- | ---: | --- | --- |
+| Striker | Fireball (Power Strike wind-up) | 50 | The existing Fireball, now wound up with the Power Strike art. | As before. |
+| Defender | Bulldozer Clear | 40 | Charges with the ball, flattening the opponents he runs into (once each, judged by the referee), then clears it high upfield, never back toward his own goal. | Dodge the charge; take the ball in the wind-up. |
+| Midfielder | Laser Pass | 30 | A flat 760 px/s pass with no aim error to the best teammate along the aim. | Stand in the lane. |
+| Keeper | Cannon Punt | 30 | A drop-kick from the hands, far upfield, once he may release it. | Read where it lands. |
 
 New stuns grant 1.5 seconds of immunity after recovery, preventing repeated
 stun-locks. Opponents can still win possession. Stoppages cancel actions, flight
@@ -66,6 +84,11 @@ Custom drawn animation sheets and final tuning can replace these prototype visua
 
 The project's existing ignore rules exclude `assets/`; these local concept files
 must be included separately when sharing the project, just like the other assets.
+
+The line moves and the four signature specials play the own art in
+`brand/sprites/line_actions` (loaded by `Anims`, drawn without the kit shader). It has one
+right-facing view, mirrored for the left, and is drawn in the OSCF kit: during these moves
+a player doesn't wear his team's colours yet.
 
 ## Implementation and validation
 
