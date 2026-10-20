@@ -403,7 +403,9 @@ by his mood bars shows it, to both sides. One time in three the linesman saw it:
 seconds later he flags it, the bribe is off, the other side gets a penalty and the referee
 is furious with you (so a whistle stun follows).
 
-The AI neither dives, sends its captain nor bribes yet.
+The AI dives too, with the ball in the attacking half, when the referee sees it and is calm
+enough to fall for it at least 35% of the time; it sends its captain once his mood with it
+reaches 30, or when he's fuming. It never says sorry and never bribes.
 
 ## Energy and super-shots (Chaos Football only)
 

@@ -286,6 +286,65 @@ func _initialize() -> void:
 	o.position = k.position + Vector2(225.0, 0.0)  # past the 9.15 m the keeper waits for
 	actions.think_ai()
 	check(actions.active.is_empty(), "AI keeper doesn't throw it through an opponent")
+
+	# the AI dives in the attacking half, with the referee watching and calm enough to fool
+	# (10 energy: the dive is all it can afford)
+	reset()
+	var diver = m.home.players[9]
+	var att: int = m.home.side
+	diver.position = Pitch.field_rect().get_center() + Vector2(att * Pitch.m(25.0), 0.0)
+	o.position = diver.position + Vector2(att * Pitch.m(1.5), 0.0)
+	b.stop_at(diver.feet_front())
+	b.take(diver)
+	m.referee.position = diver.position + Vector2(0.0, -Pitch.m(5.0))  # right by him: he sees it
+	m.ref_mood.clear()
+	m.home.energy = 10.0
+	m.away.energy = 0.0
+	for tries in 50:  # it only takes some of its chances
+		actions.think_ai()
+		if not actions.active.is_empty():
+			break
+		actions.cooldown.clear()
+	check(actions.active.size() == 1 and actions.active[0].id == "dive", "AI dives near goal with a calm referee watching")
+	reset()
+	diver.position = Pitch.field_rect().get_center() + Vector2(att * Pitch.m(25.0), 0.0)
+	o.position = diver.position + Vector2(att * Pitch.m(1.5), 0.0)
+	b.stop_at(diver.feet_front())
+	b.take(diver)
+	m.referee.position = diver.position + Vector2(0.0, -Pitch.m(5.0))
+	m.ref_mood[m.home] = 59.0  # too angry to fool (and 10 energy is too little for the captain)
+	m.home.energy = 10.0
+	m.away.energy = 0.0
+	actions.think_ai()
+	check(actions.active.is_empty(), "AI doesn't dive when the referee is angry with it")
+	reset()
+	diver.position = Pitch.field_rect().get_center() - Vector2(att * Pitch.m(25.0), 0.0)  # own half
+	o.position = diver.position + Vector2(att * Pitch.m(1.5), 0.0)
+	b.stop_at(diver.feet_front())
+	b.take(diver)
+	m.referee.position = diver.position + Vector2(0.0, -Pitch.m(5.0))
+	m.ref_mood.clear()
+	m.home.energy = 10.0
+	m.away.energy = 0.0
+	actions.think_ai()
+	check(actions.active.is_empty(), "AI doesn't dive in its own half")
+
+	# the AI sends its captain to a referee angry with it, not to a calm one
+	reset()
+	var cap = m.captain(m.home)
+	m.referee.position = cap.position + Vector2(Pitch.m(10.0), 0.0)
+	m.away.energy = 0.0
+	m.ref_mood.clear()
+	m.ref_mood[m.home] = 20.0
+	actions.think_ai()
+	check(actions.active.is_empty() or actions.active[0].id != "captain", "AI leaves a mildly cross referee be")
+	reset()
+	m.referee.position = cap.position + Vector2(Pitch.m(10.0), 0.0)
+	m.away.energy = 0.0
+	m.ref_mood[m.home] = 70.0
+	actions.think_ai()
+	check(actions.active.size() == 1 and actions.active[0].id == "captain" and actions.active[0].p == cap, "AI sends its captain to an angry referee")
+	m.ref_mood.clear()
 	print("CHAOS ACTIONS TEST ", "PASSED" if failed == 0 else "FAILED (%d)" % failed)
 	m.queue_free()
 	await create_timer(0.1).timeout

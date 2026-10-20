@@ -36,6 +36,9 @@ const WHIRLWIND_DRIFT := 140.0  # pitch pixels a second he turns away along the 
 const FIST_REACH := 63.0  # a loose ball this close, ...
 const FIST_TOP := 100.0  # ... up to this high, is punched clear
 const COLOUR := Color("67f4ef")
+const AI_CAPTAIN_AT := 30.0  # the AI sends its captain once the referee is this angry with it (or fuming)
+const AI_DIVE_ODDS := 0.35  # and dives only when the referee is likely enough to fall for it
+const AI_DIVE_CHANCE := 0.2  # ... and then only now and again, not at every chance (about 3 a match)
 var match_game: Match
 var active: Array[Dictionary] = []
 var stuns: Dictionary = {}  # footballer -> {left, token}; own timer independent of animation duration
@@ -432,13 +435,19 @@ func think_ai() -> void:
 		if not match_game.autoplay and match_game.human_for(t) != null: continue
 		if float(cooldown.get(t, 0.0)) > 0.0: continue
 		var b := match_game.ball
+		var cap := match_game.captain(t)
+		if (match_game.ref_mood.get(t, 0.0) >= AI_CAPTAIN_AT or match_game._blow_up.get("team") == t) \
+				and start(cap, "captain", Vector2.ZERO):
+			continue
 		var p: Footballer = b.holder if b.holder != null and b.holder.team == t else match_game.chaser(t)
 		var ids: Array = []
 		if b.holder == t.keeper(): ids = ["rocket", "line"]  # in that order: a throw to a free mate, else a punt
 		elif b.holder == null and b.position.distance_to(t.keeper().position) < 110.0 and b.velocity.x * t.side < 0.0:
 			p = t.keeper()
 			ids = ["fist"] if b.z > 12.0 else ["palm"]
-		elif p.has_ball(): ids = ["ghost", "pinball", "boomerang", "stepover", "whirlwind", "line"]
+		elif p.has_ball():
+			ids = ["ghost", "pinball", "boomerang", "stepover", "whirlwind", "line"]
+			if ai_dive_pays(p) and randf() < AI_DIVE_CHANCE: ids.append("dive")
 		elif b.holder == null and b.z > 12.0: ids = ["spring", "cyclone"]
 		else: ids = ["stego", "magnet", "bass", "wall", "grapple"]
 		if b.holder != t.keeper():
@@ -456,6 +465,12 @@ func think_ai() -> void:
 					continue
 				aim = (mate.position - p.position).normalized()
 			if start(p, id, aim): break
+
+## The AI's dribbler dives only where a free kick (or a penalty) is worth having, in the
+## attacking half, and where the referee sees it and is likely enough to fall for it.
+func ai_dive_pays(p: Footballer) -> bool:
+	var attacking_half: bool = (p.position.x - Pitch.field_rect().get_center().x) * p.team.side > 0.0
+	return attacking_half and match_game.referee_sees(p.position) and match_game.dive_odds(p) >= AI_DIVE_ODDS
 
 ## Each human's picker: a window of the moves his player can pick around the selected one
 ## (yellow, pulsing when ready), the others white when ready, grey when not; then how to use it.

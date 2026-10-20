@@ -142,6 +142,7 @@ func _initialize() -> void:
 	ok = ok and events.has("yellow card:BRU") and late.yellow and events.has("dissent:BRU") \
 		and is_equal_approx(m.ref_mood.get(m.home, 0.0), calm + m.DISSENT)
 	m.autoplay = true
+	m.chaos_actions.ai_enabled = false  # from here the moods he's set to would send the AI's captain
 
 	# the dive: unseen, nothing but the ball rolling free
 	var diver = m.home.players[8]
@@ -211,7 +212,6 @@ func _initialize() -> void:
 	# furious with a side, he fumes for all to see, then blows his top: that side's players
 	# near him are stunned, the others (and the other side) aren't
 	await _play()
-	m.chaos_actions.ai_enabled = false
 	var near_mate = m.home.players[7]
 	var far_mate = m.home.players[5]
 	var near_foe = m.away.players[7]
