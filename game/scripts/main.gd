@@ -19,6 +19,7 @@ const AIR_SHOT_RANGE := 20.0 * Pitch.PX_PER_M  # headers and volleys go at goal 
 const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to your own goal
 const POST_HIT := 3.0  # pitch pixels from a post or the bar (ball plus post radius) that hit it
 const AIR_REQUEST := 0.4  # seconds a header / volley button press waits for the ball
+const DODGE_GAIN := 10.0  # energy for hopping over a slide (Chaos)
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
 const SQUADS := "res://data/squads.json"
 const PORTRAITS := "res://assets/portraits/"
@@ -102,6 +103,7 @@ func _ready() -> void:
 			p.role = Team.FORMATION[i][0]
 			p.home = Team.FORMATION[i][1]
 			p.ball = ball
+			p.opponents = away if t == home else home
 			p.number = names[i].number if i < names.size() else i + 1
 			p.name = "%s %d" % [t.short, p.number]
 			p.display_name = names[i].name if i < names.size() else p.name
@@ -307,6 +309,8 @@ func _human_input(h: Human, p: Footballer) -> void:
 			if Input.is_action_just_pressed(h.action(action)):
 				h.air_request = action
 				h.air_request_left = AIR_REQUEST
+	if p.has_ball() and Input.is_action_just_pressed(h.action("switch")):
+		p.dodge()  # switch does nothing with the ball: it's the dodge button then
 	if Input.is_action_just_pressed(h.action("shoot")):
 		if p.has_ball():
 			h.charging = true
@@ -428,6 +432,8 @@ func _resolve_possession(delta: float) -> void:
 					continue
 				var keeper: bool = p.role == "G" and p.position.distance_to(t.goal_defended()) < 200.0
 				var reach := keeper_reach(p) if keeper else Footballer.REACH
+				if not keeper and ball.kick_kind in ["pass", "cross"] and ball.last_touch and ball.last_touch.team != t:
+					reach *= p.skill("interceptions", 0.8, 1.6)  # cutting out the other side's pass
 				var in_air := not keeper and ball.z > 12.0
 				if in_air and (ball.z > p.head_reach() or p.busy()):
 					continue
@@ -447,6 +453,17 @@ func _resolve_possession(delta: float) -> void:
 	for o in opponent(holder.team).players:
 		if o.feet_front().distance_to(ball.position) > Footballer.REACH + 2.0 or o.touch_cooldown > 0.0:
 			continue
+		if o.sliding() and not holder.dodging() and not _human_controls(holder) \
+				and randf() < holder.skill("reactions", 0.1, 0.45):
+			holder.dodge()  # the AI sees it coming (one chance per slide: it's spent below either way)
+		if holder.dodging():
+			if o.sliding():
+				o.touch_cooldown = 0.6  # the slide goes under him
+				if chaos:
+					flash("DODGE!", 0.8)
+					holder.team.gain(DODGE_GAIN)
+				event.emit("dodge", holder.team)
+			continue
 		var from_behind: bool = Anims.FACING_VECTORS[o.facing].dot(Anims.FACING_VECTORS[holder.facing]) > 0.5
 		if o.sliding() and from_behind:
 			_foul(o, holder)
@@ -462,6 +479,11 @@ func _resolve_possession(delta: float) -> void:
 			if o.sliding():
 				holder.perform("fall")
 			return
+
+
+func _human_controls(p: Footballer) -> bool:
+	var h := human_for(p.team) if not autoplay else null
+	return h != null and h.controlled == p
 
 
 ## A human's player with a ball in the air coming his way (pressing shoot then heads or

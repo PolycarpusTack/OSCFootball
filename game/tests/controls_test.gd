@@ -16,7 +16,8 @@ func _initialize() -> void:
 	Input.action_release("switch")
 	var after = m.humans[0].controlled
 	await create_timer(0.5).timeout
-	var kept: bool = m.humans[0].controlled == after
+	var holder = m.ball.holder  # winning the ball meanwhile rightly takes control to him
+	var kept: bool = m.humans[0].controlled == after or (holder and holder.team == m.home and m.humans[0].controlled == holder)
 	print("switch: %s -> %s, still %s after 0.5 s" % [before.name, after.name, m.humans[0].controlled.name])
 	ok = ok and after != before and after.team == m.home and kept
 
@@ -100,5 +101,26 @@ func _initialize() -> void:
 	Input.action_release("shoot")
 	print("aim arrow: %.0f px idle, %.0f px holding shoot 0.4 s" % [idle.get("length", 0.0), charged.get("length", 0.0)])
 	ok = ok and not idle.is_empty() and not charged.is_empty() and charged.length > idle.length + 40.0
+
+	# dodge: with the ball, switch just as a slide comes in: he hops it and keeps the ball
+	Input.action_release("shoot")
+	await create_timer(1.0).timeout
+	var dribbler = m.home.players[9]
+	m.ball.stop_at(dribbler.feet_front())
+	m.ball.take(dribbler)
+	var dodges := []
+	m.event.connect(func(kind, t): if kind == "dodge": dodges.append(t.short))
+	var slider = m.away.players[4]
+	dribbler.facing = 2
+	slider.position = dribbler.position + Vector2(70, 0)
+	slider.facing = 6  # toward him, head on: a fair tackle unless he dodges
+	slider.touch_cooldown = 0.0
+	slider.slide()
+	Input.action_press("switch")
+	await physics_frame
+	Input.action_release("switch")
+	await create_timer(0.6).timeout
+	print("dodge: still has the ball %s, dodges %s" % [m.ball.holder == dribbler, dodges])
+	ok = ok and m.ball.holder == dribbler and dodges == ["BRU"]
 	print("CONTROLS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)

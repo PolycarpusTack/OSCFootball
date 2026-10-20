@@ -45,6 +45,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | Up/Down while taking a penalty | choose the corner |
 | (with the ball) | an arrow on the grass shows where a shot would go; holding Space stretches it and turns it orange with power, Thunder Strike light blue when one is ready |
 | X or K | pass to the best teammate in the direction you're pushing (the one a triangle marks over his head; a pass lane with an opponent in it counts against a teammate) |
+| Q with the ball | **dodge**: a hop that slides and tackles miss for its first 0.25-0.45 s (reactions). Time it as the tackle comes in; in Chaos a dodged slide flashes DODGE! and earns 10 energy |
 | Q | switch to the teammate nearest the ball (kept for a second before the automatic switching takes over again) |
 | Space / X as a ball in the air comes to you | head or volley it: Space at goal (aim with the stick), X to a teammate. Pressing nothing, your player does what the AI would (see Rules) |
 | X from out wide in the last third | to a teammate in (or running into) the box: a cross, at head height |
@@ -143,6 +144,10 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | how high a player heads | jumping | 42-54 px (2.3-3.0 m) |
 | header / volley at goal | headingAccuracy, volleys | up to 50 px off → 8 px |
 | cross accuracy | crossing | up to 50 px off → 6 px |
+| aim with an opponent within 3 m | composure | shot / pass / cross error up to 1.8x → 1.1x |
+| AI decisions on the ball | reactions | every 0.35 s → 0.15 s |
+| dodge (safe part of the hop) | reactions | 0.25 s → 0.45 s; AI dribblers dodge a slide 10% → 45% of the time |
+| cutting out the other side's passes | interceptions | reach 0.8x → 1.6x |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
 checks each against an elite and a poor player.

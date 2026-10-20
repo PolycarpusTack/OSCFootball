@@ -60,6 +60,66 @@ func _initialize() -> void:
 	var hard: float = m.steal_rate(tackler, holder)
 	print("keeper reach %.1f vs %.1f px; steal rate %.2f/s (good tackler, poor dribbler) vs %.2f/s" % [good, poor, easy, hard])
 	ok = ok and good > poor * 1.25 and easy > hard * 3.0
+
+	# composure: how much an opponent half a metre away spoils the aim
+	var shooter2 = m.home.players[9]
+	var marker = m.away.players[3]
+	shooter2.position = Vector2(800, 300)
+	marker.position = shooter2.position + Vector2(9, 0)
+	shooter2.stats = {"composure": 95}
+	var calm: float = shooter2.pressure_factor()
+	shooter2.stats = {"composure": 40}
+	var rattled: float = shooter2.pressure_factor()
+	marker.position = Vector2(60, 60)
+	var free: float = shooter2.pressure_factor()
+	print("pressed aim error: composure 95 x%.2f, composure 40 x%.2f, unpressed x%.2f" % [calm, rattled, free])
+	ok = ok and rattled > calm * 1.4 and free == 1.0
+
+	# reactions: how long the safe part of a dodge lasts
+	var dodger = m.home.players[6]
+	dodger.stats = {"reactions": 95}
+	dodger.dodge()
+	var window_good := 0.0
+	while dodger.dodging():
+		await physics_frame
+		window_good += 1.0 / 60.0
+	await create_timer(1.2).timeout
+	dodger.stats = {"reactions": 40}
+	dodger.dodge()
+	var window_poor := 0.0
+	while dodger.dodging():
+		await physics_frame
+		window_poor += 1.0 / 60.0
+	print("dodge window: reactions 95 %.2f s, reactions 40 %.2f s" % [window_good, window_poor])
+	ok = ok and window_good > window_poor * 1.4
+
+	# interceptions: an Anderlecht pass goes by 16 px from the feet of a Brugge defender who
+	# can't move (he turns to face it: his feet are 10 px in front of him)
+	var results := []
+	await create_timer(1.0).timeout
+	for rating in [95, 40]:
+		for t in [m.home, m.away]:
+			for p in t.players:
+				p.speed_factor = 0.0
+				p.position = Vector2(60, 60) if t == m.away else Vector2(60, 1100)
+		var d = m.home.players[2]
+		d.stats = {"interceptions": rating}
+		d.position = Pitch.field_rect().get_center()
+		d.touch_cooldown = 0.0
+		m.ball.stop_at(d.position + Vector2(-200, -26))
+		m.ball.last_touch = m.away.players[6]
+		m.ball.kick_kind = "pass"
+		m.ball.kick(Vector2(400, 0), 0.0)
+		m.state = 1
+		await create_timer(1.0).timeout
+		results.append(m.ball.holder == d)
+		m.state = 5
+		m.ball.stop_at(Vector2(300, 300))
+	for t in [m.home, m.away]:
+		for p in t.players:
+			p.speed_factor = 1.0
+	print("pass 16 px from a defender's feet: cut out with interceptions 95 %s, with 40 %s" % results)
+	ok = ok and results[0] and not results[1]
 	print("RATINGS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
 

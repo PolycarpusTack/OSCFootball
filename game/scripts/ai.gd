@@ -77,7 +77,7 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 	var goal := p.team.goal_attacked()
 	var to_goal := goal - p.position
 	if p.think_timer <= 0.0:
-		p.think_timer = 0.25
+		p.think_timer = p.skill("reactions", 0.35, 0.15)
 		if m.wide_in_final_third(p) and randf() < 0.5:
 			var target := _cross_target(p, m)
 			if target:

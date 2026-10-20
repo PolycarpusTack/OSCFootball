@@ -15,8 +15,10 @@ const HEAD_TOP := 34.0  # highest ball a player heads standing; jumping adds up 
 # seconds into each animation the head / foot / chest meets the ball (the jump's peak, the swing)
 const AIR_CONTACT := {"header": 0.33, "divehed": 0.33, "vollkck": 0.4, "chest": 0.5}
 const MARKER := Color(1.0, 0.95, 0.3)
+const PRESSURE := 3.0 * Pitch.PX_PER_M  # an opponent closer than this unsettles a shot or pass
 
 var team: Team
+var opponents: Team  # the other side, for how pressed he is
 var role := "M"  # G, D, M or F
 var number := 0
 var display_name := ""  # shown in the HUD (the node name stays unique: "BRU 7")
@@ -98,6 +100,8 @@ func skill(stat: String, lo: float, hi: float) -> float:
 func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
+	if _anim == "jump" and busy():  # a dodge: carries on at his speed
+		w = velocity / maxf(RUN_SPEED, velocity.length())
 	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14)
 	velocity = velocity.move_toward(w * top, ACCEL * skill("acceleration", 0.75, 1.25) * delta)
 	position += velocity * delta
@@ -160,7 +164,7 @@ func throw_in(target: Vector2, speed: float) -> void:
 func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 	if stat == "":
 		stat = "longShots" if position.distance_to(target) > 20.0 * Pitch.PX_PER_M else "finishing"
-	var miss := skill(stat, 55.0, 6.0)
+	var miss := skill(stat, 55.0, 6.0) * pressure_factor()
 	target += Vector2(0.0, randf_range(-miss, miss))
 	var speed := lerpf(470.0, 660.0, power) * skill("shotPower", 0.88, 1.12)
 	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot")
@@ -170,10 +174,35 @@ func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 func cross_to(mate: Footballer) -> void:
 	var speed := clampf(position.distance_to(mate.position) * 1.3, 330.0, 520.0)
 	var lead := mate.position + mate.velocity * (KICK_CONTACT + position.distance_to(mate.position) / speed)
-	var err := skill("crossing", 50.0, 6.0)
+	var err := skill("crossing", 50.0, 6.0) * pressure_factor()
 	lead += Vector2(randf_range(-err, err), randf_range(-err, err))
 	var t := position.distance_to(lead) / speed
 	kick_to(lead, speed, (HEAD_TOP + Ball.GRAVITY * t * t / 2.0) / t, "kick", "cross")
+
+
+## How much an opponent close by spoils his aim: 1 with nobody within PRESSURE, up to
+## 1.8x (composure 40) or 1.1x (95) with one right on him.
+func pressure_factor() -> float:
+	var nearest := INF
+	if opponents:
+		for o in opponents.players:
+			nearest = minf(nearest, o.position.distance_to(position))
+	var closeness := clampf(1.0 - nearest / PRESSURE, 0.0, 1.0)
+	return lerpf(1.0, skill("composure", 1.8, 1.1), closeness)
+
+
+## Hop over a slide tackle with the ball: safe from tackles for the first part of the
+## jump, longer with better reactions. Returns false if he's busy.
+func dodge() -> bool:
+	if busy():
+		return false
+	_play_action("jump")
+	return true
+
+
+## In the safe part of a dodge: slides and tackles miss him.
+func dodging() -> bool:
+	return busy() and _anim == "jump" and _anim_time < skill("reactions", 0.25, 0.45)
 
 
 ## Highest ball (pitch pixels) this player can head.
@@ -199,7 +228,7 @@ func pass_to(mate: Footballer) -> void:
 	var lead := mate.position + mate.velocity * 0.4
 	var dist := position.distance_to(lead)
 	var stat := "gkKicking" if role == "G" else "longPassing" if dist > 300.0 else "shortPassing"
-	var err := skill(stat, 40.0, 4.0)
+	var err := skill(stat, 40.0, 4.0) * pressure_factor()
 	lead += Vector2(randf_range(-err, err), randf_range(-err, err))
 	var speed := clampf(dist * 1.6, 220.0, 520.0)
 	var lift := 20.0 if dist < 300.0 else 160.0
