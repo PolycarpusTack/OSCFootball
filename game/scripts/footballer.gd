@@ -123,7 +123,11 @@ func shoot(target: Vector2, power := 0.5) -> void:
 func pass_to(mate: Footballer) -> void:
 	var lead := mate.position + mate.velocity * 0.4
 	var dist := position.distance_to(lead)
-	kick_to(lead, clampf(dist * 1.6, 220.0, 520.0), 20.0 if dist < 300.0 else 160.0, "kick", "pass")
+	var speed := clampf(dist * 1.6, 220.0, 520.0)
+	var lift := 20.0 if dist < 300.0 else 160.0
+	if role == "G":  # keepers loft it over the players waiting at the edge of the box, landing at the mate
+		lift = Ball.GRAVITY * (dist / speed) / 2.0
+	kick_to(lead, speed, lift, "kick", "pass")
 
 
 ## A super-shot (see Supers.LIST) at `target`. The banana starts off wide and bends in.

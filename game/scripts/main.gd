@@ -212,6 +212,7 @@ func _physics_process(delta: float) -> void:
 						_human_input(h, p)
 					else:
 						AI.think(p, self, delta)
+			_clear_keepers_box()
 			_resolve_possession(delta)
 			if ball.holder and ball.holder.role != "G":
 				ball.holder.team.gain(Supers.GAIN.dribble * delta)
@@ -292,8 +293,13 @@ func _human_input(h: Human, p: Footballer) -> void:
 			h.combo.clear()
 	elif Input.is_action_just_pressed(h.action("pass")) and p.has_ball():
 		var mate := AI.best_pass(p, self, aim)
+		if mate == null and p.role == "G":  # a keeper never plays it blind: best mate anywhere, else a punt upfield
+			mate = AI.best_pass(p, self, Vector2.ZERO)
+			aim = Vector2(p.team.side, 0.0)
 		if mate:
 			p.pass_to(mate)
+		elif p.role == "G":
+			p.kick_to(p.position + aim * 450.0, 520.0, 300.0, "kick")
 		else:
 			p.kick_to(p.position + aim * 250.0, 380.0, 20.0, "kick")
 
@@ -365,6 +371,17 @@ func _resolve_possession(delta: float) -> void:
 			if o.sliding():
 				holder.perform("fall")
 			return
+
+
+## A keeper with the ball in his hands can't be challenged: opponents (AI or human)
+## walk out of his penalty area until he has played it.
+func _clear_keepers_box() -> void:
+	var k := ball.holder
+	if k == null or k.role != "G" or not in_penalty_area(k.position, k.team):
+		return
+	for p in opponent(k.team).players:
+		if in_penalty_area(p.position, k.team) and not p.busy():
+			p.wish = Vector2(k.team.side, 0.0)  # away from the keeper's goal
 
 
 ## Fireball / Thunder: anyone in the way is knocked flat. A keeper can sometimes

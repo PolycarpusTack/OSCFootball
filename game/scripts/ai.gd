@@ -88,6 +88,8 @@ static func _keeper(p: Footballer, m: Match) -> void:
 		p.wish = Vector2.ZERO
 		if p.think_timer <= 0.0:
 			p.think_timer = KEEPER_HOLD
+		elif m.nearest_opponent_distance(p) < Pitch.m(9.15):
+			p.think_timer = maxf(p.think_timer, 0.2)  # wait for opponents to clear the box
 		elif p.think_timer < 0.05:
 			var mate := best_pass(p, m, Vector2.ZERO)
 			if mate:

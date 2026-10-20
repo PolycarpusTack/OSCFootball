@@ -92,6 +92,36 @@ func _initialize() -> void:
 	var last_team: String = m.ball.last_touch.team.short if m.ball.last_touch else "-"
 	print("goal kick: lurker came within %.1f m, last touch after the kick %s" % [closest / Pitch.PX_PER_M, last_team])
 	ok = ok and closest >= Pitch.m(9.15) - 1.0 and last_team == "AND"
+	# keeper with the ball in his hands, an opposing striker right next to him: the striker
+	# must leave the box, and the keeper's pass (yours: X) must not go to him
+	for side in ["BRU", "AND"]:
+		while m.state != 1:
+			await physics_frame
+		var keeping = m.home if side == "BRU" else m.away
+		var k = keeping.keeper()
+		var striker = (m.away if side == "BRU" else m.home).players[9]
+		k.position = keeping.goal_defended() + Vector2(keeping.side * 40.0, 0)
+		m.ball.stop_at(k.feet_front())
+		m.ball.take(k)
+		striker.position = k.position + Vector2(keeping.side * 30.0, 10.0)
+		var waited := 0.0
+		while m.ball.holder == k and waited < 6.0:
+			if side == "BRU" and waited > 1.5:
+				Input.action_press("pass")
+				await physics_frame
+				Input.action_release("pass")
+			await physics_frame
+			waited += 1.0 / 60.0
+		var gap: float = striker.position.distance_to(k.position) / Pitch.PX_PER_M
+		var first := ""
+		while first == "" and waited < 9.0:
+			await physics_frame
+			waited += 1.0 / 60.0
+			if m.ball.last_touch != k and m.ball.last_touch:
+				first = m.ball.last_touch.team.short
+		print("%s keeper holding, striker alongside: %.1f m away when he played it, first touch %s" % [side, gap, first])
+		ok = ok and gap >= 9.0 and first != ("AND" if side == "BRU" else "BRU")
+
 	# a slide from behind outside the box: one foul, not one per frame of the slide
 	while m.state != 1:
 		await physics_frame
