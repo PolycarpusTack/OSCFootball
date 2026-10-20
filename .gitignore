@@ -22,3 +22,6 @@ game/OSCF_*
 game/pte-end-card-*
 game/Stadium Breakbeat.*
 game/ball_*.png*
+
+# standalone builds (contain the EA assets: personal use only)
+build/
