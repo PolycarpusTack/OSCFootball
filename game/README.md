@@ -257,8 +257,10 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   12% yellow. Aggression scales both (0.7x → 1.3x). A second yellow is a red: the player
   leaves the pitch for the rest of the match. A body check (Chaos) is never a foul.
 - Offside: a player in the opponents' half, nearer their goal line than the ball and than the
-  second-last defender when a teammate passes or crosses it, is offside if he plays it: a
-  free kick to the defenders where he is. Not judged on restarts.
+  second-last defender when a teammate kicks it (a pass, a cross, a shot, a header), is
+  offside if he plays that ball, also after it comes back off the woodwork: a free kick to
+  the defenders where he is. Not judged on restarts. The AI's attackers wait level with the
+  offside line, and the AI doesn't pass to a teammate standing offside.
 - With fouls off in the match options a slide never takes the man (no free kicks or penalties
   from fouls); with cards off fouls are never booked; with offside off nobody is offside.
 - Match stats (`match_stats.gd`) are counted from the match's events: a shot is a shot,
@@ -269,7 +271,8 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 - The referee (in black) follows play about 12 m from the ball, points to free kicks and
   shows the cards.
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots
-  heading past them.
+  heading past them. A keeper holding the ball in his box (AI or human) can't play it until
+  opponents are 9.15 m away, which they walk to, or after six seconds.
 - `tests/demo.gd` stages three situations (Brugge attack, Anderlecht attack, foul in the box)
   and lets the AI play them out; `seed=2` gives a save, a goal and a scored penalty.
 
@@ -299,8 +302,8 @@ sometimes spends 20 on a Body Check.
 
 ## Known simplifications
 
-- No defensive wall at free kicks, no advantage rule; the AI is never told about offside
-  (its forwards hold their positions, so it's rarely caught).
+- No defensive wall at free kicks, no advantage rule. The AI defenders don't play an offside
+  trap.
 - No player-vs-player collision; the net doesn't stop the ball. Sprites are
   always drawn over the 3D scene, so a post never hides a player.
 - Sound effects are matched to their use by their spectra, not by ear (`SFX` in `main.gd`:

@@ -25,6 +25,8 @@ const KNOCK_FATIGUE := 0.1  # going down takes it out of you
 const DIZZY_AT := 0.6  # Chaos: knocked down this tired, he sees stars
 const DIZZY_TIME := 2.5
 const FREE_KICK_RANGE := 30.0 * Pitch.PX_PER_M  # closer than this a free kick is a shot
+const KEEPER_CLEAR := 9.15 * Pitch.PX_PER_M  # a keeper holding it waits until opponents are this far away
+const KEEPER_MAX_HOLD := 6.0  # ... or this many seconds (the six-second rule)
 const FOUL_MISS := 0.4  # a slide that misses the ball takes the man this often
 # chance of a yellow and of a straight red for a foul, before aggression (0.7 → 1.3x)
 const CARD_ODDS := {"behind": [0.45, 0.1], "front": [0.12, 0.0]}
@@ -79,6 +81,7 @@ var _shootout_live := false  # a shoot-out penalty is on its way: see _shootout
 var _restart_kind := ""  # "throw-in", "corner" or "goal kick" while state is RESTART
 var _restart_taker: Footballer
 var _restart_taken := false  # the taker has started the throw / kick; play on once it's left them
+var _keeper_held := 0.0  # seconds a keeper has held the ball in his box
 var _offside: Array[Footballer] = []  # in an offside position when the last kick was played
 var _banner_left := 0.0
 var stadium := Stadium.new()
@@ -295,7 +298,7 @@ func _physics_process(delta: float) -> void:
 						_human_input(h, p)
 					else:
 						AI.think(p, self, delta)
-			_clear_keepers_box()
+			_clear_keepers_box(delta)
 			_resolve_possession(delta)
 			stats.tick(delta)
 			if ball.holder and ball.holder.role != "G":
@@ -381,6 +384,10 @@ func _human_input(h: Human, p: Footballer) -> void:
 			if Input.is_action_just_pressed(h.action(action)):
 				h.air_request = action
 				h.air_request_left = AIR_REQUEST
+	if p.role == "G" and p.has_ball() and not keeper_may_release(p):
+		h.charging = false
+		p.charge = 0.0
+		return  # opponents still close: he holds it
 	if p.has_ball() and Input.is_action_just_pressed(h.action("switch")):  # with the ball: a skill move or a dodge
 		var move := h.combo.skill_move(now)
 		if move == "" or not skill_move(p, move):
@@ -788,13 +795,21 @@ func steal_rate(tackler: Footballer, holder: Footballer) -> float:
 
 ## A keeper with the ball in his hands can't be challenged: opponents (AI or human)
 ## walk out of his penalty area until he has played it.
-func _clear_keepers_box() -> void:
+func _clear_keepers_box(delta: float) -> void:
 	var k := ball.holder
 	if k == null or k.role != "G" or not in_penalty_area(k.position, k.team):
+		_keeper_held = 0.0
 		return
+	_keeper_held += delta
 	for p in opponent(k.team).players:
 		if in_penalty_area(p.position, k.team) and not p.busy():
 			p.wish = Vector2(k.team.side, 0.0)  # away from the keeper's goal
+
+
+## A keeper holding the ball may play it once opponents are KEEPER_CLEAR away, or after
+## KEEPER_MAX_HOLD seconds (the AI and a human alike).
+func keeper_may_release(k: Footballer) -> bool:
+	return nearest_opponent_distance(k) >= KEEPER_CLEAR or _keeper_held >= KEEPER_MAX_HOLD
 
 
 ## Fireball / Thunder: anyone in the way is knocked flat. A keeper can sometimes
@@ -891,19 +906,27 @@ func book(p: Footballer, red: bool) -> void:
 func offside_players(passer: Footballer) -> Array[Footballer]:
 	var out: Array[Footballer] = []
 	var goal_x := passer.team.goal_attacked().x
+	var line := onside_depth(passer.team)
+	for p in passer.team.players:
+		var d := absf(goal_x - p.position.x)
+		if p != passer and not p.sent_off and d < line:
+			out.append(p)
+	return out
+
+
+## How close to the goal `attacking` attacks (pitch pixels from its goal line) a player can
+## be and still be onside right now: the second-last defender, the ball or halfway, the
+## nearest of them to the goal line counts.
+func onside_depth(attacking: Team) -> float:
+	var goal_x := attacking.goal_attacked().x
 	var depths: Array[float] = []  # each defender's distance from his goal line
-	for o in opponent(passer.team).players:
+	for o in opponent(attacking).players:
 		if not o.sent_off:
 			depths.append(absf(goal_x - o.position.x))
 	depths.sort()
 	var line: float = depths[1] if depths.size() > 1 else 0.0
 	var half_way := absf(goal_x - Pitch.field_rect().get_center().x)
-	var ball_depth := absf(goal_x - ball.position.x)
-	for p in passer.team.players:
-		var d := absf(goal_x - p.position.x)
-		if p != passer and not p.sent_off and d < half_way and d < line and d < ball_depth:
-			out.append(p)
-	return out
+	return minf(line, minf(absf(goal_x - ball.position.x), half_way))
 
 
 ## A kick at goal: a shot, header or volley at it, or a super-shot, from within SHOT_RANGE.
@@ -923,11 +946,11 @@ func _note_offside() -> void:
 		_offside = offside_players(ball.last_touch)
 
 
-## `p` is about to play a teammate's pass or cross he was offside for: a free kick to the
-## other side where he is.
+## `p` is about to play a ball a teammate last kicked (a pass, a cross, a shot back off the
+## woodwork ...) while he was offside: a free kick to the other side where he is.
 func _caught_offside(p: Footballer) -> bool:
 	var passer := ball.last_touch
-	if not p in _offside or not ball.kick_kind in ["pass", "cross"] or passer == null or passer == p or passer.team != p.team:
+	if not p in _offside or ball.kick_kind == "" or passer == null or passer == p or passer.team != p.team:
 		return false
 	_offside.clear()
 	_award_restart("free kick", opponent(p.team), p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))

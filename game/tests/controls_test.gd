@@ -106,6 +106,7 @@ func _initialize() -> void:
 	Input.action_release("shoot")
 	await create_timer(1.0).timeout
 	var dribbler = m.home.players[9]
+	dribbler.velocity = Vector2.ZERO  # standing: a run carried into the hop takes him off the slide's line
 	m.ball.stop_at(dribbler.feet_front())
 	m.ball.take(dribbler)
 	var dodges := []
@@ -125,14 +126,19 @@ func _initialize() -> void:
 
 	# body check (Chaos): double-tap a direction, then shoot, without the ball: costs 20 energy
 	await create_timer(1.0).timeout
+	while m.state != 1:  # not during a restart: the controls take it then
+		await physics_frame
 	var victim = m.away.players[9]
 	m.ball.stop_at(victim.feet_front())
 	m.ball.take(victim)
 	await physics_frame
 	var barger = m.humans[0].controlled  # after the switch to whoever chases him now
 	m.humans[0].switch_lock = 2.0
+	barger.position = Pitch.field_rect().get_center()  # well inside the lines: beside him isn't off the pitch
+	barger.velocity = Vector2.ZERO
 	victim.position = barger.position + Vector2(40, 0)
-	barger.touch_cooldown = 0.3  # walking into him while tapping isn't a steal: the barge comes after
+	barger._action_left = 0.0  # done with whatever he was doing (he may be the dodger above)
+	barger.touch_cooldown = 0.45  # walking into him while tapping (0.32 s) isn't a steal: the barge comes after
 	victim.think_timer = 3.0  # he keeps it: a pass in the air would make shoot a header
 	m.ball.stop_at(victim.feet_front())
 	m.ball.take(victim)
@@ -157,6 +163,8 @@ func _initialize() -> void:
 	var highest := 0.0
 	for motion in [["move_right", "move_right"], ["move_down", "move_up"], ["move_right", "move_left"]]:
 		await create_timer(1.2).timeout
+		while m.state != 1:
+			await physics_frame
 		var skiller = m.humans[0].controlled
 		skiller._action_left = 0.0
 		skiller.stats = {"ballControl": 95}  # a rainbow never scuffed

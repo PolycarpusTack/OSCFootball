@@ -35,7 +35,7 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 		var run := _box_run(p, m)
 		if run != Vector2.INF:
 			p.ai_state = "box run"
-			p.wish = ((run - p.position) / 30.0).limit_length(1.0)
+			p.wish = ((_onside(p, m, run) - p.position) / 30.0).limit_length(1.0)
 		else:
 			p.ai_state = "support"
 			_hold_position(p, m, true)
@@ -57,6 +57,18 @@ static func _box_run(p: Footballer, m: Match) -> Vector2:
 	if _winger(p) and signf(p.position.y - goal.y) != near:
 		return goal + Vector2(-p.team.side * Pitch.m(11.0), -near * Pitch.m(1.0))
 	return Vector2.INF
+
+
+## `target` pulled back level with the offside line (half a metre short of it), so an
+## attacker waiting for the ball doesn't stand offside.
+static func _onside(p: Footballer, m: Match, target: Vector2) -> Vector2:
+	if not Match.offside_on:
+		return target
+	var goal_x := p.team.goal_attacked().x
+	var depth := m.onside_depth(p.team) - Pitch.m(0.5)
+	if absf(goal_x - target.x) < depth:
+		target.x = goal_x + p.team.side * -depth
+	return target
 
 
 ## A wide midfielder (4-4-2: the right and left midfielders).
@@ -95,6 +107,8 @@ static func _hold_position(p: Footballer, m: Match, attacking: bool) -> void:
 	var spot := p.home + Vector2((fx - 0.5) * 0.5 + (0.12 if attacking else -0.04), (fy - 0.5) * 0.3)
 	spot.x = clampf(spot.x, 0.06, 0.94)
 	var target := t.to_pitch(spot)
+	if attacking:
+		target = _onside(p, m, target)
 	p.wish = ((target - p.position) / 40.0).limit_length(1.0)
 
 
@@ -182,7 +196,7 @@ static func _keeper(p: Footballer, m: Match) -> void:
 		p.wish = Vector2.ZERO
 		if p.think_timer <= 0.0:
 			p.think_timer = KEEPER_HOLD
-		elif m.nearest_opponent_distance(p) < Pitch.m(9.15):
+		elif not m.keeper_may_release(p):
 			p.think_timer = maxf(p.think_timer, 0.2)  # wait for opponents to clear the box
 		elif p.think_timer < 0.05:
 			var mate := best_pass(p, m, Vector2.ZERO)
@@ -236,6 +250,7 @@ static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 	var goal := p.team.goal_attacked()
 	var best: Footballer = null
 	var best_score := -INF
+	var offside: Array = m.offside_players(p) if Match.offside_on else []
 	for mate in p.team.players:
 		if mate == p or mate.role == "G":
 			continue
@@ -252,6 +267,8 @@ static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 			score += 60.0  # get it out wide: a winger in their half can go down the line and cross
 		if _lane_blocked(p, mate, m):
 			score -= 250.0
+		if mate in offside:
+			score -= 400.0  # he'd be flagged
 		if score > best_score:
 			best_score = score
 			best = mate

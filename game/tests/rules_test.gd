@@ -56,6 +56,76 @@ func _initialize() -> void:
 		else:
 			ok = ok and events.has("offside:BRU") and events.has("free kick:AND")
 
+	# a shot back off the post to a teammate who was offside when it was struck: offside too
+	await _play()
+	var shooter2 = bru.players[10]
+	var lurker = bru.players[9]
+	_park_except([shooter2, lurker, m.away.keeper(), m.away.players[2]])
+	m.away.keeper().position = goal + Vector2(-bru.side * Pitch.m(1.0), Pitch.m(6.0))  # beaten, at the far post
+	m.away.players[2].position = goal - Vector2(bru.side * Pitch.m(16.0), Pitch.m(12.0))
+	shooter2.position = goal - Vector2(bru.side * Pitch.m(18.0), 0.0)
+	lurker.position = goal - Vector2(bru.side * Pitch.m(6.0), Pitch.m(4.5))
+	m.ball.stop_at(shooter2.position + Vector2(bru.side * 12.0, 0.0))
+	m.ball.last_touch = shooter2
+	m.ball.kick(Vector2.ZERO, 0.0)  # the shot (the kick notes who's offside) ...
+	m.ball.kick_kind = "shot"
+	m.ball.stop_at(lurker.position + Vector2(bru.side * 30.0, 0.0))  # ... back off the post, rolling to him
+	m.ball.velocity = Vector2(-bru.side * 120.0, 0.0)
+	events.clear()
+	var waited2 := 0.0
+	while waited2 < 1.5 and not events.has("offside:BRU") and m.ball.holder != lurker:
+		await physics_frame
+		waited2 += 1.0 / 60.0
+	print("rebound off the post to a teammate offside at the shot: %s" % [events])
+	ok = ok and events.has("offside:BRU")
+
+	# the AI's attackers wait level with the offside line, not beyond it
+	var ai_script: GDScript = load("res://scripts/ai.gd")
+	var beyond: Vector2 = goal - Vector2(bru.side * Pitch.m(3.0), 0.0)
+	var held: Vector2 = ai_script._onside(lurker, m, beyond)
+	var depth: float = absf(goal.x - held.x)
+	print("AI attacker sent 3 m from goal waits %.1f m out; onside line %.1f m" % [depth / Pitch.PX_PER_M, m.onside_depth(bru) / Pitch.PX_PER_M])
+	ok = ok and depth >= m.onside_depth(bru) - Pitch.m(0.6) and depth > Pitch.m(3.0)
+
+	# a keeper holding it, an opponent right beside him: he waits (the human too) until he's
+	# clear of him, or six seconds
+	await _play()
+	var k = m.home.keeper()
+	var pest = m.away.players[9]
+	_park_except([k, pest])
+	k.position = m.home.goal_defended() + Vector2(bru.side * 40.0, 0.0)
+	m.ball.stop_at(k.feet_front())
+	m.ball.take(k)
+	pest.position = k.position + Vector2(bru.side * 20.0, 0.0)
+	pest.stats = {"sprintSpeed": 1, "acceleration": 1}
+	await physics_frame
+	var held_near: bool = not m.keeper_may_release(k)
+	pest._play_action("fall")  # flat out: he can't clear the box
+	pest._action_left = 10.0
+	m.autoplay = false
+	var hk = m.humans[0]
+	if hk.controlled:
+		hk.controlled.controlled = false
+	hk.controlled = k
+	k.controlled = true
+	hk.switch_lock = 10.0
+	var t2 := 0.0
+	var released_at := -1.0
+	while t2 < 8.0 and released_at < 0.0:
+		Input.action_press("pass")
+		await physics_frame
+		Input.action_release("pass")
+		await physics_frame
+		t2 += 2.0 / 60.0
+		if m.ball.holder != k:
+			released_at = t2
+	print("keeper, opponent alongside: may release %s; human pressing pass from the start released at %.1f s" % [not held_near, released_at])
+	ok = ok and held_near and released_at >= 5.5 and released_at < 7.0
+	m.autoplay = true
+	k.controlled = false
+	hk.controlled = null
+	pest._action_left = 0.0
+
 	# a free kick 22 m out: the AI shoots, a curler at goal
 	await _play()
 	var fouled = bru.players[9]
