@@ -12,6 +12,7 @@ const TRAIL := 16
 signal kicked(speed: float)
 signal bounced(speed: float)
 
+const DRAW_SCALE := 0.5  # drawing only: the 16 px frames at full scale were a ball 0.9 m across (4x real)
 var velocity := Vector2.ZERO
 var z := 0.0
 var vz := 0.0
@@ -50,7 +51,7 @@ func place(to_screen: Callable) -> void:
 	var ground: Vector3 = to_screen.call(position, 0.0)
 	var at: Vector3 = to_screen.call(position, z + 2.0)
 	_sprite.position = Vector2(at.x, at.y)
-	_sprite.scale = Vector2.ONE * at.z
+	_sprite.scale = Vector2.ONE * at.z * DRAW_SCALE
 	_sprite.z_index = clampi(int(ground.y) + 1, -2000, 2000)
 	_fx.z_index = _sprite.z_index - 1
 	_sprite.visible = not in_hands
