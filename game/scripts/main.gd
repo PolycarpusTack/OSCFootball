@@ -514,7 +514,8 @@ func _draw_aim_arrows() -> void:
 		for q in [referee.position] + range(9).map(func(i): return referee.position + referee_gaze.rotated(lerpf(-REF_VIEW_ANGLE, REF_VIEW_ANGLE, i / 8.0)) * REF_VIEW_RANGE):
 			var at := stadium.to_screen((q as Vector2).clamp(area.position, area.end))
 			fan.append(Vector2(at.x, at.y))
-		_aim_arrows.draw_colored_polygon(fan, Color(1.0, 1.0, 0.7, 0.13))
+		if not Geometry2D.triangulate_polygon(fan).is_empty():  # by a touchline the clamped points can fold flat
+			_aim_arrows.draw_colored_polygon(fan, Color(1.0, 1.0, 0.7, 0.13))
 		fan.append(fan[0])
 		_aim_arrows.draw_polyline(fan, Color(1.0, 1.0, 0.7, 0.3), 1.5)
 	for h in humans:
