@@ -15,6 +15,10 @@ const PENALTY_SPOT := 11.0 * Pitch.PX_PER_M
 const BOX_DEPTH := 16.5 * Pitch.PX_PER_M
 const BOX_HALF_WIDTH := 40.32 / 2.0 * Pitch.PX_PER_M
 const STEAL_RATE := 2.0  # chance per second of winning the ball when touching it
+const AIR_SHOT_RANGE := 20.0 * Pitch.PX_PER_M  # headers and volleys go at goal from closer than this
+const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to your own goal
+const POST_HIT := 3.0  # pitch pixels from a post or the bar (ball plus post radius) that hit it
+const AIR_REQUEST := 0.4  # seconds a header / volley button press waits for the ball
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
 const SQUADS := "res://data/squads.json"
 const PORTRAITS := "res://assets/portraits/"
@@ -131,13 +135,19 @@ func opponent(t: Team) -> Team:
 	return away if t == home else home
 
 
-## The player of `t` that should go for the ball (nearest outfield player).
+## The player of `t` that should go for the ball (nearest outfield player to where it can be won).
 func chaser(t: Team) -> Footballer:
+	var at := ball_target()
 	var best: Footballer = null
 	for p in t.players:
-		if p.role != "G" and (best == null or p.position.distance_squared_to(ball.position) < best.position.distance_squared_to(ball.position)):
+		if p.role != "G" and (best == null or p.position.distance_squared_to(at) < best.position.distance_squared_to(at)):
 			best = p
 	return best
+
+
+## Where to run to win the ball: a ball in the air where it comes down to head height.
+func ball_target() -> Vector2:
+	return ball.coming_down(Footballer.HEAD_TOP)
 
 
 func nearest_opponent_distance(p: Footballer) -> float:
@@ -220,6 +230,7 @@ func _physics_process(delta: float) -> void:
 			_resolve_possession(delta)
 			if ball.holder and ball.holder.role != "G":
 				ball.holder.team.gain(Supers.GAIN.dribble * delta)
+			_check_frame()
 			_check_goal()
 			_check_out()
 
@@ -284,12 +295,18 @@ func _human_input(h: Human, p: Footballer) -> void:
 	if h.charging and not p.has_ball():
 		h.charging = false
 		p.charge = 0.0
+	h.air_request_left = maxf(0.0, h.air_request_left - get_physics_process_delta_time())
+	if not p.has_ball() and _ball_coming_in_air(p):
+		for action in ["shoot", "pass"]:  # a header / volley: at goal, or to a teammate
+			if Input.is_action_just_pressed(h.action(action)):
+				h.air_request = action
+				h.air_request_left = AIR_REQUEST
 	if Input.is_action_just_pressed(h.action("shoot")):
 		if p.has_ball():
 			h.charging = true
 			h.charge_time = 0.0
 			h.pending_combo = h.combo.detect(now)
-		else:
+		elif h.air_request_left <= 0.0:
 			p.slide()
 	elif h.charging:
 		h.charge_time += get_physics_process_delta_time()
@@ -310,7 +327,9 @@ func _human_input(h: Human, p: Footballer) -> void:
 		if mate == null and p.role == "G":  # a keeper never plays it blind: best mate anywhere, else a punt upfield
 			mate = AI.best_pass(p, self, Vector2.ZERO)
 			aim = Vector2(p.team.side, 0.0)
-		if mate:
+		if mate and is_cross(p, mate):
+			p.cross_to(mate)
+		elif mate:
 			p.pass_to(mate)
 		elif p.role == "G":
 			p.kick_to(p.position + aim * 450.0, 520.0, 300.0, "kick")
@@ -362,19 +381,24 @@ func _resolve_possession(delta: float) -> void:
 			return
 		var best: Footballer = null
 		var best_d := INF
+		var best_in_air := false  # best meets it with his head, foot or chest, rather than taking it
 		for t in [home, away]:
 			for p in t.players:
 				if p.touch_cooldown > 0.0 or (p.busy() and not p.sliding() and not p.diving()):
 					continue
 				var keeper: bool = p.role == "G" and p.position.distance_to(t.goal_defended()) < 200.0
 				var reach := keeper_reach(p) if keeper else Footballer.REACH
-				if not keeper and ball.z > 12.0:
+				var in_air := not keeper and ball.z > 12.0
+				if in_air and (ball.z > p.head_reach() or p.busy()):
 					continue
 				var d := minf(p.feet_front().distance_to(ball.position), p.position.distance_to(ball.position))
 				if d < reach and d < best_d:
 					best = p
 					best_d = d
-		if best:
+					best_in_air = in_air
+		if best and best_in_air:
+			_air_touch(best)
+		elif best:
 			_take(best)
 		return
 	var holder := ball.holder
@@ -398,6 +422,74 @@ func _resolve_possession(delta: float) -> void:
 			if o.sliding():
 				holder.perform("fall")
 			return
+
+
+## A human's player with a ball in the air coming his way (pressing shoot then heads or
+## volleys it instead of sliding).
+func _ball_coming_in_air(p: Footballer) -> bool:
+	return ball.holder == null and (ball.z > 12.0 or ball.vz > 0.0) and ball_target().distance_to(p.position) < 90.0
+
+
+## An outfield player meets a ball in the air: at goal near the opponents' goal, cleared
+## near his own, headed on to a teammate in between, or chested down when it's low. A
+## human's shoot / pass press (just before) chooses: at goal, or to a teammate.
+func _air_touch(p: Footballer) -> void:
+	var goal := p.team.goal_attacked()
+	var high := ball.z > Footballer.CHEST_HEIGHT
+	var h := human_for(p.team) if not autoplay else null
+	var aim := Vector2.ZERO
+	var choice := "control"
+	if h and h.controlled == p and h.air_request_left > 0.0:
+		choice = h.air_request
+		h.air_request_left = 0.0
+		aim = h.stick().normalized()
+	elif p.position.distance_to(goal) < AIR_SHOT_RANGE:
+		choice = "shoot"
+	elif p.position.distance_to(p.team.goal_defended()) < CLEAR_RANGE:
+		choice = "clear"
+	elif high:
+		choice = "pass"
+	var anim := "header" if high else "vollkck"
+	match choice:
+		"shoot":
+			var stat := "headingAccuracy" if high else "volleys"
+			var target := _aim_shot(p, aim) if aim != Vector2.ZERO else goal + Vector2(0, randf_range(-0.6, 0.6) * GOAL_HALF_WIDTH)
+			var miss := p.skill(stat, 50.0, 8.0)
+			target += Vector2(0.0, randf_range(-miss, miss))
+			if not high and randf() < 0.3:
+				anim = "divehed"  # a diving header to a low cross
+			var speed := 420.0 if anim != "vollkck" else 600.0 * p.skill("shotPower", 0.88, 1.12)
+			p.air_touch(anim, (target - ball.position).normalized() * speed, -40.0 if anim != "vollkck" else 40.0, "shot")
+			event.emit("volley" if anim == "vollkck" else "header", p.team)
+		"clear":  # upfield and out toward the nearer touchline
+			var wing := signf(ball.position.y - Pitch.field_rect().size.y / 2.0)
+			p.air_touch(anim, Vector2(p.team.side, 0.6 * wing).normalized() * 420.0, 220.0, "pass")
+			event.emit("clearance", p.team)
+		"pass":
+			var mate := AI.best_pass(p, self, aim)
+			var to := mate.position if mate else p.position + Vector2(p.team.side * 200.0, 0.0)
+			p.air_touch("header", (to - ball.position).normalized() * clampf(ball.position.distance_to(to) * 1.4, 200.0, 380.0), 120.0, "pass")
+			event.emit("header", p.team)
+		_:
+			p.air_touch("chest")
+			_take(p)
+
+
+## Out wide within `metres` of the goal line `p` attacks.
+func wide_within(p: Footballer, metres: float) -> bool:
+	return p != null and absf(p.position.y - Pitch.field_rect().size.y / 2.0) > BOX_HALF_WIDTH * 0.7 \
+		and absf(p.team.goal_attacked().x - p.position.x) < Pitch.m(metres)
+
+
+## Out wide in the last third: a pass from here to a teammate in the box is a cross.
+func wide_in_final_third(p: Footballer) -> bool:
+	return wide_within(p, Pitch.LENGTH_M / 3.0)
+
+
+## A pass from `p` to `mate` that's a cross: from out wide in the last third to a teammate
+## in the box, or running into it (where he'll be when the ball comes down).
+func is_cross(p: Footballer, mate: Footballer) -> bool:
+	return wide_in_final_third(p) and in_penalty_area(mate.position + mate.velocity * 0.8, opponent(p.team))
 
 
 ## Keeper's reach for a ball: reflexes standing, diving in a dive.
@@ -444,7 +536,7 @@ func _plough_through() -> void:
 func _take(p: Footballer) -> void:
 	var fast := ball.velocity.length() > 250.0
 	var shot_on_goal := ball.last_touch != null and ball.last_touch.team != p.team
-	if ball.kick_kind == "pass" and ball.last_touch and ball.last_touch != p and ball.last_touch.team == p.team:
+	if ball.kick_kind in ["pass", "cross"] and ball.last_touch and ball.last_touch != p and ball.last_touch.team == p.team:
 		p.team.gain(Supers.GAIN.pass)
 	ball.kick_kind = ""
 	ball.take(p)
@@ -673,6 +765,53 @@ func _restart(delta: float) -> void:
 				else taker.position + Vector2(taker.team.side * 520.0, randf_range(-150.0, 150.0))
 			taker.kick_to(target, 560.0, 230.0, "gdkick", "pass")
 	_restart_taken = true  # play on once the ball has left the taker (see above)
+
+
+## Posts and crossbar: a ball that crossed a goal line this frame (between where it was and
+## where it is) close to the frame hits it. Off the outside of a post or the front of the bar
+## it comes back out; off the inside of a post it goes in, off the underside of the bar
+## down and in half the time; off the top of the bar it loops over.
+func _check_frame() -> void:
+	var f := Pitch.field_rect()
+	var a := ball.prev_position
+	var b := ball.position
+	if a.x < 0.0 or a.x > f.size.x:
+		return  # already beyond the line
+	for line: float in [0.0, f.size.x]:
+		if (a.x - line) * (b.x - line) > 0.0 or a.x == line:
+			continue  # didn't reach this line this frame
+		var t: float = (line - a.x) / (b.x - a.x)
+		var y := lerpf(a.y, b.y, t)
+		var z := lerpf(ball.prev_z, ball.z, t)
+		var off := absf(y - f.size.y / 2.0) - GOAL_HALF_WIDTH  # < 0: between the posts
+		var out := -signf(b.x - a.x)  # x direction back into the field
+		var hit := ""
+		if absf(off) < POST_HIT and z < CROSSBAR + POST_HIT:
+			hit = "POST!"
+			if off >= 0.0:  # outside half: back out, pushed away from the goal
+				ball.position = Vector2(line + out * POST_HIT, y)
+				ball.velocity = Vector2(-ball.velocity.x * 0.6, ball.velocity.y + signf(y - f.size.y / 2.0) * absf(ball.velocity.x) * 0.3)
+			else:  # inside half: in off the post
+				ball.velocity.y = -signf(y - f.size.y / 2.0) * maxf(absf(ball.velocity.y), absf(ball.velocity.x) * 0.3)
+		elif off < 0.0 and absf(z - CROSSBAR) < POST_HIT:
+			hit = "CROSSBAR!"
+			if z >= CROSSBAR:  # over the top
+				ball.vz = absf(ball.vz) * 0.5 + 150.0
+			elif randf() < 0.5:  # down and in
+				ball.z = CROSSBAR - POST_HIT
+				ball.vz = -absf(ball.vz) - 200.0
+			else:  # down and back out
+				ball.position = Vector2(line + out * POST_HIT, y)
+				ball.z = CROSSBAR - POST_HIT
+				ball.velocity.x = -ball.velocity.x * 0.5
+				ball.vz = -absf(ball.vz) * 0.5 - 100.0
+		if hit != "":
+			ball.end_power()
+			flash(hit, 1.0)
+			play_sfx("bounce")
+			play_sfx("ooh", -4.0)
+			event.emit("woodwork", ball.last_touch.team if ball.last_touch else home)
+		return
 
 
 func _check_goal() -> void:

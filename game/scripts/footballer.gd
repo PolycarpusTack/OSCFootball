@@ -10,6 +10,10 @@ const REACH := 14.0
 const KICK_CONTACT := 0.15  # seconds into a kick animation the foot meets the ball
 const THROW_RELEASE := 0.67  # the throw-in animation's hands are empty from tick 21 (frame 4)
 const HEAD_HEIGHT := 36.0  # pitch pixels: where a throw-in leaves the hands
+const CHEST_HEIGHT := 28.0  # an air ball below this is volleyed or chested, above it headed
+const HEAD_TOP := 34.0  # highest ball a player heads standing; jumping adds up to 20
+# seconds into each animation the head / foot / chest meets the ball (the jump's peak, the swing)
+const AIR_CONTACT := {"header": 0.33, "divehed": 0.33, "vollkck": 0.4, "chest": 0.5}
 const MARKER := Color(1.0, 0.95, 0.3)
 
 var team: Team
@@ -162,6 +166,35 @@ func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot")
 
 
+## A cross into the box: lofted so it comes down at head height where `mate` is running to.
+func cross_to(mate: Footballer) -> void:
+	var speed := clampf(position.distance_to(mate.position) * 1.3, 330.0, 520.0)
+	var lead := mate.position + mate.velocity * (KICK_CONTACT + position.distance_to(mate.position) / speed)
+	var err := skill("crossing", 50.0, 6.0)
+	lead += Vector2(randf_range(-err, err), randf_range(-err, err))
+	var t := position.distance_to(lead) / speed
+	kick_to(lead, speed, (HEAD_TOP + Ball.GRAVITY * t * t / 2.0) / t, "kick", "cross")
+
+
+## Highest ball (pitch pixels) this player can head.
+func head_reach() -> float:
+	return HEAD_TOP + skill("jumping", 8.0, 20.0)
+
+
+## Meet a ball in the air with a header, volley or chest: the animation starts at its
+## contact frame, since the ball is already there, and the ball leaves with `v` and `up`.
+## No `kind`: chested down, and the match gives him the ball.
+func air_touch(anim: String, v := Vector2.ZERO, up := 0.0, kind := "") -> void:
+	_play_action(anim, AIR_CONTACT[anim])
+	if kind == "":
+		return
+	facing = Anims.facing_from(v)
+	ball.kick(v, up)
+	ball.kick_kind = kind
+	ball.last_touch = self
+	touch_cooldown = 0.35
+
+
 func pass_to(mate: Footballer) -> void:
 	var lead := mate.position + mate.velocity * 0.4
 	var dist := position.distance_to(lead)
@@ -230,10 +263,10 @@ func perform(anim: String) -> void:
 	_play_action(anim)
 
 
-func _play_action(anim: String) -> void:
+func _play_action(anim: String, from := 0.0) -> void:
 	_anim = anim
-	_anim_time = 0.0
-	_action_left = Anims.length_seconds(anim)
+	_anim_time = from
+	_action_left = Anims.length_seconds(anim) - from
 
 
 func _locomotion_anim() -> String:

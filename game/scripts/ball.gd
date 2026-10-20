@@ -23,6 +23,8 @@ var last_touch: Footballer = null
 var kick_kind := ""  # "pass", "shot" or a super's name, for the last kick
 var power := ""  # active super ("fireball", "banana", "thunder") while it's in flight
 var power_target := Vector2.ZERO
+var prev_position := Vector2.ZERO  # before this frame's step: the match checks the goal frame against it
+var prev_z := 0.0
 
 var _frames: Array[Texture2D] = []
 var _roll := 0.0
@@ -105,6 +107,8 @@ func stop_at(p: Vector2) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	prev_position = position
+	prev_z = z
 	if holder != null:  # the dribbler positions the ball
 		_roll += velocity.length() * delta
 		_update_sprite()
@@ -124,6 +128,17 @@ func _physics_process(delta: float) -> void:
 			end_power()
 	_roll += velocity.length() * delta
 	_update_sprite()
+
+
+## Where the ball will be when it next comes down through `height` (pitch pixels); where
+## it is now if it won't (on the ground, or never that high).
+func coming_down(height: float) -> Vector2:
+	if holder != null or power != "" or (z <= height and vz <= 0.0):
+		return position
+	var disc := vz * vz + 2.0 * GRAVITY * (z - height)
+	if disc < 0.0:
+		return position
+	return position + velocity * (vz + sqrt(disc)) / GRAVITY
 
 
 func _normal_flight(delta: float) -> void:

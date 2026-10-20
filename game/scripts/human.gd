@@ -35,6 +35,8 @@ var charge_time := 0.0
 var pending_combo := ""
 var switch_lock := 0.0  # seconds the automatic switching leaves a manual choice alone
 var pass_target: Footballer  # who a pass would go to now (marked on the pitch)
+var air_request := ""  # "shoot" or "pass" pressed just before a ball in the air arrives
+var air_request_left := 0.0  # seconds it still counts
 
 
 func _init(t: Team, i: int) -> void:

@@ -27,6 +27,7 @@ godot --headless --path game -s res://tests/two_player_test.gd                  
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
 godot --headless --path game -s res://tests/ratings_test.gd                      # ratings: pace, finishing, keepers, tackling
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
+godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -44,6 +45,8 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | Up/Down while taking a penalty | choose the corner |
 | X or K | pass to the best teammate in the direction you're pushing (the one a triangle marks over his head; a pass lane with an opponent in it counts against a teammate) |
 | Q | switch to the teammate nearest the ball (kept for a second before the automatic switching takes over again) |
+| Space / X as a ball in the air comes to you | head or volley it: Space at goal (aim with the stick), X to a teammate. Pressing nothing, your player does what the AI would (see Rules) |
+| X from out wide in the last third | to a teammate in (or running into) the box: a cross, at head height |
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick; a throw-in always goes into the field) |
 | Space at full time | back to the title screen |
 | F1 | animation viewer |
@@ -136,6 +139,9 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | winning the ball | standingTackle vs the holder's ballControl | steal rate 0.5-1.5x / 1.4-0.6x |
 | slide tackles | slidingTackle | 55-100% success, one try per slide |
 | keeper reach | gkReflexes standing, gkDiving diving | 0.8-1.2x |
+| how high a player heads | jumping | 42-54 px (2.3-3.0 m) |
+| header / volley at goal | headingAccuracy, volleys | up to 50 px off → 8 px |
+| cross accuracy | crossing | up to 50 px off → 6 px |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
 checks each against an elite and a poor player.
@@ -182,6 +188,17 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   defenders touched it last, otherwise a goal kick (taken by the keeper). Opponents stay
   9.15 m back until it's taken, and out of the penalty area at a goal kick; the AI takes
   it after a short pause.
+- A ball in the air: up to head height (34 px plus 8-20 px for jumping) an outfield player
+  meets it. Within 20 m of the opponents' goal he heads or volleys it at goal; within 30 m
+  of his own he clears it upfield and wide; elsewhere he heads it on to a teammate, or
+  chests it down when it's low. Players run to where a ball in the air comes down.
+- Crosses: from out wide in the last third (35 m) to a teammate in or running into the box,
+  coming down at head height. The AI's wingers go down the line and cross; the forwards
+  attack the near and far post, the far-side winger the penalty spot. Central players
+  sometimes switch play out to a free winger in the opponents' half.
+- Posts and crossbar: off the outside of a post or the front of the bar the ball comes back
+  out; off the inside of a post it goes in; off the underside of the bar down and in half
+  the time; off the top it loops over.
 - A slide tackle wins the ball, unless it comes from behind: that's a foul. A foul in the
   box gives a penalty (keeper guesses a side and dives); elsewhere the fouled side keeps the ball.
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots
