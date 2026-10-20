@@ -141,6 +141,23 @@ func wear(match_minutes: float) -> void:
 	condition = maxf(0.0, condition - rate * match_minutes)
 
 
+## Running flat out, without the ball: sprintSpeed, less when tired.
+func top_speed() -> float:
+	return RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14) * (1.0 - TIRED_SPEED * fatigue)
+
+
+## How fast he gets going and turns (px/s per s): acceleration and agility, less when tired.
+func accel() -> float:
+	return ACCEL * skill("acceleration", 0.75, 1.25) * skill("agility", 0.85, 1.15) * (1.0 - TIRED_ACCEL * fatigue)
+
+
+## Seconds to get to `at` from a standstill: reactions (0.3 s to 0.1 s to set off), the run-up
+## to top speed, then flat out.
+func time_to(at: Vector2) -> float:
+	var top := maxf(top_speed(), 1.0)
+	return skill("reactions", 0.3, 0.1) + position.distance_to(at) / top + top / (2.0 * accel())
+
+
 func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
@@ -150,15 +167,14 @@ func _physics_process(delta: float) -> void:
 		w = Vector2.ZERO
 	var running := velocity.length() > 120.0
 	fatigue = clampf(fatigue + (skill("stamina", TIRING[0], TIRING[1]) if running else -RECOVERY) * delta, 1.0 - condition, 1.0)
-	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14) * (1.0 - TIRED_SPEED * fatigue)
+	var top := top_speed()
 	if has_ball():
 		top *= skill("dribbling", 0.9, 1.0)
 	if dizzy_left > 0.0 and not busy():  # up off the floor, staggering about
 		dizzy_left -= delta
 		top *= DIZZY_SPEED
 		touch_cooldown = maxf(touch_cooldown, 0.1)
-	velocity = velocity.move_toward(w * top, ACCEL * skill("acceleration", 0.75, 1.25) * skill("agility", 0.85, 1.15) \
-		* (1.0 - TIRED_ACCEL * fatigue) * delta)
+	velocity = velocity.move_toward(w * top, accel() * delta)
 	position += velocity * delta
 	if velocity.length() > 10.0:
 		facing = Anims.facing_from(velocity)

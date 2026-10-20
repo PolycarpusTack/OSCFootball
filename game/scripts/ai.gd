@@ -10,6 +10,8 @@ const SHOOT_RANGE := 330.0
 const PRESSURE := 45.0
 const KEEPER_HOLD := 0.8
 const THROUGH_SPACE := 108.0  # px (6 m) ahead of a runner a through ball is played
+const LANE_WATCH := 150.0  # px: an opponent this close to a defender's spot is his to cut off
+const SWERVE_SEE := 90.0  # px: an opponent this close in a dribbler's way is gone around
 ## How far a player's spot follows the ball, by role, [without the ball, with it]: x along the
 ## pitch, y across, per unit of the ball's pitch fraction. Defenders follow it up and down least
 ## (the back line stays together) and the whole side slides across more without the ball.
@@ -37,12 +39,10 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 			_maybe_slide(p, m)
 		elif _marking(p, m):
 			p.ai_state = "mark"
-			var mark := p.marking.position
-			var goal_side := mark + (p.team.goal_defended() - mark).normalized() * Pitch.m(1.5)
-			p.wish = ((goal_side - p.position) / 20.0).limit_length(1.0)
+			p.wish = ((mark_spot(p) - p.position) / 20.0).limit_length(1.0)
 		else:
 			p.ai_state = "defend"
-			_hold_position(p, m, false)
+			p.wish = ((defend_spot(p, m) - p.position) / 40.0).limit_length(1.0)
 	else:
 		var run := _box_run(p, m)
 		if run != Vector2.INF:
@@ -58,6 +58,35 @@ static func chase_spot(m: Match) -> Vector2:
 	if m.ball.z > 12.0 or m.ball.vz > 0.0:  # in the air: where it comes down
 		return m.ball_target()
 	return m.ball.position + m.ball.velocity * 0.25
+
+
+## Goal-side of the man `p` marks. defensiveAwareness: how tight (2.5 m off him, 0.5 m at
+## 95) and how he reads the run (behind it, where the man was 0.3 s ago, up to where he'll
+## be in 0.3 s).
+static func mark_spot(p: Footballer) -> Vector2:
+	var mark := p.marking.position + p.marking.velocity * p.skill("defensiveAwareness", -0.3, 0.3)
+	return mark + (p.team.goal_defended() - mark).normalized() * Pitch.m(p.skill("defensiveAwareness", 2.5, 0.5))
+
+
+## Where `p` defends off the ball: his spot, stepped toward the line of a pass from the man on
+## the ball to the opponent nearest that spot (within LANE_WATCH). interceptions: how far,
+## not at all (40) to half way (95), never more than 4 m off his spot.
+static func defend_spot(p: Footballer, m: Match) -> Vector2:
+	var spot := hold_spot(p, m, false)
+	var h := m.ball.holder
+	var step := p.skill("interceptions", 0.0, 0.5)
+	if h == null or h.team == p.team or step <= 0.0:
+		return spot
+	var target: Footballer = null
+	for o in h.team.players:
+		if o != h and not o.sent_off and o.position.distance_to(spot) < LANE_WATCH \
+				and (target == null or o.position.distance_to(spot) < target.position.distance_to(spot)):
+			target = o
+	if target == null:
+		return spot
+	var line := target.position - h.position
+	var along := clampf((spot - h.position).dot(line) / line.length_squared(), 0.2, 0.8)
+	return spot + ((h.position + line * along - spot) * step).limit_length(Pitch.m(4.0))
 
 
 ## Man-marking someone who is in our half?
@@ -194,7 +223,25 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 	dir.y += (Pitch.field_rect().size.y / 2.0 - p.position.y) / 900.0
 	if _winger(p) and absf(p.position.y - goal.y) > Match.BOX_HALF_WIDTH * 0.7:
 		dir = Vector2(p.team.side, 0.0)
-	p.wish = dir.normalized()
+	p.wish = swerve(p, m, dir)
+
+
+## `dir` bent away from the nearest opponent in the way (within SWERVE_SEE, 50 degrees
+## either side): dribbling decides how far, 0.2 rad (40) to 0.9 (95), more the closer he is.
+static func swerve(p: Footballer, m: Match, dir: Vector2) -> Vector2:
+	dir = dir.normalized()
+	var block: Footballer = null
+	for o in m.opponent(p.team).players:
+		var off := o.position - p.position
+		if off.length() < SWERVE_SEE and off.normalized().dot(dir) > 0.64 \
+				and (block == null or off.length() < block.position.distance_to(p.position)):
+			block = o
+	if block == null:
+		return dir
+	var off := block.position - p.position
+	var away := -signf(dir.cross(off)) if dir.cross(off) != 0.0 else 1.0
+	var closeness := 1.0 - off.length() / SWERVE_SEE
+	return dir.rotated(away * p.skill("dribbling", 0.2, 0.9) * (0.5 + 0.5 * closeness))
 
 
 ## How far out `p` shoots from: SHOOT_RANGE (18 m), up to 25 m for a curler (curve 95).

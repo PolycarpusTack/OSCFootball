@@ -242,13 +242,19 @@ func opponent(t: Team) -> Team:
 	return away if t == home else home
 
 
-## The player of `t` that should go for the ball (nearest outfield player to where it can be won).
+## The player of `t` that should go for the ball: the outfield player who gets soonest to
+## where it can be won (Footballer.time_to).
 func chaser(t: Team) -> Footballer:
 	var at := ball_target()
 	var best: Footballer = null
+	var best_time := INF
 	for p in t.players:
-		if p.role != "G" and not p.sent_off and (best == null or p.position.distance_squared_to(at) < best.position.distance_squared_to(at)):
+		if p.role == "G" or p.sent_off:
+			continue
+		var time := p.time_to(at)
+		if time < best_time:
 			best = p
+			best_time = time
 	return best
 
 
@@ -1063,6 +1069,9 @@ func _take(p: Footballer) -> void:
 	if p.role == "G" and fast and shot_on_goal and randf() < spill_odds(p):
 		_spill(p)
 		return
+	if p.role != "G" and ball.last_touch != p and randf() < heavy_touch_odds(p, ball.velocity.length()):
+		_heavy_touch(p)
+		return
 	ball.take(p)
 	if p.role == "G" and fast:
 		if not p.diving():
@@ -1076,6 +1085,20 @@ func _take(p: Footballer) -> void:
 ## (or no squad) and up hold everything.
 func spill_odds(k: Footballer) -> float:
 	return maxf(0.0, k.skill("gkHandling", 0.4, -0.4))
+
+
+## Chance an outfield player's first touch on a ball coming at `speed` px/s gets away from
+## him: none below what his reactions handle (360 px/s at 40, 240 at 95), rising over the
+## next 300 px/s; at most 50% (ballControl 40) to none (95).
+func heavy_touch_odds(p: Footballer, speed: float) -> float:
+	return clampf((speed - p.skill("reactions", 360.0, 240.0)) / 300.0, 0.0, 1.0) * p.skill("ballControl", 0.5, 0.0)
+
+
+## A heavy first touch: the ball runs on 2-4 m off him, loose (his touch, if it goes out).
+func _heavy_touch(p: Footballer) -> void:
+	ball.last_touch = p
+	ball.kick(ball.velocity.normalized().rotated(randf_range(-0.6, 0.6)) * randf_range(40.0, 80.0), 30.0)
+	p.touch_cooldown = 0.35
 
 
 ## A shot the keeper got to but couldn't hold: parried out in front of him, loose.

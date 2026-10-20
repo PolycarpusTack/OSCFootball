@@ -196,6 +196,11 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | holding a shot | gkHandling | a hard shot he gets to is spilled loose 40% → 0% (67.5 and up hold everything) |
 | narrowing the angle (AI keeper) | gkPositioning | stands 8 → 28 px off his line; comes for a loose ball 120 → 200 px from goal |
 | waiting on the offside line (AI) | positioning | 0.9 m → 0.1 m behind it |
+| who goes for the ball (AI chaser, human auto-switch) | sprintSpeed, acceleration, agility, reactions, fatigue | the quickest there, not the nearest: 0.3 s → 0.1 s to set off, then the run-up and top speed |
+| first touch | ballControl, reactions | a ball faster than 360 → 240 px/s may run 2-4 m off him: up to 50% → 0% of the time |
+| marking (AI) | defensiveAwareness | 2.5 m → 0.5 m goal-side; reads the run 0.3 s behind it → 0.3 s ahead |
+| cutting off a pass (AI, off the ball) | interceptions | steps from his spot toward the lane to the nearest attacker: not at all → half way, at most 4 m |
+| dribbling round a man (AI) | dribbling | bends 0.2 → 0.9 rad away from an opponent in the way, more the closer he is |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
 checks each against an elite and a poor player.
