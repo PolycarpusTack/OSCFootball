@@ -2,7 +2,7 @@ extends SceneTree
 ## Chaos referee: the view cone (unseen fouls go unpunished), the discipline meter (seen
 ## fouls and body checks fill it; full is a booking), his mood with each side (angry, he
 ## books faster), "Sorry, ref!" (special just after your foul: half of it taken back), the
-## dive and the captain.
+## dive, the captain, the whistle stun and the bribe.
 ## godot --headless --path game -s res://tests/referee_test.gd
 
 var m: Node
@@ -208,6 +208,85 @@ func _initialize() -> void:
 	print("calm referee, captain has nothing to do: '%s'" % m.chaos_actions.unavailable(cap, "captain"))
 	ok = ok and m.chaos_actions.unavailable(cap, "captain") != ""
 
+	# furious with a side, he fumes for all to see, then blows his top: that side's players
+	# near him are stunned, the others (and the other side) aren't
+	await _play()
+	m.chaos_actions.ai_enabled = false
+	var near_mate = m.home.players[7]
+	var far_mate = m.home.players[5]
+	var near_foe = m.away.players[7]
+	near_mate.position = m.referee.position + Vector2(Pitch.m(3.0), 0.0)
+	near_foe.position = m.referee.position + Vector2(-Pitch.m(3.0), 0.0)
+	far_mate.position = m.referee.position + Vector2(Pitch.m(45.0), 0.0)
+	m.ref_mood.clear()
+	m.ref_mood[m.home] = m.MOOD_FULL
+	events.clear()
+	await create_timer(0.5).timeout
+	var fuming: bool = events.has("ref fuming:BRU") and not events.has("whistle stun:BRU") and not m.chaos_actions.stuns.has(near_mate)
+	await create_timer(m.BLOW_UP_TELL).timeout
+	var stunned: Dictionary = m.chaos_actions.stuns
+	print("furious with BRU: fuming first %s; then events %s, stunned: near %s, far %s, AND near %s; mood %.0f" % [
+		fuming, events, stunned.has(near_mate), stunned.has(far_mate), stunned.has(near_foe), m.ref_mood.get(m.home, 0.0)])
+	ok = ok and fuming and events.has("whistle stun:BRU") and stunned.has(near_mate) and not stunned.has(far_mate) \
+		and not stunned.has(near_foe) and absf(m.ref_mood.get(m.home, 0.0) - m.BLOWN_MOOD) < 1.0  # cooling since
+
+	# the captain talks him down in time: no stun
+	await _play()
+	m.ref_mood[m.home] = m.MOOD_FULL
+	events.clear()
+	await create_timer(0.3).timeout
+	m.calm_referee(m.home)
+	await create_timer(m.BLOW_UP_TELL + 0.3).timeout
+	print("fuming, then the captain: events %s" % [events])
+	ok = ok and events.has("ref fuming:BRU") and not events.has("whistle stun:BRU")
+
+	# the bribe: needs a full bar and an envelope's distance
+	await _play()
+	var briber = m.home.players[7]
+	m.home.energy = 100.0
+	briber.position = m.referee.position + Vector2(Pitch.m(20.0), 0.0)
+	var too_far: String = m.chaos_actions.unavailable(briber, "bribe")
+	briber.position = m.referee.position + Vector2(Pitch.m(5.0), 0.0)
+	var close: String = m.chaos_actions.unavailable(briber, "bribe")
+	print("bribe from 20 m: '%s'; from 5 m: '%s'" % [too_far, close])
+	ok = ok and too_far != "" and close == ""
+
+	# bought: he forgets his anger, misses the briber's offences, waves its fouls on and
+	# falls for its dives
+	m.ref_mood[m.home] = 60.0
+	_seed_bribe(false)
+	m.bribe(m.home)
+	events.clear()
+	var bruiser = m.home.players[6]
+	var hacked = m.away.players[6]
+	bruiser.discipline = 0.0
+	hacked.position = c
+	bruiser.position = c - Vector2(16.0, 0.0)
+	_look_at(c)
+	m.offence(bruiser, c, "body check")
+	m._foul(bruiser, hacked)
+	print("bribed: mood %.0f, discipline after a body check %.0f, foul: events %s, state %d, dive odds %.2f, again: '%s'" % [
+		m.ref_mood.get(m.home, 0.0), bruiser.discipline, events, m.state, m.dive_odds(diver), m.chaos_actions.unavailable(briber, "bribe")])
+	ok = ok and m.ref_mood.get(m.home, 0.0) == 0.0 and bruiser.discipline == 0.0 and events.has("bribed call:BRU") \
+		and not events.has("free kick:AND") and m.state == 1 and m.dive_odds(diver) == 1.0 \
+		and m.chaos_actions.unavailable(briber, "bribe") != ""
+	m.bribed[m.home] = 0.1
+	await create_timer(0.3).timeout
+	print("bribe run out: %s" % [m.bribed])
+	ok = ok and not m.bribed.has(m.home)
+
+	# caught: the linesman flags it, a penalty against the briber and a furious referee
+	await _play()
+	_seed_bribe(true)
+	m.bribe(m.home)
+	var flagged: bool = m._bribe_flag.has(m.home)
+	m._bribe_flag[m.home] = 0.05  # not BRIBE_FLAG: a goal meanwhile would stop the clock
+	events.clear()
+	await create_timer(0.3).timeout
+	print("bribe flagged: events %s, state %d, still bribed %s, mood %.0f" % [events, m.state, m.bribed.has(m.home), m.ref_mood.get(m.home, 0.0)])
+	ok = ok and flagged and events.has("bribe caught:BRU") and events.has("penalty:AND") and m.state == 3 \
+		and not m.bribed.has(m.home) and m.ref_mood.get(m.home, 0.0) == m.MOOD_FULL
+
 	print("REFEREE TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
 
@@ -239,5 +318,14 @@ func _seed_for(diver, fooled: bool) -> void:
 	for s in 1000:
 		seed(s)
 		if (randf() < m.dive_odds(diver)) == fooled:
+			seed(s)
+			return
+
+
+## Seed the random numbers so the next bribe is (`caught`) or isn't flagged by the linesman.
+func _seed_bribe(caught: bool) -> void:
+	for s in 1000:
+		seed(s)
+		if (randf() < m.BRIBE_CAUGHT) == caught:
 			seed(s)
 			return

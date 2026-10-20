@@ -17,6 +17,7 @@ const MOVES := {
 	"cyclone": {"name": "CYCLONE SCISSOR", "cost": 40, "wind": 0.25, "active": 0.4, "recovery": 0.45, "anim": "bicycle", "hint": "under an aerial ball"},
 	"dive": {"name": "DIVE", "cost": 10, "wind": 0.1, "active": 0.1, "recovery": 0.7, "anim": "fall", "hint": "an opponent right by you"},
 	"captain": {"name": "CAPTAIN", "cost": 30, "wind": 0.3, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "captain near an angry referee"},
+	"bribe": {"name": "BRIBE", "cost": 100, "wind": 0.4, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "full bar, right by the referee"},
 }
 const COLOUR := Color("67f4ef")
 var match_game: Match
@@ -107,6 +108,8 @@ func unavailable(p: Footballer, id: String) -> String:
 		"dive": valid = valid and match_game.nearest_opponent_distance(p) <= Match.DIVE_RANGE
 		"captain": valid = valid and match_game.ref_mood.get(p.team, 0.0) > 0.0 \
 			and p.position.distance_to(match_game.referee.position) <= Match.CAPTAIN_RANGE
+		"bribe": valid = valid and not match_game.bribed.has(p.team) \
+			and p.position.distance_to(match_game.referee.position) <= Match.BRIBE_RANGE
 	if id == "rocket":  # a keeper's throw waits for the box to clear, like any release
 		valid = valid and match_game.keeper_may_release(p)
 	if id in ["stego", "bass"] and b.holder != null and b.holder.role == "G" \
@@ -291,6 +294,8 @@ func apply_move(a: Dictionary, dt: float) -> void:
 			match_game.dive(p)
 		"captain":
 			match_game.calm_referee(p.team)
+		"bribe":
+			match_game.bribe(p.team)
 		"pinball", "boomerang", "rocket":
 			if not p.has_ball(): return
 			if a.id == "rocket": b.z = Footballer.HEAD_HEIGHT

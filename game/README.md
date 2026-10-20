@@ -26,8 +26,8 @@ the next match until the game is closed.
 Chaos now includes eleven additional playable action prototypes: Ghost Step, Magnet Sole,
 Pinball Pass, Stego Sweep, Bass Drop, Phalanx Wall, Spring Header, Boomerang Cross,
 Rocket Throw, **Palm Barrage** (rapid keeper parries) and **Cyclone Scissor**
-(an inverted spinning aerial kick). Two more deal with the referee: **Dive** and **Captain**
-(see The Chaos referee).
+(an inverted spinning aerial kick). Three more deal with the referee: **Dive**, **Captain** and
+**Bribe** (see The Chaos referee).
 
 **P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
 The HUD shows the selected action and requirements. Keeper moves command your keeper
@@ -54,7 +54,7 @@ godot --headless --path game -s res://tests/pause_test.gd                       
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
-godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain
+godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -348,7 +348,21 @@ side. If he sees through it: a yellow for diving, +20 mood, a free kick the othe
 **The captain** (Chaos action CAPTAIN, 30 energy): your side's captain, the outfield player
 with the highest composure rating (a C over his head), has a word with the referee from
 within 25 m: his mood with your side drops by 40. Only when he's angry with you at all.
-The AI neither dives nor sends its captain yet.
+
+**The whistle stun:** when his mood with a side is full, he fumes for 1.2 seconds, for all to
+see (a pulsing ring around him and !! next to his mood bars, THE REF IS FUMING!), then blows
+his top: that side's players within 20 m of him are stunned for 1.2 seconds, a stunned
+dribbler drops the ball, and his mood with the side falls to 50. Get away from him while he
+fumes, dodge, or send the captain: talked down in time, he doesn't blow.
+
+**The bribe** (Chaos action BRIBE, a full bar, within 10 m of the referee): for 30 seconds
+of play he leans your way: he's no longer angry with you, your offences don't fill any
+meter, your fouls are play on and he falls for every dive. A gold coin ringed in your colour
+by his mood bars shows it, to both sides. One time in three the linesman saw it: two
+seconds later he flags it, the bribe is off, the other side gets a penalty and the referee
+is furious with you (so a whistle stun follows).
+
+The AI neither dives, sends its captain nor bribes yet.
 
 ## Energy and super-shots (Chaos Football only)
 
