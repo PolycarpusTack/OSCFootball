@@ -78,6 +78,7 @@ godot --headless --path game -s res://tests/knockout_test.gd                    
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
 godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
 godot --headless --path game -s res://tests/discipline_test.gd                   # advantage, late whistle, warning, repeat offenders, last man
+godot --headless --path game -s res://tests/commentary_test.gd                   # commentary: kinds of goal, shot then save, priorities, no repeats, report
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -350,6 +351,20 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 - `tests/demo.gd` stages three situations (Brugge attack, Anderlecht attack, foul in the box)
   and lets the AI play them out; `seed=2` gives a save, a goal and a scored penalty.
 
+## Commentary
+
+A line along the top of the screen says what just happened (`scripts/commentary.gd`, lines in
+`scripts/commentary_lines.gd`, all our own). A goal's line says what kind of goal it was: the
+opener, an equaliser (late, or with a man down), a late goal, one pulled back, the clincher, a
+hat-trick, an own goal, a golden goal, a super-shot. A shot waits up to 1.6 s for its save,
+woodwork or goal so the two are said together; nothing, and the miss is said. Fouls name both
+men; every referee moment, card, skill move and Chaos action has its lines. At most three
+lines wait, the big moments (goals, red cards, penalties, the whistles) push the chatter out,
+and chatter isn't repeated within 4 s or while lines are waiting; no line comes up again
+while it's one of the last two for that moment. The goals and red cards, with the minute,
+are listed on the full-time screen. The structure follows CM3's match commentary (priorities,
+a shot held for its outcome, goals told by their context); no CM3 text is used.
+
 ## Stamina
 
 Each player has a fatigue level, 0 (fresh) to 1 (spent). It builds while he runs
@@ -434,8 +449,9 @@ sometimes spends 20 on a Body Check.
 - No player-vs-player collision; the net doesn't stop the ball. Sprites are
   always drawn over the 3D scene, so a post never hides a player.
 - Sound effects are matched to their use by their spectra, not by ear (`SFX` in `main.gd`:
-  kicks, bounce, whistles, crowd "ooh" and roar). No commentary yet: the speech banks
-  are decoded but which phrase is which isn't known.
+  kicks, bounce, whistles, crowd "ooh" and roar). No spoken commentary: the speech banks
+  are decoded but which phrase is which isn't known (the written commentary is ours, see
+  Commentary).
 - Match length, camera framing and the AI's shot accuracy are guesses, not FIFA 96's values.
 - Frame timing assumes a 30 ticks/s clock (`TICKS_PER_SECOND` in `anim_library.gd`).
 # OSCFootball

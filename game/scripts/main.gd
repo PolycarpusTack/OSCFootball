@@ -149,6 +149,7 @@ var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_next := 0
 var _score_label := Label.new()  # "BRU  0 - 0  AND", between the two crests
 var _clock_label := Label.new()
+var _ticker := Label.new()  # the commentary line, along the top
 var _banner := Label.new()
 var _player_labels: Array[Label] = []  # each human's controlled player's name, as in FIFA 96
 var _discipline_bars: Array[ColorRect] = []  # Chaos: each human's player's discipline meter, under his portrait
@@ -158,6 +159,8 @@ var _energy_labels := {}  # Team -> Label
 var _aim_arrows := Node2D.new()  # each human's shot arrow on the grass (see aim_arrow)
 var _mood_meter := Node2D.new()  # Chaos: his mood with each side, over his head
 var _parry := {}  # a human side's called foul still open to "Sorry, ref!": p, added, left
+var detail := {}  # who an event is about, for those the ball can't tell: {kind, p1, p2, ...}, set just before it
+var commentary: Commentary
 var stats: MatchStats  # for the full-time screen
 var cpu: CpuManager  # the CPU side's manager; null when two people play
 var _full_time_panel := PanelContainer.new()
@@ -243,6 +246,7 @@ func _ready() -> void:
 	add_child(DebugOverlay.new(self))
 	add_child(PauseMenu.new())
 	stats = MatchStats.new(self)
+	commentary = Commentary.new(self)  # after stats: a hat-trick is read off its goals
 	if not human_for(away):
 		cpu = CpuManager.new(self, away)
 	chaos_actions = ChaosActions.new(self)
@@ -502,6 +506,9 @@ func _physics_process(delta: float) -> void:
 	chaos_actions.tick(delta)
 	line_moves.tick()
 	_update_hud()
+	commentary.tick(delta)
+	_ticker.text = commentary.line
+	_ticker.visible = commentary.line != ""
 	_referee_follows()
 	_sorry_ref(delta)
 	if _banner_left > 0.0:
@@ -1202,6 +1209,7 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 	by.touch_cooldown = 1.0  # one foul per slide: the slider is still on the ball for a moment
 	if not referee_sees(victim.position):  # Chaos: play on
 		flash("REF DIDN'T SEE IT!", 1.2)
+		detail = {"kind": "unseen foul", "p1": by, "p2": victim}
 		event.emit("unseen foul", by.team)
 		_unseen = {"by": by, "victim": victim, "from_behind": from_behind, "left": LATE_LOOK}
 		return
@@ -1216,6 +1224,7 @@ func _call_foul(by: Footballer, victim: Footballer, from_behind: bool) -> void:
 		event.emit("bribed call", by.team)
 		return
 	victim.team.gain(Supers.GAIN.fouled)
+	detail = {"kind": "foul", "p1": by, "p2": victim}
 	event.emit("foul", by.team)
 	player_event.emit("foul", by)
 	var spot := victim.position.clamp(Vector2.ZERO, Pitch.field_rect().size)
@@ -1301,6 +1310,7 @@ func _late_whistle(delta: float) -> bool:
 	var u := _unseen
 	_unseen = {}
 	flash("LATE WHISTLE!", 1.2)
+	detail = {"kind": "late whistle", "p1": u.by, "p2": u.victim}
 	event.emit("late whistle", u.by.team)
 	_call_foul(u.by, u.victim, u.from_behind)
 	return state != State.PLAY
@@ -1317,6 +1327,7 @@ func _punish(a: Dictionary) -> void:
 		var r := randf() / by.skill("aggression", 0.7, 1.3)
 		if last_man(by, a.victim) and randf() < LAST_MAN_RED["behind" if a.from_behind else "front"]:
 			flash("LAST MAN!", 1.2)
+			detail = {"kind": "last man", "p1": by, "p2": a.victim}
 			event.emit("last man", by.team)
 			book(by, true)
 		elif r < odds[1]:
@@ -1348,6 +1359,7 @@ func last_man(by: Footballer, victim: Footballer) -> bool:
 ## The referee shows `p` a card. A second yellow is a red: off he goes, for the rest of the
 ## match (parked off the pitch, out of play).
 func book(p: Footballer, red: bool) -> void:
+	var second := p.yellow and not red
 	red = red or p.yellow
 	p.yellow = true
 	referee.facing = Anims.facing_from(p.position - referee.position)
@@ -1355,6 +1367,7 @@ func book(p: Footballer, red: bool) -> void:
 	referee.perform("rcard")
 	effects.play("red_card_spin" if red else "yellow_card_spin", p.position, Pitch.m(2.6), 1.0, Color.WHITE, 3)
 	flash("%s CARD\n%s" % ["RED" if red else "YELLOW", p.display_name], 2.0)
+	detail = {"kind": "red card" if red else "yellow card", "p1": p, "second": second}
 	event.emit("red card" if red else "yellow card", p.team)
 	player_event.emit("red card" if red else "yellow card", p)
 	if not red:
@@ -1428,6 +1441,7 @@ func _caught_offside(p: Footballer) -> bool:
 	_offside.clear()
 	_award_restart("free kick", opponent(p.team), p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
 	flash("OFFSIDE", 1.5)
+	detail = {"kind": "offside", "p1": p}
 	event.emit("offside", p.team)
 	return true
 
@@ -1474,6 +1488,7 @@ func offence(p: Footballer, pos: Vector2, kind: String, seen := false) -> void:
 		p.warned = true
 		referee.facing = Anims.facing_from(p.position - referee.position)
 		flash("REF CALLS %s OVER" % p.display_name, 1.5)
+		detail = {"kind": "ref warning", "p1": p}
 		event.emit("ref warning", p.team)
 	if state != State.PLAY and not autoplay and human_for(p.team) != null:
 		if not _parry.is_empty():  # the one before it is judged now
@@ -1507,9 +1522,11 @@ func dive(p: Footballer) -> void:
 		if not o.sent_off and (blamed == null or o.position.distance_to(p.position) < blamed.position.distance_to(p.position)):
 			blamed = o
 	if randf() < dive_odds(p):
+		detail = {"kind": "dive bought", "p1": p, "p2": blamed}
 		event.emit("dive bought", p.team)
 		_foul(blamed, p, false)
 		return
+	detail = {"kind": "dive", "p1": p}
 	event.emit("dive", p.team)
 	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + DISSENT)
 	_award_restart("free kick", blamed.team, p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
@@ -1886,6 +1903,8 @@ func _show_full_time(heading: String, result: String) -> void:
 	if motm:
 		column.add_child(_screen_label("MAN OF THE MATCH: %s (%s)  %.1f" % [motm.display_name, motm.team.short, stats.rating(motm)],
 			24, Color(1, 0.85, 0.2)))
+	for entry in commentary.report.slice(0, 8):  # the goals and red cards, in order
+		column.add_child(_screen_label(entry, 16, Color(0.9, 0.9, 0.9)))
 	column.add_child(_screen_label("SPACE: BACK TO THE TITLE", 16, Color(0.8, 0.8, 0.8)))
 	_full_time_panel.visible = true
 
@@ -2165,6 +2184,23 @@ func _start_crowd() -> void:
 func _add_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	_ticker.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_ticker.offset_left = -300.0  # clear of the score on the left: a long line wraps
+	_ticker.offset_right = 300.0
+	_ticker.offset_top = 12.0
+	_ticker.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_ticker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ticker.add_theme_font_size_override("font_size", 18)
+	_ticker.add_theme_color_override("font_outline_color", Color.BLACK)
+	_ticker.add_theme_constant_override("outline_size", 5)
+	var strip := StyleBoxFlat.new()
+	strip.bg_color = Color(0, 0, 0, 0.55)
+	strip.set_content_margin_all(6)
+	strip.content_margin_left = 14
+	strip.content_margin_right = 14
+	_ticker.add_theme_stylebox_override("normal", strip)
+	_ticker.visible = false
+	layer.add_child(_ticker)
 	var panel := PanelContainer.new()
 	panel.position = Vector2(12, 10)
 	layer.add_child(panel)

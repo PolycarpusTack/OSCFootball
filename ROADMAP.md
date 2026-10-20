@@ -48,7 +48,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 | 4.1 | Music in the game: own tracks for team select, half-time, win, lose | Converted to OGG; nothing loads `QUE_*` | S |
 | 4.2 | Crowd that reacts: background, chants that rotate, swells near goal, a roar on goals | Own crowd recordings, or FIFA 96 `CHN_*` as listed placeholders | S–M |
 | 4.3 | Goal celebrations: fireworks, flag-waving crowd | Own effect art; FIFA 96 `FW*` / `FAnim` only as placeholders | M |
-| 4.4 | Commentary | Decide first: own voice recordings, or FIFA 96 phrase clips as a personal-use extra. Start with ~30 generic lines (goal, save, miss, foul, kick-off, full time) | M first step; L in full |
+| 4.4 | Commentary | Decide first: own voice recordings, or FIFA 96 phrase clips as a personal-use extra. Start with ~30 generic lines (goal, save, miss, foul, kick-off, full time). **Written ticker done** (`commentary.gd`, 60+ moments, our own lines); voice still open | M first step; L in full |
 
 ## Phase 5: polish
 
