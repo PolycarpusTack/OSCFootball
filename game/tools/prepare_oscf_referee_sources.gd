@@ -15,6 +15,8 @@ func _initialize() -> void:
 			image.convert(Image.FORMAT_RGBA8)
 			var r: Array = pose.rect
 			var sprite := image.get_region(Rect2i(int(r[0]), int(r[1]), int(r[2]), int(r[3])))
+			if spec.get("largest_part_only", false):  # the crop catches bits of the neighbouring poses
+				_keep_largest_part(sprite)
 			var factor: float = float(pose.scale)
 			var size := Vector2i(roundi(sprite.get_width() * factor), roundi(sprite.get_height() * factor))
 			sprite.resize(size.x, size.y, Image.INTERPOLATE_BILINEAR)
@@ -45,3 +47,37 @@ func _initialize() -> void:
 	file.store_string(JSON.stringify(result, "\t") + "\n")
 	print("Prepared ", data.size(), " transparent source sheets.")
 	quit()
+
+
+## Clear everything but the largest 8-connected opaque shape of `image`.
+func _keep_largest_part(image: Image) -> void:
+	var w := image.get_width()
+	var h := image.get_height()
+	var part := PackedInt32Array()
+	part.resize(w * h)
+	part.fill(-1)
+	var sizes: Array[int] = []
+	for start in w * h:
+		if part[start] != -1 or image.get_pixel(start % w, start / w).a <= 0.1:
+			continue
+		var id := sizes.size()
+		var stack: Array[int] = [start]
+		part[start] = id
+		var count := 0
+		while not stack.is_empty():
+			var i: int = stack.pop_back()
+			count += 1
+			for dy in [-1, 0, 1]:
+				for dx in [-1, 0, 1]:
+					var x: int = i % w + dx
+					var y: int = i / w + dy
+					if x < 0 or y < 0 or x >= w or y >= h or part[y * w + x] != -1:
+						continue
+					if image.get_pixel(x, y).a > 0.1:
+						part[y * w + x] = id
+						stack.append(y * w + x)
+		sizes.append(count)
+	var largest := sizes.find(sizes.max())
+	for i in w * h:
+		if part[i] != largest:
+			image.set_pixel(i % w, i / w, Color.TRANSPARENT)

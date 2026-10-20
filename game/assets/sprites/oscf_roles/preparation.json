@@ -463,6 +463,7 @@
   },
   "referee_whistle": {
     "kind": "referee",
+    "largest_part_only": true,
     "rows": 4,
     "cols": 3,
     "directions": [
