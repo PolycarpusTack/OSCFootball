@@ -51,6 +51,8 @@ var think_timer := 0.0  # AI: time until the next pass/shoot decision
 var ai_state := ""  # AI: what it last decided to do, for the debug overlay
 var charge := 0.0  # 0..1 while the shoot button is held; drawn as a ring
 var fatigue := 0.0  # 0 fresh .. 1 spent (see TIRING); the control ring empties with it
+var yellow := false  # booked: a second yellow is a red
+var sent_off := false  # red card: parked off the pitch for the rest of the match (see Match.book)
 var dizzy_left := 0.0  # Chaos: seeing stars after a knockdown when tired (see Match.knock_down)
 
 var _anim := "xstandd"
@@ -271,9 +273,9 @@ func air_touch(anim: String, v := Vector2.ZERO, up := 0.0, kind := "") -> void:
 	if kind == "":
 		return
 	facing = Anims.facing_from(v)
+	ball.last_touch = self  # before the kick: the match judges offside on it
 	ball.kick(v, up)
 	ball.kick_kind = kind
-	ball.last_touch = self
 	touch_cooldown = 0.35
 
 

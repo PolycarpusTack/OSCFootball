@@ -66,6 +66,17 @@ func gain(amount: float) -> void:
 	energy = clampf(energy + amount, 0.0, Supers.MAX_ENERGY)
 
 
+## Who takes kick-offs and penalties: the number 10 slot, or another outfield player if
+## he's been sent off.
+func taker() -> Footballer:
+	if not players[9].sent_off:
+		return players[9]
+	for p in players:
+		if p.role != "G" and not p.sent_off:
+			return p
+	return players[9]
+
+
 func keeper() -> Footballer:
 	return players[0]
 

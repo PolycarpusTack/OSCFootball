@@ -140,8 +140,13 @@ func _initialize() -> void:
 	slider.facing = 2
 	slider.slide()
 	await create_timer(1.0).timeout
-	print("slide from behind: %d foul(s)" % (events.count("foul:AND") - fouls))
-	ok = ok and events.count("foul:AND") - fouls == 1
+	print("slide from behind: %d foul(s), then %s" % [events.count("foul:AND") - fouls, events.slice(-2)])
+	ok = ok and events.count("foul:AND") - fouls == 1 and events.has("free kick:BRU")
+	Input.action_press("pass")  # take the free kick
+	await physics_frame
+	Input.action_release("pass")
+	while m.state != 1:
+		await physics_frame
 
 	# half time: ends change, Brugge kick off; full time stops the match
 	m.clock = m.HALF_SECONDS - 0.2

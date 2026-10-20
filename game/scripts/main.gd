@@ -24,6 +24,11 @@ const BODY_CHECK_COST := 20.0
 const KNOCK_FATIGUE := 0.1  # going down takes it out of you
 const DIZZY_AT := 0.6  # Chaos: knocked down this tired, he sees stars
 const DIZZY_TIME := 2.5
+const FREE_KICK_RANGE := 30.0 * Pitch.PX_PER_M  # closer than this a free kick is a shot
+const FOUL_MISS := 0.4  # a slide that misses the ball takes the man this often
+# chance of a yellow and of a straight red for a foul, before aggression (0.7 → 1.3x)
+const CARD_ODDS := {"behind": [0.45, 0.1], "front": [0.12, 0.0]}
+const OFF_PITCH := Vector2(-500.0, -500.0)  # where a sent-off player waits out the match
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
@@ -50,6 +55,7 @@ var ball: Ball
 var home: Team
 var away: Team
 var humans: Array[Human] = []  # player 1 (home), player 2 (away) when two play
+var referee: Footballer  # follows play, points to free kicks and shows the cards; nobody's team
 var state := State.KICKOFF
 var clock := 0.0  # seconds of play (stopped during goals, restarts, breaks)
 var half := 1
@@ -60,6 +66,7 @@ var _penalty_taker: Footballer
 var _restart_kind := ""  # "throw-in", "corner" or "goal kick" while state is RESTART
 var _restart_taker: Footballer
 var _restart_taken := false  # the taker has started the throw / kick; play on once it's left them
+var _offside: Array[Footballer] = []  # in an offside position when the last kick was played
 var _banner_left := 0.0
 var stadium := Stadium.new()
 var _crowd := AudioStreamPlayer.new()
@@ -123,11 +130,21 @@ func _ready() -> void:
 			t.players.append(p)
 			world.add_child(p)
 
+	var black := Color("141414")
+	var kit := {"shirt": black, "shirt2": black, "shorts": black, "socks": black, "boots": black}
+	referee = Footballer.new()
+	referee.team = Team.new("Referee", "REF", kit, kit)
+	referee.ball = ball
+	referee.name = "Referee"
+	referee.speed_factor = 0.9
+	world.add_child(referee)
+
 	_start_crowd()
 	for i in 6:
 		_sfx_players.append(AudioStreamPlayer.new())
 		add_child(_sfx_players[i])
 	ball.kicked.connect(func(speed): play_sfx("kick" if speed > 400.0 else "pass", linear_to_db(clampf(speed / 600.0, 0.3, 1.0))))
+	ball.kicked.connect(func(_speed): _note_offside())
 	ball.bounced.connect(func(speed): play_sfx("bounce", linear_to_db(clampf(speed / 300.0, 0.15, 0.7))))
 	_add_hud()
 	_aim_arrows.top_level = true
@@ -153,7 +170,7 @@ func chaser(t: Team) -> Footballer:
 	var at := ball_target()
 	var best: Footballer = null
 	for p in t.players:
-		if p.role != "G" and (best == null or p.position.distance_squared_to(at) < best.position.distance_squared_to(at)):
+		if p.role != "G" and not p.sent_off and (best == null or p.position.distance_squared_to(at) < best.position.distance_squared_to(at)):
 			best = p
 	return best
 
@@ -175,15 +192,18 @@ func kickoff(kicking: Team) -> void:
 	_state_left = 1.2
 	var centre := Pitch.field_rect().get_center()
 	ball.stop_at(centre)
+	referee.position = centre + Vector2(0.0, -Pitch.m(12.0))
 	for t in [home, away]:
 		for p in t.players:
+			if p.sent_off:
+				continue
 			var spot: Vector2 = p.home
 			spot.x = minf(spot.x * 0.9, 0.45)
 			p.position = t.to_pitch(spot)
 			p.velocity = Vector2.ZERO
 			p.wish = Vector2.ZERO
 			p.facing = 2 if t.side > 0 else 6
-	var taker: Footballer = kicking.players[9]
+	var taker: Footballer = kicking.taker()
 	taker.position = centre - Vector2(kicking.side * 12.0, 0)
 	ball.take(taker)
 	_banner.text = ""
@@ -191,6 +211,7 @@ func kickoff(kicking: Team) -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_hud()
+	_referee_follows()
 	if _banner_left > 0.0:
 		_banner_left -= delta
 		if _banner_left <= 0.0:
@@ -256,6 +277,7 @@ func _process(delta: float) -> void:
 	for t in [home, away]:
 		for p in t.players:
 			p.place(stadium.to_screen(p.position))
+	referee.place(stadium.to_screen(referee.position))
 	ball.place(stadium.to_screen)
 	_aim_arrows.queue_redraw()
 	_update_energy_hud()
@@ -454,7 +476,9 @@ func _resolve_possession(delta: float) -> void:
 					best_d = d
 					best_in_air = in_air
 		if best and best_in_air:
-			_air_touch(_air_duel(best))
+			var winner := _air_duel(best)
+			if not _caught_offside(winner):
+				_air_touch(winner)
 		elif best:
 			_take(best)
 		return
@@ -484,6 +508,9 @@ func _resolve_possession(delta: float) -> void:
 			return
 		if o.sliding() and randf() > o.skill("slidingTackle", 0.55, 1.0):
 			o.touch_cooldown = 0.6  # missed: one try per slide
+			if randf() < FOUL_MISS:  # took the man instead
+				_foul(o, holder, false)
+				return
 			continue
 		if o.sliding() or randf() < steal_rate(o, holder) * delta:
 			ball.release()
@@ -723,6 +750,9 @@ func _plough_through() -> void:
 
 
 func _take(p: Footballer) -> void:
+	if _caught_offside(p):
+		return
+	_offside.clear()
 	var fast := ball.velocity.length() > 250.0
 	var shot_on_goal := ball.last_touch != null and ball.last_touch.team != p.team
 	if ball.kick_kind in ["pass", "cross"] and ball.last_touch and ball.last_touch != p and ball.last_touch.team == p.team:
@@ -740,8 +770,9 @@ func _take(p: Footballer) -> void:
 			p.team.gain(Supers.GAIN.save)
 
 
-## Slide tackle that took the player, not the ball.
-func _foul(by: Footballer, victim: Footballer) -> void:
+## Slide tackle that took the player, not the ball: a free kick where it happened (a penalty
+## in the box), and maybe a card, likelier from behind and from an aggressive player.
+func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 	knock_down(victim, "fall")
 	victim.touch_cooldown = 0.0
 	by.touch_cooldown = 1.0  # one foul per slide: the slider is still on the ball for a moment
@@ -750,8 +781,89 @@ func _foul(by: Footballer, victim: Footballer) -> void:
 	if in_penalty_area(victim.position, by.team):
 		award_penalty(victim.team)
 	else:
-		flash("FOUL", 1.0)
-		play_sfx("whistle")  # free kicks not implemented yet: the fouled side keeps the ball
+		_award_restart("free kick", victim.team, victim.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
+	var odds: Array = CARD_ODDS["behind" if from_behind else "front"]
+	var r := randf() / by.skill("aggression", 0.7, 1.3)
+	if r < odds[1]:
+		book(by, true)
+	elif r < odds[0] + odds[1]:
+		book(by, false)
+
+
+## The referee shows `p` a card. A second yellow is a red: off he goes, for the rest of the
+## match (parked off the pitch, out of play).
+func book(p: Footballer, red: bool) -> void:
+	red = red or p.yellow
+	p.yellow = true
+	referee.facing = Anims.facing_from(p.position - referee.position)
+	referee.perform("rcard")
+	flash("%s CARD\n%s" % ["RED" if red else "YELLOW", p.display_name], 2.0)
+	event.emit("red card" if red else "yellow card", p.team)
+	if not red:
+		return
+	p.sent_off = true
+	p.visible = false
+	p.controlled = false
+	p.position = OFF_PITCH
+	p.velocity = Vector2.ZERO
+	p.wish = Vector2.ZERO
+	p.touch_cooldown = INF
+	if ball.holder == p:
+		ball.release()
+	for h in humans:
+		if h.controlled == p:
+			h.controlled = null
+			h.switch_lock = 0.0
+
+
+## Players of `passer`'s team in an offside position as he plays it: in the opponents'
+## half, nearer their goal line than the ball and than the second-last defender.
+func offside_players(passer: Footballer) -> Array[Footballer]:
+	var out: Array[Footballer] = []
+	var goal_x := passer.team.goal_attacked().x
+	var depths: Array[float] = []  # each defender's distance from his goal line
+	for o in opponent(passer.team).players:
+		if not o.sent_off:
+			depths.append(absf(goal_x - o.position.x))
+	depths.sort()
+	var line: float = depths[1] if depths.size() > 1 else 0.0
+	var half_way := absf(goal_x - Pitch.field_rect().get_center().x)
+	var ball_depth := absf(goal_x - ball.position.x)
+	for p in passer.team.players:
+		var d := absf(goal_x - p.position.x)
+		if p != passer and not p.sent_off and d < half_way and d < line and d < ball_depth:
+			out.append(p)
+	return out
+
+
+## On every kick in open play: who's offside for it (see _caught_offside).
+func _note_offside() -> void:
+	_offside.clear()
+	if state == State.PLAY and ball.last_touch:
+		_offside = offside_players(ball.last_touch)
+
+
+## `p` is about to play a teammate's pass or cross he was offside for: a free kick to the
+## other side where he is.
+func _caught_offside(p: Footballer) -> bool:
+	var passer := ball.last_touch
+	if not p in _offside or not ball.kick_kind in ["pass", "cross"] or passer == null or passer == p or passer.team != p.team:
+		return false
+	_offside.clear()
+	_award_restart("free kick", opponent(p.team), p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
+	flash("OFFSIDE", 1.5)
+	event.emit("offside", p.team)
+	return true
+
+
+## Keeps 12 m from the ball, on whichever side he's on, inside the lines.
+func _referee_follows() -> void:
+	if referee.busy():
+		return
+	var away_from := referee.position - ball.position
+	var target := ball.position + (away_from.normalized() if away_from.length() > 1.0 else Vector2.UP) * Pitch.m(12.0)
+	target = target.clamp(Vector2.ZERO, Pitch.field_rect().size)
+	referee.wish = ((target - referee.position) / 40.0).limit_length(1.0)
 
 
 func in_penalty_area(pos: Vector2, defending: Team) -> bool:
@@ -769,7 +881,7 @@ func award_penalty(attacking: Team) -> void:
 	flash("PENALTY!", 2.0)
 	play_sfx("long_whistle")
 	event.emit("penalty", attacking)
-	_penalty_taker = attacking.players[9]
+	_penalty_taker = attacking.taker()
 	var box_edge := goal.x - attacking.side * (BOX_DEPTH + 30.0)
 	for t in [home, away]:
 		for p in t.players:
@@ -867,7 +979,7 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 	if kind != "goal kick":
 		var best_d := INF
 		for p in team.players:
-			if p.role != "G" and p.position.distance_to(spot) < best_d:
+			if p.role != "G" and not p.sent_off and not p.busy() and p.position.distance_to(spot) < best_d:
 				best_d = p.position.distance_to(spot)
 				taker = p
 	_restart_taker = taker
@@ -876,7 +988,7 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 	# square to the line (diagonal at a corner), with the ball just inside the pitch
 	var to_centre := Pitch.field_rect().get_center() - spot
 	var into_pitch := Vector2(0.0, signf(to_centre.y))
-	if kind == "goal kick":
+	if kind in ["goal kick", "free kick"]:
 		into_pitch = Vector2(team.side, 0.0)
 	elif kind == "corner":
 		into_pitch = Vector2(signf(to_centre.x), signf(to_centre.y)).normalized()
@@ -889,6 +1001,9 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 	ball.take(taker)
 	ball.in_hands = kind == "throw-in"  # the throw-in animation has it in the hands
 	_keep_opponents_back()
+	if kind == "free kick":
+		referee.facing = Anims.facing_from(Vector2(team.side, 0.0))
+		referee.perform("rpoint")
 
 
 ## Opponents stay 9.15 m from the ball until it's taken, and out of the penalty area
@@ -931,19 +1046,22 @@ func _restart(delta: float) -> void:
 		return
 	var h := human_for(taker.team)
 	var aim := Vector2.ZERO
+	var goal := taker.team.goal_attacked()
+	var shoot := taker.position.distance_to(goal) < FREE_KICK_RANGE  # the AI's call at a free kick
 	if h and not autoplay:
 		aim = h.stick()
 		if aim != Vector2.ZERO:
 			taker.facing = Anims.facing_from(aim)
 		var go := Input.is_action_just_pressed(h.action("pass")) or Input.is_action_just_pressed(h.action("shoot"))
-		if not go and _state_left > -6.0:
+		if go:
+			shoot = Input.is_action_just_pressed(h.action("shoot"))
+		elif _state_left > -6.0:
 			return
 	if _restart_kind == "throw-in" and aim != Vector2.ZERO:
 		var into := Vector2(0.0, signf(Pitch.field_rect().get_center().y - taker.position.y))
 		if aim.normalized().dot(into) < 0.3:  # a stick pointing out of play: fold it back in
 			aim = (Vector2(aim.x, 0.0).normalized() + into).normalized()
 	var mate := AI.best_pass(taker, self, aim.normalized())
-	var goal := taker.team.goal_attacked()
 	match _restart_kind:
 		"throw-in":
 			var target := mate.position + mate.velocity * 0.3 if mate else taker.position + (aim if aim != Vector2.ZERO else (goal - taker.position).normalized()) * 200.0
@@ -956,6 +1074,14 @@ func _restart(delta: float) -> void:
 			target = target if mate and mate.position.distance_to(taker.position) > 250.0 \
 				else taker.position + Vector2(taker.team.side * 520.0, randf_range(-150.0, 150.0))
 			taker.kick_to(target, 560.0, 230.0, "gdkick", "pass")
+		"free kick":  # a shot (freeKickAccuracy) from close enough, else played on
+			if shoot:
+				var at := _aim_shot(taker, aim.normalized()) if aim != Vector2.ZERO else goal + Vector2(0.0, randf_range(-0.7, 0.7) * GOAL_HALF_WIDTH)
+				taker.shoot(at, 0.8, "freeKickAccuracy")
+			elif mate:
+				taker.pass_to(mate)
+			else:
+				taker.kick_to(taker.position + (goal - taker.position).normalized() * 450.0, 480.0, 200.0, "kick", "pass")
 	_restart_taken = true  # play on once the ball has left the taker (see above)
 
 

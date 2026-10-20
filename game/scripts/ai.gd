@@ -12,6 +12,8 @@ const KEEPER_HOLD := 0.8
 
 
 static func think(p: Footballer, m: Match, delta: float) -> void:
+	if p.sent_off:
+		return
 	p.think_timer = maxf(0.0, p.think_timer - delta)
 	if p.role == "G":
 		_keeper(p, m)
@@ -25,6 +27,7 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 				lead = m.ball_target()
 			p.wish = ((lead - p.position) / 10.0).limit_length(1.0)
 			_maybe_body_check(p, m)
+			_maybe_slide(p, m)
 		else:
 			p.ai_state = "defend"
 			_hold_position(p, m, false)
@@ -69,6 +72,17 @@ static func _maybe_body_check(p: Footballer, m: Match) -> void:
 	if p.skill("strength", 0.0, 1.0) > h.skill("strength", 0.0, 1.0) and randf() < 0.02:
 		p.facing = Anims.facing_from(h.position - p.position)
 		m.body_check(p)
+
+
+## A chaser right on the dribbler sometimes goes to ground: the more aggressive, the more
+## often (from behind it's a foul).
+static func _maybe_slide(p: Footballer, m: Match) -> void:
+	var h := m.ball.holder
+	if h == null or h.team == p.team or p.busy() or p.position.distance_to(h.position) > 40.0:
+		return
+	if randf() < p.skill("aggression", 0.002, 0.012):
+		p.facing = Anims.facing_from(m.ball.position - p.position)
+		p.slide()
 
 
 static func _hold_position(p: Footballer, m: Match, attacking: bool) -> void:

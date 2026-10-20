@@ -28,6 +28,7 @@ godot --headless --path game -s res://tests/teams_test.gd                       
 godot --headless --path game -s res://tests/ratings_test.gd                      # ratings: pace, finishing, keepers, tackling
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
+godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -52,6 +53,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | Space / X as a ball in the air comes to you | head or volley it: Space at goal (aim with the stick), X to a teammate. Pressing nothing, your player does what the AI would (see Rules) |
 | X from out wide in the last third | to a teammate in (or running into) the box: a cross, at head height |
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick; a throw-in always goes into the field) |
+| Space / X at a free kick | Space: shoot (aim with the stick, freeKickAccuracy), X: pass |
 | Space at full time | back to the title screen |
 | F1 | animation viewer |
 | **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass, Right Ctrl switch. P1 switches with Q |
@@ -154,6 +156,8 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | turning and getting going | agility | acceleration 0.85x → 1.15x (on top of acceleration) |
 | shoulder to shoulder | strength | steal rate x0.8 → 1.2 (against the holder's); wins a header both go up for; Body Check odds |
 | skill moves | dribbling vs defensiveAwareness, ballControl | nutmeg through 21% → 90% (even: 50%); rainbow clean 50% → 100%; AI dribblers with a man right in front try one 5% → 30% of decisions |
+| going to ground, getting booked | aggression | AI chaser on the dribbler slides 0.2% → 1.2% of frames; card odds 0.7x → 1.3x |
+| free kicks | freeKickAccuracy | up to 55 px off → 6 px |
 | getting tired | stamina | fatigue per second running 0.012 → 0.0045 (see Rules) |
 | staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
 
@@ -213,8 +217,21 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 - Posts and crossbar: off the outside of a post or the front of the bar the ball comes back
   out; off the inside of a post it goes in; off the underside of the bar down and in half
   the time; off the top it loops over.
-- A slide tackle wins the ball, unless it comes from behind: that's a foul. A foul in the
-  box gives a penalty (keeper guesses a side and dives); elsewhere the fouled side keeps the ball.
+- Tackling: standing next to the dribbler with your feet on the ball wins it at a rate set by
+  standingTackle and strength against his ballControl and strength. A slide (Space without the
+  ball; AI chasers on the dribbler slide too, more often the more aggressive they are) wins it
+  outright if slidingTackle comes off. A missed slide takes the man 40% of the time, and one
+  from behind always does: a foul. A foul in the box gives a penalty (keeper guesses a side
+  and dives); elsewhere a free kick where it happened. Within 30 m of goal the AI shoots it
+  (freeKickAccuracy); you choose: Space shoots (aim with the stick), X passes.
+- Cards: a foul from behind is booked 45% of the time and is a straight red 10%; other fouls
+  12% yellow. Aggression scales both (0.7x → 1.3x). A second yellow is a red: the player
+  leaves the pitch for the rest of the match. A body check (Chaos) is never a foul.
+- Offside: a player in the opponents' half, nearer their goal line than the ball and than the
+  second-last defender when a teammate passes or crosses it, is offside if he plays it: a
+  free kick to the defenders where he is. Not judged on restarts.
+- The referee (in black) follows play about 12 m from the ball, points to free kicks and
+  shows the cards.
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots
   heading past them.
 - `tests/demo.gd` stages three situations (Brugge attack, Anderlecht attack, foul in the box)
@@ -246,9 +263,9 @@ sometimes spends 20 on a Body Check.
 
 ## Known simplifications
 
-- No free kicks, cards or offside; no headers or volleys from crosses (a corner just drops
-  into the box).
-- No player-vs-player collision; goal posts and net don't stop the ball. Sprites are
+- No defensive wall at free kicks, no advantage rule; the AI is never told about offside
+  (its forwards hold their positions, so it's rarely caught).
+- No player-vs-player collision; the net doesn't stop the ball. Sprites are
   always drawn over the 3D scene, so a post never hides a player.
 - Sound effects are matched to their use by their spectra, not by ear (`SFX` in `main.gd`:
   kicks, bounce, whistles, crowd "ooh" and roar). No commentary yet: the speech banks
