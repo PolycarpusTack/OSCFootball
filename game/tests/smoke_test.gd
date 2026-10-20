@@ -149,12 +149,12 @@ func _initialize() -> void:
 		await physics_frame
 
 	# half time: ends change, Brugge kick off; full time stops the match
-	m.clock = m.HALF_SECONDS - 0.2
+	m.clock = m.half_seconds - 0.2
 	var side_before: int = m.home.side
 	await create_timer(5.5).timeout
 	print("half time: half %d, Brugge side %d -> %d, state %d" % [m.half, side_before, m.home.side, m.state])
 	ok = ok and m.half == 2 and m.home.side == -side_before and m.state == 1
-	m.clock = m.HALF_SECONDS * 2.0 - 0.2
+	m.clock = m.half_seconds * 2.0 - 0.2
 	await create_timer(0.5).timeout
 	print("full time: state %d, events %s" % [m.state, events.slice(-2)])
 	ok = ok and m.state == 6 and events.has("full time:BRU")

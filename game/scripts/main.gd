@@ -41,7 +41,6 @@ const SFX := {
 	"kick": "slot002", "pass": "slot012", "bounce": "slot001",
 	"whistle": "slot030", "long_whistle": "slot029", "roar": "slot021", "ooh": "slot005",
 }
-const HALF_SECONDS := 180.0  # real seconds per half; the match clock shows 45 minutes (ASSUMED default length)
 const THUNDER_HOLD := 0.8  # seconds to hold shoot for a Thunder Strike (needs a full bar)
 
 ## Chaos Football: energy bars and super-shots. Classic Football: plain FIFA 96 rules,
@@ -50,6 +49,11 @@ static var chaos := true
 static var players := 1  # people playing: 1 (vs the AI) or 2 (home vs away); title screen
 static var home_club := "Club Brugge"  # player 1's club (data/league.json); team select screen
 static var away_club := "Anderlecht"  # the AI's or player 2's club
+# match options screen (match_options.gd); kept between matches like the above
+static var half_minutes := 3  # real minutes per half; the clock shows 45 match minutes (ASSUMED default length)
+static var offside_on := true
+static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
+static var cards_on := true
 
 var ball: Ball
 var home: Team
@@ -59,6 +63,7 @@ var referee: Footballer  # follows play, points to free kicks and shows the card
 var state := State.KICKOFF
 var clock := 0.0  # seconds of play (stopped during goals, restarts, breaks)
 var half := 1
+var half_seconds := half_minutes * 60.0  # real seconds of play per half
 var autoplay := false  # AI plays both sides (demo / attract mode)
 
 var _state_left := 0.0
@@ -255,7 +260,7 @@ func _physics_process(delta: float) -> void:
 						p.wish = Vector2.ZERO
 		State.PLAY:
 			clock += delta
-			if clock >= HALF_SECONDS * half:
+			if clock >= half_seconds * half:
 				_end_half()
 				return
 			if not autoplay:
@@ -516,12 +521,12 @@ func _resolve_possession(delta: float) -> void:
 				event.emit("dodge", holder.team)
 			continue
 		var from_behind: bool = Anims.FACING_VECTORS[o.facing].dot(Anims.FACING_VECTORS[holder.facing]) > 0.5
-		if o.sliding() and from_behind:
+		if o.sliding() and from_behind and fouls_on:
 			_foul(o, holder)
 			return
 		if o.sliding() and randf() > o.skill("slidingTackle", 0.55, 1.0):
 			o.touch_cooldown = 0.6  # missed: one try per slide
-			if randf() < FOUL_MISS:  # took the man instead
+			if fouls_on and randf() < FOUL_MISS:  # took the man instead
 				_foul(o, holder, false)
 				return
 			continue
@@ -811,6 +816,8 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 		award_penalty(victim.team)
 	else:
 		_award_restart("free kick", victim.team, victim.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
+	if not cards_on:
+		return
 	var odds: Array = CARD_ODDS["behind" if from_behind else "front"]
 	var r := randf() / by.skill("aggression", 0.7, 1.3)
 	if r < odds[1]:
@@ -868,7 +875,7 @@ func offside_players(passer: Footballer) -> Array[Footballer]:
 ## On every kick in open play: who's offside for it (see _caught_offside).
 func _note_offside() -> void:
 	_offside.clear()
-	if state == State.PLAY and ball.last_touch:
+	if offside_on and state == State.PLAY and ball.last_touch:
 		_offside = offside_players(ball.last_touch)
 
 
@@ -1315,7 +1322,7 @@ func _crest(t: Team) -> TextureRect:
 
 
 func _update_hud() -> void:
-	var minutes := clock / HALF_SECONDS * 45.0  # match time: 45 minutes a half
+	var minutes := clock / half_seconds * 45.0  # match time: 45 minutes a half
 	_score_label.text = " %s  %d - %d  %s " % [home.short, home.score, away.score, away.short]
 	_clock_label.text = "    %02d:%02d " % [int(minutes), int(fmod(minutes, 1.0) * 60.0)]
 	for i in humans.size():

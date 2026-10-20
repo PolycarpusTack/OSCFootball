@@ -13,7 +13,11 @@ the title music, Space to kick off. Left/Right on the title screen picks **Chaos
 (energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
 same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players.
 Gamepads work on the title screen too (d-pad to choose, A/B/Start to go on). Then team select:
-W/S picks player 1's club, ↑/↓ the opponent's, Space kicks off, Esc goes back.
+W/S picks player 1's club, ↑/↓ the opponent's, Space goes on, Esc goes back. Then the match
+options: ↑/↓ picks a row, ←/→ changes it, Space kicks off, Esc goes back. Mode (Chaos or
+Classic, the same setting as on the title screen), half length (2, 3, 5, 10, 20 or 45 real
+minutes; the clock always shows 45 match minutes a half), and offside, fouls and cards on or
+off. The choices are kept for the next match until the game is closed.
 
 ## Run
 
@@ -30,6 +34,7 @@ godot --headless --path game -s res://tests/controls_test.gd                    
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
+godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -201,7 +206,8 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 
 ## Rules as implemented
 
-- Two halves of `HALF_SECONDS` (180 s of play; the clock shows match minutes). Ends change
+- Two halves of `half_seconds` (the match options' half length, 3 minutes of play by default;
+  the clock shows match minutes). Ends change
   at half time; at full time the winners celebrate.
 - Ball over a touchline: throw-in to the other side, thrown from the hands (the ball
   stays hidden in them until the release) and always into the field. Over a goal line: corner if the
@@ -232,6 +238,8 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 - Offside: a player in the opponents' half, nearer their goal line than the ball and than the
   second-last defender when a teammate passes or crosses it, is offside if he plays it: a
   free kick to the defenders where he is. Not judged on restarts.
+- With fouls off in the match options a slide never takes the man (no free kicks or penalties
+  from fouls); with cards off fouls are never booked; with offside off nobody is offside.
 - The referee (in black) follows play about 12 m from the ball, points to free kicks and
   shows the cards.
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots
