@@ -66,6 +66,7 @@ godot --headless --path game -s res://tests/classic_test.gd                     
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
 godot --headless --path game -s res://tests/ratings_test.gd                      # ratings: pace, finishing, keepers, tackling
+godot --headless --path game -s res://tests/engine_test.gd                       # AI: shooting range, decisions, meeting passes, press, cover
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
