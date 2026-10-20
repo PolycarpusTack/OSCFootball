@@ -8,6 +8,8 @@ const RUN_SPEED := 170.0
 const ACCEL := 900.0
 const REACH := 14.0
 const KICK_CONTACT := 0.15  # seconds into a kick animation the foot meets the ball
+const THROW_RELEASE := 0.67  # the throw-in animation's hands are empty from tick 21 (frame 4)
+const HEAD_HEIGHT := 36.0  # pitch pixels: where a throw-in leaves the hands
 const MARKER := Color(1.0, 0.95, 0.3)
 
 var team: Team
@@ -18,6 +20,7 @@ var portrait: Texture2D  # pixel portrait for the HUD, or null
 var stats := {}  # EA SPORTS FC ratings by name (data/squads.json), empty without a squad
 var skin := Color.TRANSPARENT  # from the player's photo; transparent: FIFA 96's default
 var hair := Color.TRANSPARENT
+var pass_marker := Color.TRANSPARENT  # set while a human's pass would go to this player
 var home := Vector2.ZERO  # formation spot as a pitch fraction (see Team.FORMATION)
 var ball: Ball
 var controlled := false
@@ -123,6 +126,9 @@ func _draw_marks() -> void:
 	_marks.draw_circle(Vector2.ZERO, 9.0, Color(0, 0, 0, 0.3))
 	if controlled:
 		_marks.draw_arc(Vector2.ZERO, 12.0, 0.0, TAU, 24, marker, 2.0)
+	if pass_marker.a > 0.0:  # a small arrow over the head (undo the shadow's squash first)
+		_marks.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		_marks.draw_colored_polygon(PackedVector2Array([Vector2(-5, -54), Vector2(5, -54), Vector2(0, -47)]), pass_marker)
 
 
 ## Kick the ball toward `target` (pitch position) with the given speed and lift.
@@ -135,6 +141,18 @@ func kick_to(target: Vector2, speed: float, lift: float, anim := "shoot", kind :
 
 ## Shoot at `target`: finishing (longShots from beyond 20 m, or `stat`) decides how far
 ## off it goes, shotPower how hard.
+## Throw-in: the animation shows the ball in the hands (the match hides the real one)
+## until it lets go over the head.
+func throw_in(target: Vector2, speed: float) -> void:
+	var thrown := await _wind_up(target, "throwin", THROW_RELEASE)
+	ball.in_hands = false
+	if not thrown:
+		return
+	ball.z = HEAD_HEIGHT
+	ball.kick((target - ball.position).normalized() * speed, 110.0)
+	ball.kick_kind = "pass"
+
+
 func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 	if stat == "":
 		stat = "longShots" if position.distance_to(target) > 20.0 * Pitch.PX_PER_M else "finishing"

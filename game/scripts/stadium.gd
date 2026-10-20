@@ -141,12 +141,13 @@ func _build_stands() -> void:
 	dark.albedo_color = Color("1c1c22")
 	var s := STAND_DIST
 	var corner := 24.0  # stands run on past the corners so no sky shows through
-	# [start, direction along the stand, length, roofed]: the near (camera) side has no roof
+	# [start, direction along the stand, length, roofed]. No stand on the near (camera) side:
+	# the camera is always either in front of it (it's behind the camera) or behind it, when
+	# play is near that touchline, and then it would hide the pitch.
 	var stands := [
 		[Vector3(-s - corner, 0, -s), Vector3.RIGHT, _length + 2 * (s + corner), true],
 		[Vector3(_length + s, 0, -s), Vector3.BACK, _width + 2 * s, true],
 		[Vector3(-s, 0, _width + s), Vector3.FORWARD, _width + 2 * s, true],
-		[Vector3(_length + s + corner, 0, _width + s), Vector3.LEFT, _length + 2 * (s + corner), false],
 	]
 	for st in stands:
 		var start: Vector3 = st[0]

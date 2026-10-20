@@ -17,10 +17,13 @@ func _initialize() -> void:
 
 	# give Brugge the ball near the Anderlecht box and shoot
 	var p = m.home.players[9]  # untyped: -s scripts cannot see the Anims autoload at compile time
+	p.stats = {"finishing": 95, "shotPower": 90}  # ratings add aim error: this shot must go in
 	p.position = Vector2(Pitch.field_rect().size.x - 250.0, Pitch.field_rect().size.y / 2.0)
 	m.ball.stop_at(p.feet_front())
 	m.ball.take(p)
-	m.away.keeper().position.y -= 200.0  # out of the way, so the shot must count
+	m.away.keeper().position = Pitch.field_rect().get_center() + Vector2(0, -250)  # far off his line: the shot must count
+	for o in m.away.players.slice(1):  # and no defender in the lane
+		o.position.x = Pitch.field_rect().size.x * 0.25
 	await physics_frame
 	Input.action_press("move_right")
 	await create_timer(0.3).timeout
@@ -99,6 +102,7 @@ func _initialize() -> void:
 			await physics_frame
 		var keeping = m.home if side == "BRU" else m.away
 		var k = keeping.keeper()
+		k.stats = {"gkKicking": 95}  # a poor kicker's pass can go astray to anyone
 		var striker = (m.away if side == "BRU" else m.home).players[9]
 		k.position = keeping.goal_defended() + Vector2(keeping.side * 40.0, 0)
 		m.ball.stop_at(k.feet_front())

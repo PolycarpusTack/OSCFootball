@@ -126,6 +126,16 @@ static func dive_for_shot(p: Footballer, m: Match) -> Vector2:
 	return Vector2(0.0, signf(miss))
 
 
+## An opponent standing in the line of a pass from `p` to `mate`?
+static func _lane_blocked(p: Footballer, mate: Footballer, m: Match) -> bool:
+	var line := mate.position - p.position
+	for o in m.opponent(p.team).players:
+		var along := clampf((o.position - p.position).dot(line) / line.length_squared(), 0.0, 1.0)
+		if along > 0.1 and along < 0.95 and o.position.distance_to(p.position + line * along) < 22.0:
+			return true
+	return false
+
+
 ## Best teammate to pass to. With a non-zero `aim`, only mates within 60 degrees
 ## of it count (used for the human pass button).
 static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
@@ -144,6 +154,8 @@ static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 		var progress := p.position.distance_to(goal) - mate.position.distance_to(goal)
 		var space := minf(m.nearest_opponent_distance(mate), 120.0)
 		var score := progress * 0.6 + space - dist * 0.15
+		if _lane_blocked(p, mate, m):
+			score -= 250.0
 		if score > best_score:
 			best_score = score
 			best = mate

@@ -24,6 +24,7 @@ godot --headless --path game -s res://tests/classic_test.gd                     
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
 godot --headless --path game -s res://tests/ratings_test.gd                      # ratings: pace, finishing, keepers, tackling
+godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -39,12 +40,13 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | ← → then Space | **Banana Shot** (50): bends hard toward the far post |
 | hold Space 0.8 s, full bar | **Thunder Strike** (100): bicycle kick, slow-mo, lightning ball that nobody can hold |
 | Up/Down while taking a penalty | choose the corner |
-| X or K | pass to the best teammate in the direction you're pushing |
-| X / Space at a throw-in, corner or goal kick | take it (aim with the stick) |
+| X or K | pass to the best teammate in the direction you're pushing (the one a triangle marks over his head; a pass lane with an opponent in it counts against a teammate) |
+| Q | switch to the teammate nearest the ball (kept for a second before the automatic switching takes over again) |
+| X / Space at a throw-in, corner or goal kick | take it (aim with the stick; a throw-in always goes into the field) |
 | Space at full time | back to the title screen |
 | F1 | animation viewer |
-| **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass |
-| **Gamepad** | left stick or d-pad: move, B: shoot (hold for power) / slide, A: pass. Alone: any pad is player 1's. Two players: one pad goes to player 2 (player 1 keeps the keyboard), two pads are player 1's and player 2's in connection order. Plugging in or out rebinds |
+| **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass, Right Ctrl switch. P1 switches with Q |
+| **Gamepad** | left stick or d-pad: move, B: shoot (hold for power) / slide, A: pass, X or LB: switch. Alone: any pad is player 1's. Two players: one pad goes to player 2 (player 1 keeps the keyboard), two pads are player 1's and player 2's in connection order. Plugging in or out rebinds |
 | F3 | debug overlay: each player's AI decision (chase, defend, support, dribble, pass, shoot, keeper states), BUSY while an animation locks them, touch cooldown; ball holder and last touch; frame rate, match state, clock, ball height/speed, energy |
 
 ## Layout
@@ -145,7 +147,8 @@ tools/.venv/bin/python -I tools/build_godot_assets.py extracted decoded game
 
 - Two halves of `HALF_SECONDS` (180 s of play; the clock shows match minutes). Ends change
   at half time; at full time the winners celebrate.
-- Ball over a touchline: throw-in to the other side. Over a goal line: corner if the
+- Ball over a touchline: throw-in to the other side, thrown from the hands (the ball
+  stays hidden in them until the release) and always into the field. Over a goal line: corner if the
   defenders touched it last, otherwise a goal kick (taken by the keeper). Opponents stay
   9.15 m back until it's taken, and out of the penalty area at a goal kick; the AI takes
   it after a short pause.
@@ -177,3 +180,4 @@ wings; ↑↗→ is accepted too. The AI spends its bar on shots inside shooting
   are decoded but which phrase is which isn't known.
 - Match length, camera framing and the AI's shot accuracy are guesses, not FIFA 96's values.
 - Frame timing assumes a 30 ticks/s clock (`TICKS_PER_SECOND` in `anim_library.gd`).
+# OSCFootball

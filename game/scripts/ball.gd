@@ -17,6 +17,7 @@ var z := 0.0
 var vz := 0.0
 var bounds := Rect2()  # set by the match; the ball bounces off its edges
 var holder: Footballer = null  # player dribbling it, if any
+var in_hands := false  # not drawn: a throw-in animation draws the ball in the thrower's hands
 var last_touch: Footballer = null
 var kick_kind := ""  # "pass", "shot" or a super's name, for the last kick
 var power := ""  # active super ("fireball", "banana", "thunder") while it's in flight
@@ -53,6 +54,8 @@ func place(to_screen: Callable) -> void:
 	_sprite.scale = Vector2.ONE * at.z
 	_sprite.z_index = clampi(int(ground.y) + 1, -2000, 2000)
 	_fx.z_index = _sprite.z_index - 1
+	_sprite.visible = not in_hands
+	_fx.visible = not in_hands
 	_fx.queue_redraw()
 
 
@@ -93,6 +96,7 @@ func release() -> void:
 
 func stop_at(p: Vector2) -> void:
 	holder = null
+	in_hands = false
 	position = p
 	velocity = Vector2.ZERO
 	z = 0.0

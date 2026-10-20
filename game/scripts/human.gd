@@ -4,21 +4,21 @@ extends RefCounted
 ## for player 1, the same with "p2_" for player 2), the footballer they control and
 ## their shot / combo state. Controls are bound by bind_inputs().
 
-const ACTIONS := ["move_up", "move_down", "move_left", "move_right", "shoot", "pass"]
+const ACTIONS := ["move_up", "move_down", "move_left", "move_right", "shoot", "pass", "switch"]
 const KEYS := [
 	{  # player 1; arrows too when playing alone
 		"move_up": [KEY_W], "move_down": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
-		"shoot": [KEY_SPACE], "pass": [KEY_X, KEY_K],
+		"shoot": [KEY_SPACE], "pass": [KEY_X, KEY_K], "switch": [KEY_Q],
 	},
 	{  # player 2: arrows, Enter, Right Shift
 		"move_up": [KEY_UP], "move_down": [KEY_DOWN], "move_left": [KEY_LEFT], "move_right": [KEY_RIGHT],
-		"shoot": [KEY_ENTER, KEY_KP_ENTER], "pass": [KEY_SHIFT],
+		"shoot": [KEY_ENTER, KEY_KP_ENTER], "pass": [KEY_SHIFT], "switch": [KEY_CTRL],  # the right-hand Shift and Ctrl
 	},
 ]
 const PAD_BUTTONS := {
 	"move_up": [JOY_BUTTON_DPAD_UP], "move_down": [JOY_BUTTON_DPAD_DOWN],
 	"move_left": [JOY_BUTTON_DPAD_LEFT], "move_right": [JOY_BUTTON_DPAD_RIGHT],
-	"shoot": [JOY_BUTTON_B], "pass": [JOY_BUTTON_A],
+	"shoot": [JOY_BUTTON_B], "pass": [JOY_BUTTON_A], "switch": [JOY_BUTTON_X, JOY_BUTTON_LEFT_SHOULDER],
 }
 const PAD_STICK := {  # left stick: [axis, direction]
 	"move_up": [JOY_AXIS_LEFT_Y, -1.0], "move_down": [JOY_AXIS_LEFT_Y, 1.0],
@@ -33,6 +33,8 @@ var combo := ComboInput.new()
 var charging := false
 var charge_time := 0.0
 var pending_combo := ""
+var switch_lock := 0.0  # seconds the automatic switching leaves a manual choice alone
+var pass_target: Footballer  # who a pass would go to now (marked on the pitch)
 
 
 func _init(t: Team, i: int) -> void:
@@ -76,7 +78,7 @@ static func bind_inputs(players: int) -> void:
 			for k in keys:
 				var e := InputEventKey.new()
 				e.physical_keycode = k
-				if k == KEY_SHIFT:
+				if k in [KEY_SHIFT, KEY_CTRL]:
 					e.location = KEY_LOCATION_RIGHT
 				InputMap.action_add_event(a, e)
 			if device == -2:

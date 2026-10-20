@@ -48,6 +48,7 @@ var _state_left := 0.0
 var _penalty_taker: Footballer
 var _restart_kind := ""  # "throw-in", "corner" or "goal kick" while state is RESTART
 var _restart_taker: Footballer
+var _restart_taken := false  # the taker has started the throw / kick; play on once it's left them
 var _banner_left := 0.0
 var stadium := Stadium.new()
 var _crowd := AudioStreamPlayer.new()
@@ -247,8 +248,17 @@ func _switch_control() -> void:
 	for h in humans:
 		var current := h.controlled
 		var best: Footballer
+		h.switch_lock = maxf(0.0, h.switch_lock - get_physics_process_delta_time())
 		if ball.holder and ball.holder.team == h.team:
 			best = ball.holder
+		elif Input.is_action_just_pressed(h.action("switch")):  # manual: the next-nearest teammate to the ball
+			for p in h.team.players:
+				if p != current and p.role != "G" and (best == null
+						or p.position.distance_to(ball.position) < best.position.distance_to(ball.position)):
+					best = p
+			h.switch_lock = 1.0
+		elif h.switch_lock > 0.0:
+			best = current
 		else:
 			best = chaser(h.team)
 			if current and current.role != "G" and not ball.holder == current \
@@ -270,6 +280,7 @@ func _human_input(h: Human, p: Footballer) -> void:
 	var now := clock
 	h.combo.feed(ComboInput.direction(p.wish, p.team.side), now)
 	var aim: Vector2 = Anims.FACING_VECTORS[p.facing] if p.wish == Vector2.ZERO else p.wish.normalized()
+	_mark_pass_target(h, AI.best_pass(p, self, aim) if p.has_ball() else null)
 	if h.charging and not p.has_ball():
 		h.charging = false
 		p.charge = 0.0
@@ -305,6 +316,16 @@ func _human_input(h: Human, p: Footballer) -> void:
 			p.kick_to(p.position + aim * 450.0, 520.0, 300.0, "kick")
 		else:
 			p.kick_to(p.position + aim * 250.0, 380.0, 20.0, "kick")
+
+
+func _mark_pass_target(h: Human, target: Footballer) -> void:
+	if h.pass_target == target:
+		return
+	if h.pass_target:
+		h.pass_target.pass_marker = Color.TRANSPARENT
+	h.pass_target = target
+	if target:
+		target.pass_marker = h.marker()
 
 
 ## Spend energy on a super-shot by `p`. False (and nothing happens) if the bar is too low.
@@ -566,6 +587,7 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 				best_d = p.position.distance_to(spot)
 				taker = p
 	_restart_taker = taker
+	_restart_taken = false
 	taker.ai_state = "take " + kind
 	# square to the line (diagonal at a corner), with the ball just inside the pitch
 	var to_centre := Pitch.field_rect().get_center() - spot
@@ -581,6 +603,7 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 	taker.facing = Anims.facing_from(into_pitch)
 	ball.stop_at(spot)
 	ball.take(taker)
+	ball.in_hands = kind == "throw-in"  # the throw-in animation has it in the hands
 	_keep_opponents_back()
 
 
@@ -611,6 +634,15 @@ func _restart(delta: float) -> void:
 				AI.think(p, self, delta)
 	_keep_opponents_back()
 	taker.wish = Vector2.ZERO
+	if _restart_taken:
+		if ball.holder != taker:  # it's left the taker: play on, from inside the lines
+			_restart_taken = false
+			var f := Pitch.field_rect().grow(-2.0)
+			ball.position = ball.position.clamp(f.position, f.end)
+			state = State.PLAY
+		elif not taker.busy():  # the throw / kick didn't happen: take it again
+			_restart_taken = false
+		return
 	if _state_left > 0.0:
 		return
 	var h := human_for(taker.team)
@@ -622,12 +654,16 @@ func _restart(delta: float) -> void:
 		var go := Input.is_action_just_pressed(h.action("pass")) or Input.is_action_just_pressed(h.action("shoot"))
 		if not go and _state_left > -6.0:
 			return
+	if _restart_kind == "throw-in" and aim != Vector2.ZERO:
+		var into := Vector2(0.0, signf(Pitch.field_rect().get_center().y - taker.position.y))
+		if aim.normalized().dot(into) < 0.3:  # a stick pointing out of play: fold it back in
+			aim = (Vector2(aim.x, 0.0).normalized() + into).normalized()
 	var mate := AI.best_pass(taker, self, aim.normalized())
 	var goal := taker.team.goal_attacked()
 	match _restart_kind:
 		"throw-in":
 			var target := mate.position + mate.velocity * 0.3 if mate else taker.position + (aim if aim != Vector2.ZERO else (goal - taker.position).normalized()) * 200.0
-			taker.kick_to(target, clampf(taker.position.distance_to(target) * 1.4, 200.0, 380.0), 90.0, "throwin", "pass")
+			taker.throw_in(target, clampf(taker.position.distance_to(target) * 1.2, 180.0, 340.0))
 		"corner":  # cross into the box
 			var target := goal - Vector2(taker.team.side * Pitch.m(randf_range(6.0, 12.0)), Pitch.m(randf_range(-8.0, 8.0)))
 			taker.kick_to(target, taker.position.distance_to(target) * 1.3, 230.0, "kick", "pass")
@@ -636,7 +672,7 @@ func _restart(delta: float) -> void:
 			target = target if mate and mate.position.distance_to(taker.position) > 250.0 \
 				else taker.position + Vector2(taker.team.side * 520.0, randf_range(-150.0, 150.0))
 			taker.kick_to(target, 560.0, 230.0, "gdkick", "pass")
-	state = State.PLAY
+	_restart_taken = true  # play on once the ball has left the taker (see above)
 
 
 func _check_goal() -> void:
