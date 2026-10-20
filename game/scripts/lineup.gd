@@ -104,7 +104,7 @@ static func save(club: String, formation: String, sheet: Dictionary) -> void:
 static func _fill(squad: Array, formation: String, taken: Array) -> Array:
 	var used := taken.duplicate()
 	var xi: Array = []
-	for slot in Team.FORMATIONS[formation]:
+	for slot in Team.slots_of(formation):
 		var best = null
 		var best_score := -1.0
 		for e in squad:

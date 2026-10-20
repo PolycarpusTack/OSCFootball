@@ -43,8 +43,13 @@ func _team() -> Team:
 	return _teams[_team_index]
 
 
+## Players on the pitch side: eleven, or five indoors.
+func _xi() -> int:
+	return _team().players.size()
+
+
 func _rows() -> int:
-	return 11 + _team().bench.size()
+	return _xi() + _team().bench.size()
 
 
 ## The pending substitution for `slot`, or [].
@@ -86,20 +91,20 @@ func _move(step: int) -> void:
 
 func _select() -> void:
 	var t := _team()
-	if _row < 11:
+	if _row < _xi():
 		var p: Footballer = t.players[_row]
 		_picked = -1 if _picked == _row or p.sent_off or not _pending(_row).is_empty() else _row
 		if _picked >= 0:
-			_row = 11 if t.bench.size() > 0 else _row  # straight down to the bench
+			_row = _xi() if t.bench.size() > 0 else _row  # straight down to the bench
 	elif _picked >= 0:
-		if _m.request_sub(t, _picked, t.bench[_row - 11]):
+		if _m.request_sub(t, _picked, t.bench[_row - _xi()]):
 			_row = _picked
 		_picked = -1
 	_refresh()
 
 
 func _cancel() -> void:
-	if _row < 11:
+	if _row < _xi():
 		_team().pending.erase(_pending(_row))
 	_picked = -1
 	_refresh()
@@ -158,17 +163,17 @@ func _refresh() -> void:
 			["CONDITION", 440, 0], ["RATING", 620, 60]]:
 		_label(c[0], 13, GREY, Vector2(x + c[1], head), c[2], HORIZONTAL_ALIGNMENT_CENTER if c[2] > 0 else HORIZONTAL_ALIGNMENT_LEFT)
 	for r in _rows():
-		var y := TOP + r * ROW + (8.0 if r >= 11 else 0.0)
-		if r == 11:
+		var y := TOP + r * ROW + (8.0 if r >= _xi() else 0.0)
+		if r == _xi():
 			_rect(Vector2(x - 70, y - 5), Vector2(940, 1), Color(YELLOW, 0.5))
 		if r == _row:
 			_rect(Vector2(x - 70, y), Vector2(940, ROW), Color(YELLOW, 0.25))
 		if r == _picked:
 			_rect(Vector2(x - 70, y), Vector2(940, ROW), Color(0.3, 0.8, 1, 0.35))
-		if r < 11:
+		if r < _xi():
 			_pitch_row(t.players[r], r, x, y)
 		else:
-			_bench_row(t.bench[r - 11], x, y)
+			_bench_row(t.bench[r - _xi()], x, y)
 	var hint := "↑/↓ choose   SPACE player off, then a sub on   DEL call it off   ESC back"
 	if _teams.size() > 1:
 		hint += "   TAB other side"
@@ -177,7 +182,7 @@ func _refresh() -> void:
 
 func _pitch_row(p: Footballer, slot: int, x: float, y: float) -> void:
 	var colour := GREY if p.sent_off else Color.WHITE
-	_label(Team.FORMATIONS[_team().formation][slot].pos, 14, YELLOW, Vector2(x - 64, y))
+	_label(Team.slots_of(_team().formation)[slot].pos, 14, YELLOW, Vector2(x - 64, y))
 	_player(p.entry, p.number, p.display_name, x, y, colour)
 	if p.sent_off:
 		_label("SENT OFF", 14, Color(1, 0.4, 0.4), Vector2(x + 440, y))

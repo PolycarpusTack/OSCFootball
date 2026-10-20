@@ -40,6 +40,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 | 3.1 | Cup (straight knockout, 8 or 16 clubs) | Bracket screen; uses 1.3; the other matches are simulated | M |
 | 3.2 | League season (Jupiler Pro League, 18 clubs) | Fixtures, simulated results, table, top scorers, cards carried over; starts from `league.json` | L |
 | 3.3 | Save / load for cup and season | One save slot per mode | M |
+| 3.4 | Indoor, 5 a side (IDEAS_TO_IMPLEMENT I.1) | **Done** (`indoor_test`): arena with boards, no throw-ins / corners / offside, 1-2-1. Still open: own arena art (floor, boards, low crowd), smaller indoor goals, rolling subs | M |
 
 ## Phase 4: atmosphere (own content first, see the replacement list)
 

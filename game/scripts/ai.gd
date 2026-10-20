@@ -198,7 +198,7 @@ static func _marking(p: Footballer, m: Match) -> bool:
 ## and far post, the far-side winger to the penalty spot. INF when he doesn't.
 static func _box_run(p: Footballer, m: Match) -> Vector2:
 	var crosser := m.ball.holder
-	if not m.wide_within(crosser, Pitch.LENGTH_M / 2.0):  # a winger with it in their half: get into the box early
+	if not m.wide_within(crosser, Pitch.length_m() / 2.0):  # a winger with it in their half: get into the box early
 		return Vector2.INF
 	var goal := p.team.goal_attacked()
 	var near := signf(crosser.position.y - goal.y)  # the side the cross comes from
@@ -215,7 +215,7 @@ static func _box_run(p: Footballer, m: Match) -> Vector2:
 ## `target` pulled back level with the offside line, so an attacker waiting for the ball
 ## doesn't stand offside: positioning decides how tight to it (0.9 m short, 0.1 m at 95).
 static func _onside(p: Footballer, m: Match, target: Vector2) -> Vector2:
-	if not Match.offside_on:
+	if not Match.offside_rule():
 		return target
 	var goal_x := p.team.goal_attacked().x
 	var depth := m.onside_depth(p.team) + Pitch.m(p.skill("positioning", 0.9, 0.1))
@@ -330,9 +330,9 @@ static func decisions(p: Footballer) -> float:
 	return (p.skill("vision", 0.0, 1.0) + p.skill("composure", 0.0, 1.0) + p.skill("reactions", 0.0, 1.0)) / 3.0
 
 
-## How far out he'll shoot (pixels): longShots decides.
+## How far out he'll shoot (pixels): longShots decides; never from his own half (indoors).
 static func shooting_range(p: Footballer) -> float:
-	return Pitch.m(p.skill("longShots", RANGE_M[0], RANGE_M[1]))
+	return minf(Pitch.m(p.skill("longShots", RANGE_M[0], RANGE_M[1])), Pitch.m(Pitch.length_m() / 2.0 - 2.0))
 
 
 ## [option, worth, target] for everything `p` could do with the ball now.
@@ -359,7 +359,7 @@ static func options(p: Footballer, m: Match) -> Array:
 			out.append(["cross", 55.0 + minf(m.nearest_opponent_distance(target), 120.0) / 6.0, target])
 	var space := minf(m.nearest_opponent_distance(p), 150.0)
 	var dribble := 20.0 + space / 5.0 - (25.0 if pressed else 0.0)
-	if _winger(p) and m.wide_within(p, Pitch.LENGTH_M / 2.0):
+	if _winger(p) and m.wide_within(p, Pitch.length_m() / 2.0):
 		dribble += 15.0  # down the line, to cross
 	out.append(["dribble", dribble, null])
 	var o := m.opponent_ahead(p)
@@ -389,7 +389,7 @@ static func _dribble(p: Footballer, m: Match) -> void:
 	var goal := p.team.goal_attacked()
 	var dir := (goal - p.position).normalized()
 	dir.y += (Pitch.field_rect().size.y / 2.0 - p.position.y) / 900.0
-	if _winger(p) and absf(p.position.y - goal.y) > Match.BOX_HALF_WIDTH * 0.7:
+	if _winger(p) and absf(p.position.y - goal.y) > Pitch.box_half_width() * 0.7:
 		dir = Vector2(p.team.side, 0.0)
 	p.wish = swerve(p, m, dir)
 
@@ -430,7 +430,7 @@ static func _shot_target(p: Footballer, m: Match) -> Vector2:
 ## of him toward goal to run onto a ball played there (pass_to with THROUGH_SPACE); null if none.
 static func through_ball(p: Footballer, m: Match) -> Footballer:
 	var goal := p.team.goal_attacked()
-	var offside: Array = m.offside_players(p) if Match.offside_on else []
+	var offside: Array = m.offside_players(p) if Match.offside_rule() else []
 	var sight := p.skill("vision", 400.0, 560.0)
 	for mate in p.team.players:
 		if mate == p or not (mate.role == "F" or _winger(mate)) or mate in offside or mate.sent_off:
@@ -545,7 +545,7 @@ static func pass_option(p: Footballer, m: Match, aim: Vector2) -> Array:
 	var goal := p.team.goal_attacked()
 	var best: Footballer = null
 	var best_score := -INF
-	var offside: Array = m.offside_players(p) if Match.offside_on else []
+	var offside: Array = m.offside_players(p) if Match.offside_rule() else []
 	var sight := p.skill("vision", 400.0, 560.0)
 	for mate in p.team.players:
 		if mate == p or mate.role == "G":
@@ -559,7 +559,7 @@ static func pass_option(p: Footballer, m: Match, aim: Vector2) -> Array:
 		var progress := p.position.distance_to(goal) - mate.position.distance_to(goal)
 		var space := minf(m.nearest_opponent_distance(mate), 120.0)
 		var score := progress * 0.6 + space - dist * 0.15
-		if _winger(mate) and m.wide_within(mate, Pitch.LENGTH_M / 2.0) and not _winger(p):
+		if _winger(mate) and m.wide_within(mate, Pitch.length_m() / 2.0) and not _winger(p):
 			score += 60.0  # get it out wide: a winger in their half can go down the line and cross
 		if _lane_blocked(p, mate, m):
 			score -= p.skill("vision", 150.0, 350.0)

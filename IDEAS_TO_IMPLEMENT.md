@@ -66,6 +66,10 @@ text. The two string tables used below:
 the arena except into a goal; there's no throw-in, corner or offside; there's an
 `indoor_test`.
 
+**Status (2026-10-21):** steps 1-4 done (option, arena and boards, rules off, 1-2-1 / 2-2
+formations; normal 3 substitutions, not rolling). Open: 5 (own art), 6 (a wall-pass special),
+smaller goals.
+
 Related, S: **Invisible walls** as a Chaos modifier for outdoor matches (see I.4).
 
 ## I.2 Cups and seasons: ROADMAP 3.1 / 3.2

@@ -53,8 +53,9 @@ func _label(text: String, font_size: int, colour: Color) -> Label:
 func _rows() -> Array:
 	return [
 		["MODE", "CHAOS FOOTBALL" if Match.chaos else "CLASSIC FOOTBALL"],
+		["PITCH", "INDOOR (5 A SIDE)" if Pitch.indoor else "OUTDOOR (11 A SIDE)"],
 		["HALF LENGTH", "%d MIN" % Match.half_minutes],
-		["OFFSIDE", "ON" if Match.offside_on else "OFF"],
+		["OFFSIDE", "NONE INDOORS" if Pitch.indoor else ("ON" if Match.offside_on else "OFF")],
 		["FOULS", "ON" if Match.fouls_on else "OFF"],
 		["CARDS", "ON" if Match.cards_on else "OFF"],
 		["MATCH", "KNOCKOUT (EXTRA TIME, PENALTIES)" if Match.knockout else "FRIENDLY"],
@@ -73,13 +74,14 @@ func _refresh() -> void:
 func _change(step: int) -> void:
 	match _row:
 		0: Match.chaos = not Match.chaos
-		1:
+		1: Pitch.indoor = not Pitch.indoor
+		2:
 			var i := HALF_LENGTHS.find(Match.half_minutes)
 			Match.half_minutes = HALF_LENGTHS[posmod((i if i >= 0 else 1) + step, HALF_LENGTHS.size())]
-		2: Match.offside_on = not Match.offside_on
-		3: Match.fouls_on = not Match.fouls_on
-		4: Match.cards_on = not Match.cards_on
-		5: Match.knockout = not Match.knockout
+		3: Match.offside_on = not Match.offside_on
+		4: Match.fouls_on = not Match.fouls_on
+		5: Match.cards_on = not Match.cards_on
+		6: Match.knockout = not Match.knockout
 	_refresh()
 
 

@@ -18,6 +18,8 @@ var velocity := Vector2.ZERO
 var z := 0.0
 var vz := 0.0
 var bounds := Rect2()  # set by the match; the ball bounces off its edges
+var mouth := Vector2.ZERO  # indoors: half the goal's width and the net's depth, where it goes past the ends
+var mouth_height := 0.0  # ... under the bar
 var holder: Footballer = null  # player dribbling it, if any
 var in_hands := false  # not drawn: a throw-in animation draws the ball in the thrower's hands
 var last_touch: Footballer = null
@@ -133,10 +135,18 @@ func _physics_process(delta: float) -> void:
 	else:
 		_normal_flight(delta)
 	if bounds.size != Vector2.ZERO:
-		if position.x < bounds.position.x or position.x > bounds.end.x:
+		var lo := bounds.position.x
+		var hi := bounds.end.x
+		var cy := bounds.get_center().y
+		if mouth != Vector2.ZERO and absf(position.y - cy) < mouth.x and z < mouth_height:  # into the net
+			lo -= mouth.y
+			hi += mouth.y
+		if position.x < lo or position.x > hi:
 			velocity.x = -velocity.x * 0.6
-			position.x = clampf(position.x, bounds.position.x, bounds.end.x)
+			position.x = clampf(position.x, lo, hi)
 			end_power()
+		if mouth != Vector2.ZERO and (position.x < bounds.position.x or position.x > bounds.end.x):
+			position.y = clampf(position.y, cy - mouth.x, cy + mouth.x)  # the side netting
 		if position.y < bounds.position.y or position.y > bounds.end.y:
 			velocity.y = -velocity.y * 0.6
 			position.y = clampf(position.y, bounds.position.y, bounds.end.y)

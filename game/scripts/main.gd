@@ -9,12 +9,10 @@ signal player_event(kind: String, p: Footballer)  # who: "foul" (the fouler), "y
 enum State { KICKOFF, PLAY, GOAL, PENALTY, RESTART, HALF_TIME, FULL_TIME, SHOOTOUT }
 
 const GOAL_HALF_WIDTH := 7.32 / 2.0 * Pitch.PX_PER_M
+const GOAL_DEPTH_M := 2.0  # the net, behind the line
 const CROSSBAR := 2.44 * Pitch.PX_PER_M
 const KEEPER_REACH := 24.0
 const DIVE_REACH := 34.0
-const PENALTY_SPOT := 11.0 * Pitch.PX_PER_M
-const BOX_DEPTH := 16.5 * Pitch.PX_PER_M
-const BOX_HALF_WIDTH := 40.32 / 2.0 * Pitch.PX_PER_M
 const STEAL_RATE := 2.0  # chance per second of winning the ball when touching it
 const AIR_SHOT_RANGE := 20.0 * Pitch.PX_PER_M  # headers and volleys go at goal from closer than this
 const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to your own goal
@@ -106,7 +104,7 @@ static var home_sheet := {}  # {"xi", "bench"} from the team management screen (
 static var away_sheet := {}
 # match options screen (match_options.gd); kept between matches like the above
 static var half_minutes := 3  # real minutes per half; the clock shows 45 match minutes (ASSUMED default length)
-static var offside_on := true
+static var offside_on := true  # the option; indoors there's no offside either way (see offside_rule)
 static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
 static var cards_on := true
 static var knockout := false  # level at full time: extra time (golden goal), then penalties
@@ -178,7 +176,10 @@ func _ready() -> void:
 	add_child(world)
 
 	ball = Ball.new()
-	ball.bounds = Pitch.field_rect().grow(Pitch.m(Pitch.MARGIN_M) - 4.0)
+	ball.bounds = Pitch.field_rect() if Pitch.indoor else Pitch.field_rect().grow(Pitch.m(Pitch.MARGIN_M) - 4.0)
+	if Pitch.indoor:  # off the boards, but into the goals
+		ball.mouth = Vector2(GOAL_HALF_WIDTH, Pitch.m(GOAL_DEPTH_M))
+		ball.mouth_height = CROSSBAR
 	world.add_child(ball)
 
 	home = Team.from_league(home_club)
@@ -203,12 +204,15 @@ func _ready() -> void:
 		var names := squad
 		var formation := home_formation if t == home else away_formation
 		var sheet := home_sheet if t == home else away_sheet
+		if Pitch.indoor:  # five a side: the team sheet is for eleven
+			formation = Team.INDOOR_FORMATION
+			sheet = {}
 		if squad.size() >= 11:
 			var picked := Lineup.checked(squad, formation, sheet) if not sheet.is_empty() else Lineup.auto_pick(squad, formation)
 			names = Lineup.entries(squad, picked.xi)
 			t.bench = Lineup.entries(squad, picked.bench)
 		t.formation = formation
-		var slots: Array = Team.FORMATIONS[formation]
+		var slots: Array = Team.slots_of(formation)
 		for i in slots.size():
 			var p := _new_player(t, slots[i], names[i] if i < names.size() else {"number": i + 1})
 			t.players.append(p)
@@ -417,7 +421,7 @@ func _cover_goal(t: Team) -> String:
 ## `t` lines up in formation `f` from now on: the keeper stays in goal, the others take the slot
 ## that suits them best one by one (a slot like the one he had first); men sent off fill the last.
 func change_formation(t: Team, f: String) -> void:
-	var slots: Array = Team.FORMATIONS[f]
+	var slots: Array = Team.slots_of(f)
 	var free: Array = t.players.slice(1).filter(func(p): return not p.sent_off)
 	var out: Array = t.players.slice(1).filter(func(p): return p.sent_off)
 	var order: Array = [t.players[0]]
@@ -578,6 +582,8 @@ func _physics_process(delta: float) -> void:
 						_human_input(h, p)
 					else:
 						AI.think(p, self, delta)
+			if Pitch.indoor:
+				_keep_inside()
 			_clear_keepers_box(delta)
 			_resolve_possession(delta)
 			stats.tick(delta)
@@ -1077,13 +1083,13 @@ func _air_duel(p: Footballer) -> Footballer:
 
 ## Out wide within `metres` of the goal line `p` attacks.
 func wide_within(p: Footballer, metres: float) -> bool:
-	return p != null and absf(p.position.y - Pitch.field_rect().size.y / 2.0) > BOX_HALF_WIDTH * 0.7 \
+	return p != null and absf(p.position.y - Pitch.field_rect().size.y / 2.0) > Pitch.box_half_width() * 0.7 \
 		and absf(p.team.goal_attacked().x - p.position.x) < Pitch.m(metres)
 
 
 ## Out wide in the last third: a pass from here to a teammate in the box is a cross.
 func wide_in_final_third(p: Footballer) -> bool:
-	return wide_within(p, Pitch.LENGTH_M / 3.0)
+	return wide_within(p, Pitch.length_m() / 3.0)
 
 
 ## A pass from `p` to `mate` that's a cross: from out wide in the last third to a teammate
@@ -1428,7 +1434,7 @@ func _note_shot() -> void:
 ## On every kick in open play: who's offside for it (see _caught_offside).
 func _note_offside() -> void:
 	_offside.clear()
-	if offside_on and state == State.PLAY and ball.last_touch:
+	if offside_rule() and state == State.PLAY and ball.last_touch:
 		_offside = offside_players(ball.last_touch)
 
 
@@ -1698,13 +1704,13 @@ func _draw_mood_meter() -> void:
 
 func in_penalty_area(pos: Vector2, defending: Team) -> bool:
 	var goal := defending.goal_defended()
-	return absf(pos.x - goal.x) < BOX_DEPTH and absf(pos.y - goal.y) < BOX_HALF_WIDTH
+	return absf(pos.x - goal.x) < Pitch.box_depth() and absf(pos.y - goal.y) < Pitch.box_half_width()
 
 
 func award_penalty(attacking: Team, taker: Footballer = null) -> void:
 	var defending := opponent(attacking)
 	var goal := attacking.goal_attacked()
-	var spot := goal - Vector2(attacking.side * PENALTY_SPOT, 0)
+	var spot := goal - Vector2(attacking.side * Pitch.penalty_spot(), 0)
 	state = State.PENALTY
 	_state_left = 2.5
 	ball.stop_at(spot)
@@ -1712,7 +1718,7 @@ func award_penalty(attacking: Team, taker: Footballer = null) -> void:
 	play_sfx("long_whistle")
 	event.emit("penalty", attacking)
 	_penalty_taker = taker if taker else attacking.taker()
-	var box_edge := goal.x - attacking.side * (BOX_DEPTH + 30.0)
+	var box_edge := goal.x - attacking.side * (Pitch.box_depth() + 30.0)
 	for t in [home, away]:
 		for p in t.players:
 			p.wish = Vector2.ZERO
@@ -1723,7 +1729,7 @@ func award_penalty(attacking: Team, taker: Footballer = null) -> void:
 			elif p == _penalty_taker:
 				p.position = spot - Vector2(attacking.side * 45.0, 10.0)
 				p.facing = Anims.facing_from(spot - p.position)
-			elif in_penalty_area(p.position, defending) or absf(p.position.x - goal.x) < BOX_DEPTH + 30.0:
+			elif in_penalty_area(p.position, defending) or absf(p.position.x - goal.x) < Pitch.box_depth() + 30.0:
 				p.position.x = box_edge - attacking.side * randf_range(0.0, 60.0)
 
 
@@ -1874,7 +1880,7 @@ func _shootout_decided() -> bool:
 
 ## The next of `t`'s players in SHOOTOUT_ORDER who's still on, round again after all.
 func _shootout_taker(t: Team) -> Footballer:
-	var on := SHOOTOUT_ORDER.filter(func(i): return not t.players[i].sent_off)
+	var on := SHOOTOUT_ORDER.filter(func(i): return i < t.players.size() and not t.players[i].sent_off)
 	return t.players[on[shootout[t].size() % on.size()]]
 
 
@@ -1925,9 +1931,26 @@ func flash(text: String, seconds: float) -> void:
 	_banner_left = seconds
 
 
-## Ball over the touchline: throw-in. Over the goal line: corner or goal kick.
+## Whether offside is called: the option, and never indoors.
+static func offside_rule() -> bool:
+	return offside_on and not Pitch.indoor
+
+
+## Indoors the boards are on the lines: nobody gets past them.
+func _keep_inside() -> void:
+	var f := Pitch.field_rect()
+	for t in [home, away]:
+		for p in t.players:
+			if not p.sent_off:
+				p.position = p.position.clamp(f.position, f.end)
+
+
+## Ball over the touchline: throw-in. Over the goal line: corner or goal kick. Indoors
+## neither: it plays off the boards.
 func _check_out() -> void:
 	var f := Pitch.field_rect()
+	if Pitch.indoor:  # it comes back off the boards
+		return
 	if state != State.PLAY or f.has_point(ball.position) or ball.last_touch == null:
 		return
 	var b := ball.position
@@ -1994,7 +2017,7 @@ func _keep_opponents_back() -> void:
 			var dir := away_from.normalized() if away_from.length() > 1.0 else Vector2(team.side, 0.0)
 			p.position = spot + dir * Pitch.m(9.15)
 		if _restart_kind == "goal kick" and in_penalty_area(p.position, team):
-			p.position.x = team.goal_defended().x + team.side * (BOX_DEPTH + 1.0)
+			p.position.x = team.goal_defended().x + team.side * (Pitch.box_depth() + 1.0)
 
 
 ## Everyone repositions; the taker waits for the pause (and for the human's pass or

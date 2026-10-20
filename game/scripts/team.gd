@@ -67,6 +67,24 @@ const FORMATIONS := {
 	],
 }
 const DEFAULT_FORMATION := "4-4-2"
+## Indoor, five a side (Pitch.indoor): the keeper and four
+const INDOOR_FORMATIONS := {
+	"1-2-1": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.03, 0.50), "attack": Vector2(0.15, 0.50), "defend": Vector2(-0.01, 0.50)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.22, 0.50), "attack": Vector2(0.38, 0.50), "defend": Vector2(0.14, 0.50)},
+		{"pos": "RM", "role": "M", "spot": Vector2(0.42, 0.20), "attack": Vector2(0.62, 0.15), "defend": Vector2(0.30, 0.28)},
+		{"pos": "LM", "role": "M", "spot": Vector2(0.42, 0.80), "attack": Vector2(0.62, 0.85), "defend": Vector2(0.30, 0.72)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.62, 0.50), "attack": Vector2(0.80, 0.50), "defend": Vector2(0.48, 0.50)},
+	],
+	"2-2": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.03, 0.50), "attack": Vector2(0.15, 0.50), "defend": Vector2(-0.01, 0.50)},
+		{"pos": "RB", "role": "D", "spot": Vector2(0.22, 0.28), "attack": Vector2(0.40, 0.25), "defend": Vector2(0.14, 0.34)},
+		{"pos": "LB", "role": "D", "spot": Vector2(0.22, 0.72), "attack": Vector2(0.40, 0.75), "defend": Vector2(0.14, 0.66)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.56, 0.30), "attack": Vector2(0.78, 0.32), "defend": Vector2(0.44, 0.36)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.56, 0.70), "attack": Vector2(0.78, 0.68), "defend": Vector2(0.44, 0.64)},
+	],
+}
+const INDOOR_FORMATION := "1-2-1"
 
 var name: String
 var short: String
@@ -135,15 +153,21 @@ func gain(amount: float) -> void:
 	energy = clampf(energy + amount, 0.0, Supers.MAX_ENERGY)
 
 
-## Who takes kick-offs and penalties: the number 10 slot, or another outfield player if
-## he's been sent off.
+## The slots of `formation`, outdoor or indoor.
+static func slots_of(formation: String) -> Array:
+	return FORMATIONS[formation] if FORMATIONS.has(formation) else INDOOR_FORMATIONS[formation]
+
+
+## Who takes kick-offs and penalties: the number 10 slot (indoors the last), or another
+## outfield player if he's been sent off.
 func taker() -> Footballer:
-	if not players[9].sent_off:
-		return players[9]
+	var first := players[mini(9, players.size() - 1)]
+	if not first.sent_off:
+		return first
 	for p in players:
 		if p.role != "G" and not p.sent_off:
 			return p
-	return players[9]
+	return first
 
 
 func keeper() -> Footballer:

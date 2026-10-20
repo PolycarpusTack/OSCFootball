@@ -16,7 +16,8 @@ same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or
 Gamepads work on the title screen too (d-pad to choose, A/B/Start to go on). Then team select:
 W/S picks player 1's club, ↑/↓ the opponent's, Space goes on, Esc goes back. Then the match
 options: ↑/↓ picks a row, ←/→ changes it, Space kicks off, Esc goes back. Mode (Chaos or
-Classic, the same setting as on the title screen), half length (2, 3, 5, 10, 20 or 45 real
+Classic, the same setting as on the title screen), pitch (outdoor 11 a side, or indoor 5 a
+side: see Indoor), half length (2, 3, 5, 10, 20 or 45 real
 minutes; the clock always shows 45 match minutes a half), offside, fouls and cards on or
 off, and Friendly or Knockout (extra time and penalties when level). The choices are kept for
 the next match until the game is closed.
@@ -78,6 +79,7 @@ godot --headless --path game -s res://tests/knockout_test.gd                    
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
 godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
 godot --headless --path game -s res://tests/discipline_test.gd                   # advantage, late whistle, warning, repeat offenders, last man
+godot --headless --path game -s res://tests/indoor_test.gd                       # indoor: 5 a side, off the boards, into the goal, no offside, kept inside
 godot --headless --path game -s res://tests/commentary_test.gd                   # commentary: kinds of goal, shot then save, priorities, no repeats, report
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
@@ -350,6 +352,21 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   opponents are 9.15 m away, which they walk to, or after six seconds.
 - `tests/demo.gd` stages three situations (Brugge attack, Anderlecht attack, foul in the box)
   and lets the AI play them out; `seed=2` gives a save, a goal and a scored penalty.
+
+## Indoor
+
+Five a side (match options, PITCH): a 44 x 28 m arena (`Pitch.indoor`, `Pitch.INDOOR_M`) with
+the boards on the lines, so the ball plays off them (and into the goals: the ball only gets
+past the ends through the goal mouth, under the bar), the players can't leave it, and there
+are no throw-ins, corners, goal kicks or offside (whatever the offside option says). Fouls,
+cards, penalties (a 7 m spot in an 8 m deep box) and the Chaos moves stay. Each side plays the
+1-2-1 diamond (`Team.INDOOR_FORMATIONS`, a 2-2 too), picked from the squad slot by slot as
+for any formation (the team sheet is for eleven, so it isn't used), with the usual bench and
+three substitutions; the CPU manager keeps the diamond. The stands come in close behind the
+far and end boards; the near wall is glass (unseen, so it doesn't hide the near touchline),
+and the camera sits nearer. The goals and keepers are the outdoor ones for now, so expect
+goals. After FIFA 97's and RTWC 98's indoor modes (IDEAS_TO_IMPLEMENT.md I.1); the arena is
+our own layout.
 
 ## Commentary
 
