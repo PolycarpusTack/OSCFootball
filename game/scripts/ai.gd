@@ -24,6 +24,7 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 			if m.ball.z > 12.0 or m.ball.vz > 0.0:  # in the air: where it comes down
 				lead = m.ball_target()
 			p.wish = ((lead - p.position) / 10.0).limit_length(1.0)
+			_maybe_body_check(p, m)
 		else:
 			p.ai_state = "defend"
 			_hold_position(p, m, false)
@@ -58,6 +59,16 @@ static func _box_run(p: Footballer, m: Match) -> Vector2:
 ## A wide midfielder (4-4-2: the right and left midfielders).
 static func _winger(p: Footballer) -> bool:
 	return p.role == "M" and absf(p.home.y - 0.5) > 0.3
+
+
+## Chaos: a chaser stronger than the dribbler, close and facing him, sometimes barges him.
+static func _maybe_body_check(p: Footballer, m: Match) -> void:
+	var h := m.ball.holder
+	if h == null or h.team == p.team or p.position.distance_to(h.position) > 45.0:
+		return
+	if p.skill("strength", 0.0, 1.0) > h.skill("strength", 0.0, 1.0) and randf() < 0.02:
+		p.facing = Anims.facing_from(h.position - p.position)
+		m.body_check(p)
 
 
 static func _hold_position(p: Footballer, m: Match, attacking: bool) -> void:

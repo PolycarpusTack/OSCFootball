@@ -20,6 +20,7 @@ const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to
 const POST_HIT := 3.0  # pitch pixels from a post or the bar (ball plus post radius) that hit it
 const AIR_REQUEST := 0.4  # seconds a header / volley button press waits for the ball
 const DODGE_GAIN := 10.0  # energy for hopping over a slide (Chaos)
+const BODY_CHECK_COST := 20.0  # Chaos special: energy for a shoulder barge
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
 const SQUADS := "res://data/squads.json"
 const PORTRAITS := "res://assets/portraits/"
@@ -316,7 +317,7 @@ func _human_input(h: Human, p: Footballer) -> void:
 			h.charging = true
 			h.charge_time = 0.0
 			h.pending_combo = h.combo.detect(now)
-		elif h.air_request_left <= 0.0:
+		elif h.air_request_left <= 0.0 and not (h.combo.double_tap(now) and body_check(p)):
 			p.slide()
 	elif h.charging:
 		h.charge_time += get_physics_process_delta_time()
@@ -438,12 +439,14 @@ func _resolve_possession(delta: float) -> void:
 				if in_air and (ball.z > p.head_reach() or p.busy()):
 					continue
 				var d := minf(p.feet_front().distance_to(ball.position), p.position.distance_to(ball.position))
-				if d < reach and d < best_d:
+				if d >= reach:
+					continue
+				if d < best_d:
 					best = p
 					best_d = d
 					best_in_air = in_air
 		if best and best_in_air:
-			_air_touch(best)
+			_air_touch(_air_duel(best))
 		elif best:
 			_take(best)
 		return
@@ -451,6 +454,9 @@ func _resolve_possession(delta: float) -> void:
 	if holder.role == "G":
 		return
 	for o in opponent(holder.team).players:
+		if o.body_checking() and o.touch_cooldown <= 0.0 and o.position.distance_to(holder.position) < Footballer.REACH + 8.0:
+			_body_check_hits(o, holder)
+			return
 		if o.feet_front().distance_to(ball.position) > Footballer.REACH + 2.0 or o.touch_cooldown > 0.0:
 			continue
 		if o.sliding() and not holder.dodging() and not _human_controls(holder) \
@@ -476,9 +482,44 @@ func _resolve_possession(delta: float) -> void:
 			ball.kick(Anims.FACING_VECTORS[o.facing] * 90.0, 0.0)
 			holder.touch_cooldown = 0.6
 			o.team.gain(Supers.GAIN.tackle)
-			if o.sliding():
+			if o.sliding() and randf() >= holder.skill("balance", 0.0, 0.5):  # good balance: stays up
 				holder.perform("fall")
 			return
+
+
+## Chaos special: a shoulder barge (a dash, then shoot, without the ball). Costs energy.
+func body_check(p: Footballer) -> bool:
+	if not chaos or p.has_ball() or p.team.energy < BODY_CHECK_COST or not p.body_check():
+		return false
+	p.team.energy -= BODY_CHECK_COST
+	event.emit("body check", p.team)
+	return true
+
+
+## A body check reaches the dribbler: strength against strength (and his balance) decides
+## who goes down. One try per barge. A dodge beats it.
+func _body_check_hits(o: Footballer, holder: Footballer) -> void:
+	o.touch_cooldown = 1.0
+	if holder.dodging():
+		return
+	stadium.shake = maxf(stadium.shake, 0.2)
+	if randf() < body_check_odds(o, holder):
+		ball.release()
+		ball.kick(Anims.FACING_VECTORS[o.facing] * 120.0, 0.0)
+		ball.last_touch = o
+		holder.touch_cooldown = 0.8
+		o.touch_cooldown = 0.3  # he can run onto it
+		holder.perform("stumble")
+		flash("BODY CHECK!", 1.0)
+		event.emit("body check won", o.team)
+	else:
+		o.perform("stumble")  # bounced off him
+		o.velocity = Vector2.ZERO
+
+
+## Chance a body check by `o` knocks `holder` off the ball: even between equals.
+func body_check_odds(o: Footballer, holder: Footballer) -> float:
+	return clampf(0.5 * o.skill("strength", 0.6, 1.4) / holder.skill("strength", 0.6, 1.4) / holder.skill("balance", 0.9, 1.1), 0.1, 0.9)
 
 
 func _human_controls(p: Footballer) -> bool:
@@ -537,6 +578,19 @@ func _air_touch(p: Footballer) -> void:
 			_take(p)
 
 
+## `p` is about to meet a ball in the air: a stronger opponent close enough to go up with
+## him (10 px beyond reach, the ball within his reach) wins it instead.
+func _air_duel(p: Footballer) -> Footballer:
+	var winner := p
+	for o in opponent(p.team).players:
+		if o.role == "G" or o.busy() or o.touch_cooldown > 0.0 or ball.z > o.head_reach():
+			continue
+		if o.position.distance_to(ball.position) < Footballer.REACH + 10.0 \
+				and o.skill("strength", 0.0, 1.0) > winner.skill("strength", 0.0, 1.0):
+			winner = o
+	return winner
+
+
 ## Out wide within `metres` of the goal line `p` attacks.
 func wide_within(p: Footballer, metres: float) -> bool:
 	return p != null and absf(p.position.y - Pitch.field_rect().size.y / 2.0) > BOX_HALF_WIDTH * 0.7 \
@@ -561,7 +615,8 @@ func keeper_reach(k: Footballer) -> float:
 
 ## Chance per second that `tackler`, touching the ball, takes it off `holder`.
 func steal_rate(tackler: Footballer, holder: Footballer) -> float:
-	return STEAL_RATE * tackler.skill("standingTackle", 0.5, 1.5) / holder.skill("ballControl", 0.6, 1.4)
+	return STEAL_RATE * tackler.skill("standingTackle", 0.5, 1.5) / holder.skill("ballControl", 0.6, 1.4) \
+		* tackler.skill("strength", 0.8, 1.2) / holder.skill("strength", 0.8, 1.2)
 
 
 ## A keeper with the ball in his hands can't be challenged: opponents (AI or human)

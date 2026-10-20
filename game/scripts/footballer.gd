@@ -16,6 +16,8 @@ const HEAD_TOP := 34.0  # highest ball a player heads standing; jumping adds up 
 const AIR_CONTACT := {"header": 0.33, "divehed": 0.33, "vollkck": 0.4, "chest": 0.5}
 const MARKER := Color(1.0, 0.95, 0.3)
 const PRESSURE := 3.0 * Pitch.PX_PER_M  # an opponent closer than this unsettles a shot or pass
+const BODY_CHECK_TIME := 0.8  # the shoulder-barge part of the bodychk animation (it goes on to land)
+const BODY_CHECK_SPEED := 360.0
 
 var team: Team
 var opponents: Team  # the other side, for how pressed he is
@@ -100,10 +102,12 @@ func skill(stat: String, lo: float, hi: float) -> float:
 func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
-	if _anim == "jump" and busy():  # a dodge: carries on at his speed
+	if (_anim == "jump" or _anim == "bodychk") and busy():  # a dodge or body check: carries on at his speed
 		w = velocity / maxf(RUN_SPEED, velocity.length())
 	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14)
-	velocity = velocity.move_toward(w * top, ACCEL * skill("acceleration", 0.75, 1.25) * delta)
+	if has_ball():
+		top *= skill("dribbling", 0.9, 1.0)
+	velocity = velocity.move_toward(w * top, ACCEL * skill("acceleration", 0.75, 1.25) * skill("agility", 0.85, 1.15) * delta)
 	position += velocity * delta
 	if velocity.length() > 10.0:
 		facing = Anims.facing_from(velocity)
@@ -114,8 +118,8 @@ func _physics_process(delta: float) -> void:
 		_action_left -= delta
 	else:
 		_play(_locomotion_anim())
-	if has_ball():
-		ball.position = ball.position.lerp(feet_front(), 0.6)
+	if has_ball():  # a good dribbler keeps it close
+		ball.position = ball.position.lerp(position + Anims.FACING_VECTORS[facing] * skill("dribbling", 16.0, 8.0), 0.6)
 		ball.velocity = velocity
 
 	_anim_time += delta
@@ -198,6 +202,20 @@ func dodge() -> bool:
 		return false
 	_play_action("jump")
 	return true
+
+
+## Shoulder barge toward where he faces (Chaos special): see Match.body_check.
+func body_check() -> bool:
+	if busy():
+		return false
+	_play_action("bodychk")
+	_action_left = BODY_CHECK_TIME
+	velocity = Anims.FACING_VECTORS[facing] * BODY_CHECK_SPEED
+	return true
+
+
+func body_checking() -> bool:
+	return busy() and _anim == "bodychk"
 
 
 ## In the safe part of a dodge: slides and tackles miss him.

@@ -52,6 +52,28 @@ func _initialize() -> void:
 	print("a slow ball at chest height in midfield: holder %s, animation %s" % [m.ball.holder.name if m.ball.holder else "-", mid._anim])
 	ok = ok and m.ball.holder == mid and mid._anim == "chest"
 
+	# a striker and a defender go up for the same ball, equally close: the stronger wins it
+	var duel := []
+	for strong in ["BRU", "AND"]:
+		var att = bru.players[10]
+		var dfd = m.away.players[3]
+		att.stats = {"strength": 95 if strong == "BRU" else 40}
+		dfd.stats = {"strength": 95 if strong == "AND" else 40}
+		var spot: Vector2 = c + Vector2(Pitch.m(15.0), 0.0)
+		m.ball.stop_at(spot - Vector2(Pitch.m(15.0), 0.0))  # the last duel's ball is still up at the spot
+		await _setup({att: spot + Vector2(0.0, -10.0), dfd: spot + Vector2(0.0, 10.0)})
+		_launch(spot + Vector2(-Pitch.m(15.0), 0.0), spot, 38.0)
+		var who := ""
+		var waited2 := 0.0
+		while who == "" and waited2 < 2.0:
+			await physics_frame
+			waited2 += 1.0 / 60.0
+			if m.ball.last_touch in [att, dfd]:
+				who = m.ball.last_touch.team.short
+		duel.append(who)
+	print("header duel, the stronger: BRU won by %s, AND won by %s" % duel)
+	ok = ok and duel == ["BRU", "AND"]
+
 	# the human's striker: shoot pressed as the ball comes = a header at goal, not a slide
 	m.autoplay = false
 	var h = m.humans[0]

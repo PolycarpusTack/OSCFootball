@@ -122,5 +122,27 @@ func _initialize() -> void:
 	await create_timer(0.6).timeout
 	print("dodge: still has the ball %s, dodges %s" % [m.ball.holder == dribbler, dodges])
 	ok = ok and m.ball.holder == dribbler and dodges == ["BRU"]
+
+	# body check (Chaos): double-tap a direction, then shoot, without the ball: costs 20 energy
+	await create_timer(1.0).timeout
+	var barger = m.humans[0].controlled
+	var victim = m.away.players[9]
+	victim.position = barger.position + Vector2(40, 0)
+	m.ball.stop_at(victim.feet_front())
+	m.ball.take(victim)
+	m.home.energy = 100.0
+	var checks := []
+	m.event.connect(func(kind, t): if kind.begins_with("body check"): checks.append(kind))
+	for i in 2:
+		Input.action_press("move_right")
+		await create_timer(0.08).timeout
+		Input.action_release("move_right")
+		await create_timer(0.08).timeout
+	Input.action_press("shoot")
+	await physics_frame
+	Input.action_release("shoot")
+	await create_timer(0.1).timeout
+	print("body check: animation %s, energy %.0f, events %s" % [barger._anim, m.home.energy, checks])
+	ok = ok and barger._anim in ["bodychk", "stumble"] and m.home.energy <= 80.0 + 1.0 and checks.has("body check")
 	print("CONTROLS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)

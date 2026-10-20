@@ -120,6 +120,39 @@ func _initialize() -> void:
 			p.speed_factor = 1.0
 	print("pass 16 px from a defender's feet: cut out with interceptions 95 %s, with 40 %s" % results)
 	ok = ok and results[0] and not results[1]
+
+	# dribbling: how far ahead the ball runs and how much it slows him, 1.5 s with the ball
+	var gaps := []
+	m.state = 5
+	for rating in [95, 40]:
+		var dr = m.home.players[7]
+		dr.stats = {"dribbling": rating}
+		dr.position = Vector2(400, 900)
+		dr.velocity = Vector2.ZERO
+		m.ball.stop_at(dr.position)
+		m.ball.take(dr)
+		dr.wish = Vector2.RIGHT
+		await create_timer(1.5).timeout
+		gaps.append([m.ball.position.distance_to(dr.position), (dr.position.x - 400.0) / Pitch.PX_PER_M])
+		dr.wish = Vector2.ZERO
+		m.ball.stop_at(Vector2(300, 300))
+	print("dribbling 95: ball %.1f px ahead, %.1f m run; dribbling 40: %.1f px, %.1f m" % [gaps[0][0], gaps[0][1], gaps[1][0], gaps[1][1]])
+	ok = ok and gaps[0][0] < gaps[1][0] - 4.0 and gaps[0][1] > gaps[1][1]
+
+	# strength: shoulder to shoulder, and the body check
+	var big = m.home.players[2]
+	var small = m.away.players[9]
+	big.stats = {"strength": 95}
+	small.stats = {"strength": 40}
+	var steal_big: float = m.steal_rate(big, small)
+	var odds_big: float = m.body_check_odds(big, small)
+	big.stats = {"strength": 40}
+	small.stats = {"strength": 95}
+	var steal_small: float = m.steal_rate(big, small)
+	var odds_small: float = m.body_check_odds(big, small)
+	print("strong vs weak: steal rate %.2f/s vs %.2f/s; body check wins %.0f%% vs %.0f%%" % [steal_big, steal_small, odds_big * 100.0, odds_small * 100.0])
+	ok = ok and steal_big > steal_small * 1.8 and odds_big > 0.75 and odds_small < 0.3
+
 	print("RATINGS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
 

@@ -42,5 +42,17 @@ func detect(now: float) -> String:
 	return ""
 
 
+## A double tap: the same direction twice with neutral in between, just now (a dash).
+## Letting go of the stick before the button doesn't spoil it.
+func double_tap(now: float) -> bool:
+	var recent: Array = _history.filter(func(e): return e[1] >= now - WINDOW)
+	while not recent.is_empty() and recent[-1][0] == 5:
+		recent.pop_back()
+	if recent.size() < 3:
+		return false
+	var a: int = recent[-3][0]
+	return a != 5 and recent[-2][0] == 5 and recent[-1][0] == a
+
+
 func clear() -> void:
 	_history.clear()

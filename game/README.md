@@ -46,6 +46,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | (with the ball) | an arrow on the grass shows where a shot would go; holding Space stretches it and turns it orange with power, Thunder Strike light blue when one is ready |
 | X or K | pass to the best teammate in the direction you're pushing (the one a triangle marks over his head; a pass lane with an opponent in it counts against a teammate) |
 | Q with the ball | **dodge**: a hop that slides and tackles miss for its first 0.25-0.45 s (reactions). Time it as the tackle comes in; in Chaos a dodged slide flashes DODGE! and earns 10 energy |
+| double-tap a direction, then Space, without the ball | **Body Check** (Chaos, 20 energy): a shoulder charge along that direction; hit the dribbler and strength against his strength and balance decides who goes down (10-90%) |
 | Q | switch to the teammate nearest the ball (kept for a second before the automatic switching takes over again) |
 | Space / X as a ball in the air comes to you | head or volley it: Space at goal (aim with the stick), X to a teammate. Pressing nothing, your player does what the AI would (see Rules) |
 | X from out wide in the last third | to a teammate in (or running into) the box: a cross, at head height |
@@ -148,6 +149,10 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | AI decisions on the ball | reactions | every 0.35 s → 0.15 s |
 | dodge (safe part of the hop) | reactions | 0.25 s → 0.45 s; AI dribblers dodge a slide 10% → 45% of the time |
 | cutting out the other side's passes | interceptions | reach 0.8x → 1.6x |
+| close control | dribbling | ball 16 px → 8 px ahead of the feet; top speed with the ball 0.9x → 1.0x |
+| turning and getting going | agility | acceleration 0.85x → 1.15x (on top of acceleration) |
+| shoulder to shoulder | strength | steal rate x0.8 → 1.2 (against the holder's); wins a header both go up for; Body Check odds |
+| staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
 checks each against an elite and a poor player.
@@ -219,7 +224,8 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 Each team has a bar (top left, 0-100; the tick marks 50). It fills from completed passes
 (+6), tackles (+10), saves (+15), being fouled (+20), conceding (+25) and dribbling
 (+2.5/s). Combo directions are relative to the goal you attack, so ↓↘→ works on both
-wings; ↑↗→ is accepted too. The AI spends its bar on shots inside shooting range.
+wings; ↑↗→ is accepted too. The AI spends its bar on shots inside shooting range, and a chaser stronger than the dribbler
+sometimes spends 20 on a Body Check.
 `tests/supers_demo.gd` stages one of each (`seed=2`: three goals, `supers_demo.mp4`).
 
 ## Known simplifications
