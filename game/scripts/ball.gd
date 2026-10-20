@@ -35,8 +35,7 @@ var _to_screen: Callable
 ## Simulated in pitch pixels like the players; place() puts the visuals on screen.
 func _ready() -> void:
 	for i in 8:
-		var suffix := "" if i == 0 else "_%d" % i
-		_frames.append(load("res://assets/ball/%03d_ball%s.png" % [i, suffix]))
+		_frames.append(load("res://brand/ball/ball_%d.png" % i))
 	_sprite.texture = _frames[0]
 	_sprite.top_level = true
 	_fx.top_level = true
