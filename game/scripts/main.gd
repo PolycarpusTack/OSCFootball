@@ -148,6 +148,7 @@ var stats: MatchStats  # for the full-time screen
 var cpu: CpuManager  # the CPU side's manager; null when two people play
 var _full_time_panel := PanelContainer.new()
 var chaos_actions: ChaosActions
+var effects: Effects  # bursts, dust, card spins, whistle rings
 var line_moves: LineMoves
 var control_hints: ControlHints  # the prompts along the bottom
 
@@ -232,6 +233,8 @@ func _ready() -> void:
 		cpu = CpuManager.new(self, away)
 	chaos_actions = ChaosActions.new(self)
 	add_child(chaos_actions)
+	effects = Effects.new(self)
+	add_child(effects)
 	line_moves = LineMoves.new(self)
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
@@ -645,6 +648,8 @@ func _human_input(h: Human, p: Footballer) -> void:
 			h.pending_combo = h.combo.detect(now)
 		elif h.air_request_left <= 0.0 and not (h.combo.double_tap(now) and body_check(p)):
 			p.slide()
+			if p.sliding():
+				effects.play("dust_puff", p.position)
 	elif h.charging:
 		h.charge_time += get_physics_process_delta_time()
 		var full := p.team.energy >= Supers.cost("thunder")
@@ -745,6 +750,7 @@ func _super_connects(p: Footballer, kind: String, target: Vector2) -> void:
 	p.team.energy = maxf(0.0, p.team.energy - Supers.cost(kind))
 	flash(Supers.LIST[kind].title, 1.6)
 	event.emit(kind, p.team)
+	effects.play("impact_burst", ball.position, ball.z, 1.6 if kind == "thunder" else 1.0)
 	stadium.shake = 0.25
 	if kind == "thunder":
 		Engine.time_scale = 0.3
@@ -941,6 +947,7 @@ func _body_check_hits(o: Footballer, holder: Footballer) -> void:
 		holder.touch_cooldown = 0.8
 		o.touch_cooldown = 0.3  # he can run onto it
 		flash("BODY CHECK!", 1.0)
+		effects.play("impact_burst", holder.position, Pitch.m(1.0))
 		knock_down(holder, "stumble")
 		event.emit("body check won", o.team)
 	else:
@@ -951,6 +958,7 @@ func _body_check_hits(o: Footballer, holder: Footballer) -> void:
 ## `p` goes down (`anim`): it tires him, and in Chaos a tired player gets up dizzy.
 func knock_down(p: Footballer, anim: String) -> void:
 	p.perform(anim)
+	effects.play("dust_puff", p.position)
 	p.fatigue = minf(1.0, p.fatigue + KNOCK_FATIGUE)
 	if chaos and p.fatigue >= DIZZY_AT and p.dizzy_left <= 0.0:
 		p.dizzy_left = DIZZY_TIME
@@ -1199,6 +1207,7 @@ func book(p: Footballer, red: bool) -> void:
 	referee.facing = Anims.facing_from(p.position - referee.position)
 	referee.art_material.set_shader_parameter("card", RED_CARD if red else YELLOW_CARD)
 	referee.perform("rcard")
+	effects.play("red_card_spin" if red else "yellow_card_spin", p.position, Pitch.m(2.6), 1.0, Color.WHITE, 3)
 	flash("%s CARD\n%s" % ["RED" if red else "YELLOW", p.display_name], 2.0)
 	event.emit("red card" if red else "yellow card", p.team)
 	player_event.emit("red card" if red else "yellow card", p)
@@ -1426,6 +1435,7 @@ func _referee_temper(delta: float) -> bool:
 func _whistle_stun(t: Team) -> void:
 	play_sfx("long_whistle")
 	flash("WHISTLE STUN!", 1.0)
+	effects.play("whistle_ring", referee.position, 0.0, 4.0, Color.WHITE, 2)
 	event.emit("whistle stun", t)
 	ref_mood[t] = BLOWN_MOOD
 	for p in t.players:
@@ -1983,6 +1993,8 @@ func play_sfx(key: String, volume_db := 0.0) -> void:
 	p.play()
 	if key.ends_with("whistle") and referee and not referee.busy():  # he's the one blowing it
 		referee.perform("ref_whistle")
+		if effects:
+			effects.play("whistle_ring", referee.position, Pitch.m(1.7), 0.6)
 
 
 func _start_crowd() -> void:

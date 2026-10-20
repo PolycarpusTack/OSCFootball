@@ -79,7 +79,8 @@ var _anim_time := 0.0
 var _action_left := 0.0  # while > 0 a one-shot animation plays and movement is ignored
 var _actions := 0  # counts one-shot animations started: a wind-up knows if it was cut short
 var _sprite := Sprite2D.new()
-var _kit: Material  # the kit shader, for the palette-indexed FIFA 96 frames only
+var _kit: Material  # the kit shader, for the palette-indexed FIFA 96 frames
+var _own_kit: Material  # the same kit for our own RGBA art (Team.own_art_material)
 var _marks := Node2D.new()  # shadow, control ring and charge meter, drawn under the sprite
 
 
@@ -95,6 +96,7 @@ func _ready() -> void:
 		kit.set_shader_parameter("hair", Vector3(hair.r, hair.g, hair.b))
 		kit.set_shader_parameter("has_hair", true)
 	_kit = kit
+	_own_kit = Team.own_art_material(kit, role == "G")
 	_sprite.material = art_material if art_material else kit
 	_sprite.top_level = true
 	_marks.top_level = true
@@ -197,8 +199,8 @@ func _physics_process(delta: float) -> void:
 	_sprite.texture = f.tex
 	_sprite.offset = f.offset
 	_sprite.flip_h = f.flip
-	if not art_material:  # own art is drawn already coloured, without the kit shader
-		_sprite.material = null if Anims.own_art(_anim) else _kit
+	if not art_material:  # the referee brings his own
+		_sprite.material = _own_kit if Anims.own_art(_anim) else _kit
 
 
 func _draw_marks() -> void:

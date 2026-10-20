@@ -75,7 +75,7 @@ func _initialize() -> void:
 	var events := []
 	m.event.connect(func(kind, t): events.append("%s:%s" % [kind, t.short]))
 
-	# the own art loads as animations, drawn without the kit shader
+	# the own art loads as animations, drawn in the team's colours (C.6)
 	for anim in ["power_strike", "bulldozer_clear", "laser_pass", "cannon_punt", "grapple_tackle", "stepover_storm", "whirlwind_turn", "rising_fist"]:
 		check(anims.has(anim) and anims.own_art(anim), "%s loads as own art" % anim)
 	check(absf(anims.length_seconds("power_strike") - 0.85) < 0.01, "Line-action length counts the last frame's own duration: %.2f" % anims.length_seconds("power_strike"))
@@ -84,10 +84,22 @@ func _initialize() -> void:
 	var d = on_line(m.home, "D", mid)
 	d.perform("bulldozer_clear")
 	d._physics_process(0.0)
-	check(d._sprite.material == null, "Own-art animation drawn without the kit shader")
+	var art: ShaderMaterial = d._sprite.material
+	check(art != null and art.get_shader_parameter("own_art") and art.get_shader_parameter("white_is_kit")
+		and art.get_shader_parameter("shirt") == m.home.outfield_material.get_shader_parameter("shirt"),
+		"Own-art animation recoloured to the team's kit")
 	d._action_left = 0.0
 	d._physics_process(0.0)
-	check(d._sprite.material is ShaderMaterial, "Back to the kit shader for the players' animations")
+	check(d._sprite.material is ShaderMaterial and not d._sprite.material.get_shader_parameter("own_art"),
+		"Back to the palette kit shader for the players' animations")
+	var g = m.home.keeper()
+	g.perform("cannon_punt")
+	g._physics_process(0.0)
+	check(g._sprite.material.get_shader_parameter("own_art") and not g._sprite.material.get_shader_parameter("white_is_kit")
+		and g._sprite.material.get_shader_parameter("shirt") == m.home.keeper_material.get_shader_parameter("shirt"),
+		"Keeper's own art in the keeper kit, gloves left white")
+	g._action_left = 0.0
+	g._physics_process(0.0)
 
 	# striker: ↓↘→ is still the Fireball, wound up with the Power Strike
 	reset()
