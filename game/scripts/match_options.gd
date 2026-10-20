@@ -1,10 +1,10 @@
 extends Control
-## Match options, between team select and kick-off: Up / Down (W / S, d-pad) picks a row,
+## Match options, between the team sheet and kick-off: Up / Down (W / S, d-pad) picks a row,
 ## Left / Right (A / D) changes it, Space / Enter / Start kicks off, Esc goes back. The
 ## choices live in Match's static vars, so they're kept for the next match.
 
 const MATCH := "res://scenes/main.tscn"
-const TEAM_SELECT := "res://scenes/team_select.tscn"
+const TEAM_MANAGER := "res://scenes/team_manager.tscn"
 const BACKGROUND := "res://brand/title.png"
 const HALF_LENGTHS := [2, 3, 5, 10, 20, 45]  # real minutes per half
 const TOP := 200.0
@@ -100,4 +100,4 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif (key and event.physical_keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]) or (button and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]):
 		get_tree().change_scene_to_file(MATCH)
 	elif (key and event.physical_keycode == KEY_ESCAPE) or (button and event.button_index in [JOY_BUTTON_B, JOY_BUTTON_BACK]):
-		get_tree().change_scene_to_file(TEAM_SELECT)
+		get_tree().change_scene_to_file(TEAM_MANAGER)

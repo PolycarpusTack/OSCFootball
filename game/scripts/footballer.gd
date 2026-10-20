@@ -38,7 +38,9 @@ var stats := {}  # EA SPORTS FC ratings by name (data/squads.json), empty withou
 var skin := Color.TRANSPARENT  # from the player's photo; transparent: FIFA 96's default
 var hair := Color.TRANSPARENT
 var pass_marker := Color.TRANSPARENT  # set while a human's pass would go to this player
-var home := Vector2.ZERO  # formation spot as a pitch fraction (see Team.FORMATION)
+var home := Vector2.ZERO  # kick-off spot as a pitch fraction (see Team.FORMATIONS)
+var attack_spot := Vector2.ZERO  # the spot he holds when his side has the ball
+var defend_spot := Vector2.ZERO  # ... and when it hasn't
 var ball: Ball
 var controlled := false
 var marker := MARKER  # control ring colour: which human controls this player

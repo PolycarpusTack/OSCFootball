@@ -69,6 +69,10 @@ static var chaos := true
 static var players := 1  # people playing: 1 (vs the AI) or 2 (home vs away); title screen
 static var home_club := "Club Brugge"  # player 1's club (data/league.json); team select screen
 static var away_club := "Anderlecht"  # the AI's or player 2's club
+static var home_formation := Team.DEFAULT_FORMATION  # a key of Team.FORMATIONS
+static var away_formation := Team.DEFAULT_FORMATION
+static var home_sheet := {}  # {"xi", "bench"} from the team management screen (Lineup); {} plays the default XI
+static var away_sheet := {}
 # match options screen (match_options.gd); kept between matches like the above
 static var half_minutes := 3  # real minutes per half; the clock shows 45 match minutes (ASSUMED default length)
 static var offside_on := true
@@ -152,11 +156,18 @@ func _ready() -> void:
 	var squads := _load_squads()
 	for t in [home, away]:
 		var names: Array = squads.get(t.name, [])
-		for i in Team.FORMATION.size():
+		var formation := home_formation if t == home else away_formation
+		var sheet := home_sheet if t == home else away_sheet
+		if not sheet.is_empty() and names.size() >= 11:
+			names = Lineup.entries(names, Lineup.checked(names, formation, sheet).xi)
+		var slots: Array = Team.FORMATIONS[formation]
+		for i in slots.size():
 			var p := Footballer.new()
 			p.team = t
-			p.role = Team.FORMATION[i][0]
-			p.home = Team.FORMATION[i][1]
+			p.role = slots[i].role
+			p.home = slots[i].spot
+			p.attack_spot = slots[i].attack
+			p.defend_spot = slots[i].defend
 			p.ball = ball
 			p.opponents = away if t == home else home
 			p.number = names[i].number if i < names.size() else i + 1
@@ -224,6 +235,13 @@ func chaser(t: Team) -> Footballer:
 		if p.role != "G" and not p.sent_off and (best == null or p.position.distance_squared_to(at) < best.position.distance_squared_to(at)):
 			best = p
 	return best
+
+
+## A teammate's pass on its way and `p` the man nearest to where it's going?
+func _pass_for(p: Footballer) -> bool:
+	var from := ball.last_touch
+	return ball.holder == null and ball.kick_kind == "pass" and from != null and from != p \
+		and from.team == p.team and chaser(p.team) == p
 
 
 ## Where to run to win the ball: a ball in the air where it comes down to head height.
@@ -399,6 +417,8 @@ func _human_input(h: Human, p: Footballer) -> void:
 	var now := clock
 	h.combo.feed(ComboInput.direction(p.wish, p.team.side), now)
 	var aim: Vector2 = Anims.FACING_VECTORS[p.facing] if p.wish == Vector2.ZERO else p.wish.normalized()
+	if p.wish == Vector2.ZERO and _pass_for(p):  # auto-receive: hands off the stick, he goes to meet it
+		p.wish = ((AI.chase_spot(self) - p.position) / 10.0).limit_length(1.0)
 	if chaos:
 		if Input.is_action_just_pressed(h.action("cycle_special")):
 			h.special_index = (h.special_index + 1) % ChaosActions.MOVES.size()

@@ -1,10 +1,10 @@
 extends Control
 ## Pick the two clubs from the league table (data/league.json): player 1 with W/S
 ## (or the first gamepad's d-pad), the opponent (AI or player 2) with the Up/Down
-## arrows (or the second gamepad). Space / Enter / Start goes on to the match options;
+## arrows (or the second gamepad). Space / Enter / Start goes on to the team sheet;
 ## Esc goes back.
 
-const OPTIONS := "res://scenes/match_options.tscn"
+const TEAM_MANAGER := "res://scenes/team_manager.tscn"
 const TITLE := "res://scenes/title.tscn"
 const BACKGROUND := "res://brand/title.png"
 const ROW := 30.0
@@ -119,7 +119,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_S: _move(0, 1)
 			KEY_UP: _move(1, -1)
 			KEY_DOWN: _move(1, 1)
-			KEY_SPACE, KEY_ENTER, KEY_KP_ENTER: get_tree().change_scene_to_file(OPTIONS)
+			KEY_SPACE, KEY_ENTER, KEY_KP_ENTER: get_tree().change_scene_to_file(TEAM_MANAGER)
 			KEY_ESCAPE: get_tree().change_scene_to_file(TITLE)
 	elif event is InputEventJoypadButton and event.pressed:
 		# same pads as in the match (Human.bind_inputs): alone, every pad is player 1's;
@@ -131,5 +131,5 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.button_index:
 			JOY_BUTTON_DPAD_UP: _move(who, -1)
 			JOY_BUTTON_DPAD_DOWN: _move(who, 1)
-			JOY_BUTTON_A, JOY_BUTTON_START: get_tree().change_scene_to_file(OPTIONS)
+			JOY_BUTTON_A, JOY_BUTTON_START: get_tree().change_scene_to_file(TEAM_MANAGER)
 			JOY_BUTTON_B, JOY_BUTTON_BACK: get_tree().change_scene_to_file(TITLE)

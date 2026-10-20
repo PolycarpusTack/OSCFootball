@@ -9,6 +9,15 @@ extends RefCounted
 const SHOOT_RANGE := 330.0
 const PRESSURE := 45.0
 const KEEPER_HOLD := 0.8
+## How far a player's spot follows the ball, by role, [without the ball, with it]: x along the
+## pitch, y across, per unit of the ball's pitch fraction. Defenders follow it up and down least
+## (the back line stays together) and the whole side slides across more without the ball.
+const PULL := {
+	"G": [Vector2(0.5, 0.3), Vector2(0.5, 0.3)],
+	"D": [Vector2(0.35, 0.40), Vector2(0.45, 0.20)],
+	"M": [Vector2(0.45, 0.40), Vector2(0.50, 0.25)],
+	"F": [Vector2(0.50, 0.30), Vector2(0.50, 0.20)],
+}
 
 
 static func think(p: Footballer, m: Match, delta: float) -> void:
@@ -22,10 +31,7 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 	elif m.ball.holder == null or m.ball.holder.team != p.team:
 		if m.chaser(p.team) == p:
 			p.ai_state = "chase"
-			var lead := m.ball.position + m.ball.velocity * 0.25
-			if m.ball.z > 12.0 or m.ball.vz > 0.0:  # in the air: where it comes down
-				lead = m.ball_target()
-			p.wish = ((lead - p.position) / 10.0).limit_length(1.0)
+			p.wish = ((chase_spot(m) - p.position) / 10.0).limit_length(1.0)
 			_maybe_body_check(p, m)
 			_maybe_slide(p, m)
 		else:
@@ -39,6 +45,13 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 		else:
 			p.ai_state = "support"
 			_hold_position(p, m, true)
+
+
+## Where a chaser runs to get to the ball: a little ahead of it, or where it comes down.
+static func chase_spot(m: Match) -> Vector2:
+	if m.ball.z > 12.0 or m.ball.vz > 0.0:  # in the air: where it comes down
+		return m.ball_target()
+	return m.ball.position + m.ball.velocity * 0.25
 
 
 ## Where `p` runs to meet a cross from a teammate out wide in the opponents' half: the forwards to the near
@@ -71,9 +84,9 @@ static func _onside(p: Footballer, m: Match, target: Vector2) -> Vector2:
 	return target
 
 
-## A wide midfielder (4-4-2: the right and left midfielders).
+## A wide midfielder or forward (4-4-2: the right and left midfielders; 4-3-3: the wingers).
 static func _winger(p: Footballer) -> bool:
-	return p.role == "M" and absf(p.home.y - 0.5) > 0.3
+	return p.role in ["M", "F"] and absf(p.home.y - 0.5) > 0.3
 
 
 ## Chaos: a chaser stronger than the dribbler, close and facing him, sometimes barges him.
@@ -98,18 +111,27 @@ static func _maybe_slide(p: Footballer, m: Match) -> void:
 
 
 static func _hold_position(p: Footballer, m: Match, attacking: bool) -> void:
+	p.wish = ((hold_spot(p, m, attacking) - p.position) / 40.0).limit_length(1.0)
+
+
+## Where `p` stands off the ball (pixels): his formation spot for the phase, shifted with the ball.
+static func hold_spot(p: Footballer, m: Match, attacking: bool) -> Vector2:
 	var t := p.team
 	var field := Pitch.field_rect()
 	var fx := m.ball.position.x / field.size.x
+	var fy := m.ball.position.y / field.size.y
 	if t.side < 0:
 		fx = 1.0 - fx
-	var fy := m.ball.position.y / field.size.y
-	var spot := p.home + Vector2((fx - 0.5) * 0.5 + (0.12 if attacking else -0.04), (fy - 0.5) * 0.3)
+	else:
+		fy = 1.0 - fy
+	var base := p.attack_spot if attacking else p.defend_spot
+	var pull: Vector2 = PULL[p.role][1 if attacking else 0]
+	var spot := base + Vector2((fx - 0.5) * pull.x, (fy - 0.5) * pull.y)
 	spot.x = clampf(spot.x, 0.06, 0.94)
 	var target := t.to_pitch(spot)
 	if attacking:
 		target = _onside(p, m, target)
-	p.wish = ((target - p.position) / 40.0).limit_length(1.0)
+	return target
 
 
 static func _with_ball(p: Footballer, m: Match) -> void:

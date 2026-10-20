@@ -4,14 +4,20 @@ A new football game built on the original FIFA 96 assets. Personal project: the 
 audio and data belong to EA, so don't distribute it with them.
 
 Current state: the 18 clubs of the **Jupiler Pro League** (`data/league.json`): pick player 1's
-club and the opponent (AI, or player 2) on the team select screen. 11 a side, 4-4-2, two halves,
+club and the opponent (AI, or player 2) on the team select screen, then the team sheet. 11 a side,
+4-4-2, 4-3-3, 4-5-1 or 5-3-2, two halves,
 in FIFA 96's 3D "Virtual Stadium" (original crowd, advertising boards, nets) seen from a
 side-on TV camera. Boots like the original: intro FMV (any key skips), title screen with
 the title music, Space to kick off. Left/Right on the title screen picks **Chaos Football**
 (energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
 same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players.
 Gamepads work on the title screen too (d-pad to choose, A/B/Start to go on). Then team select:
-W/S picks player 1's club, ↑/↓ the opponent's, Space kicks off, Esc goes back.
+W/S picks player 1's club, ↑/↓ the opponent's, Space goes on, Esc goes back. Then the team
+sheet (player 1's, then player 2's): the **Squad** page lists the XI by position, the bench of
+seven and the reserves with every rating out of 50 and a player card; ↑/↓ choose, Space picks a
+player and Space on another swaps them, ←/→ change the stats shown. Tab goes to **Tactics**: ↑/↓
+and Space pick the formation, B shows its shape with or without the ball. Enter is done, Esc
+goes back. Each club's sheet is saved (`user://lineups.json`).
 
 ## Run
 
@@ -24,6 +30,8 @@ godot --headless --path game -s res://tests/classic_test.gd                     
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
 godot --headless --path game -s res://tests/ratings_test.gd                      # ratings: pace, finishing, keepers, tackling
+godot --headless --path game -s res://tests/formations_test.gd                   # formations: shape with and without the ball
+godot --headless --path game -s res://tests/lineup_test.gd                       # team sheet: pick, swap, formation change
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -40,6 +48,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | hold Space 0.8 s, full bar | **Thunder Strike** (100): bicycle kick, slow-mo, lightning ball that nobody can hold |
 | Up/Down while taking a penalty | choose the corner |
 | X or K | pass to the best teammate in the direction you're pushing |
+| (stick left alone) | when a teammate passes to you, your player runs onto it by himself |
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick) |
 | Space at full time | back to the title screen |
 | F1 | animation viewer |

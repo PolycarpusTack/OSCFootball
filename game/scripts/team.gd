@@ -6,13 +6,67 @@ const KIT_SHADER := preload("res://scripts/kit.gdshader")
 const PALETTE := preload("res://assets/sprites/players/palette.png")
 const LEAGUE := "res://data/league.json"
 
-## 4-4-2, as fractions of the pitch: x from own goal line (0) to the opponent's (1).
-const FORMATION := [
-	["G", Vector2(0.02, 0.50)],
-	["D", Vector2(0.20, 0.15)], ["D", Vector2(0.17, 0.38)], ["D", Vector2(0.17, 0.62)], ["D", Vector2(0.20, 0.85)],
-	["M", Vector2(0.42, 0.15)], ["M", Vector2(0.38, 0.38)], ["M", Vector2(0.38, 0.62)], ["M", Vector2(0.42, 0.85)],
-	["F", Vector2(0.60, 0.40)], ["F", Vector2(0.60, 0.60)],
-]
+## Formations, slot by slot: the position on the team sheet, the role (G, D, M, F) and three
+## spots as fractions of the pitch, x from own goal line (0) to the opponent's (1), y across
+## (slot 1's touchline at 0): where he lines up for a kick-off, and the spot he holds when his
+## side has the ball (wide and high) and when it hasn't (narrow and deep); AI.hold_spot shifts
+## it with the ball. Slot 0 is the keeper; slots 9 and 10 the two most advanced players (they
+## take kick-offs and penalties and attack crosses). Our own numbers, not CM3's tables.
+const FORMATIONS := {
+	"4-4-2": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.02, 0.50), "attack": Vector2(0.14, 0.50), "defend": Vector2(-0.02, 0.50)},
+		{"pos": "RB", "role": "D", "spot": Vector2(0.20, 0.15), "attack": Vector2(0.34, 0.10), "defend": Vector2(0.14, 0.24)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.38), "attack": Vector2(0.27, 0.36), "defend": Vector2(0.13, 0.41)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.62), "attack": Vector2(0.27, 0.64), "defend": Vector2(0.13, 0.59)},
+		{"pos": "LB", "role": "D", "spot": Vector2(0.20, 0.85), "attack": Vector2(0.34, 0.90), "defend": Vector2(0.14, 0.76)},
+		{"pos": "RM", "role": "M", "spot": Vector2(0.42, 0.15), "attack": Vector2(0.58, 0.10), "defend": Vector2(0.36, 0.24)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.38, 0.38), "attack": Vector2(0.50, 0.38), "defend": Vector2(0.32, 0.42)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.38, 0.62), "attack": Vector2(0.50, 0.62), "defend": Vector2(0.32, 0.58)},
+		{"pos": "LM", "role": "M", "spot": Vector2(0.42, 0.85), "attack": Vector2(0.58, 0.90), "defend": Vector2(0.36, 0.76)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.60, 0.40), "attack": Vector2(0.74, 0.40), "defend": Vector2(0.52, 0.44)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.60, 0.60), "attack": Vector2(0.74, 0.60), "defend": Vector2(0.52, 0.56)},
+	],
+	"4-3-3": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.02, 0.50), "attack": Vector2(0.14, 0.50), "defend": Vector2(-0.02, 0.50)},
+		{"pos": "RB", "role": "D", "spot": Vector2(0.20, 0.15), "attack": Vector2(0.36, 0.12), "defend": Vector2(0.14, 0.24)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.38), "attack": Vector2(0.27, 0.36), "defend": Vector2(0.13, 0.41)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.62), "attack": Vector2(0.27, 0.64), "defend": Vector2(0.13, 0.59)},
+		{"pos": "LB", "role": "D", "spot": Vector2(0.20, 0.85), "attack": Vector2(0.36, 0.88), "defend": Vector2(0.14, 0.76)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.38, 0.30), "attack": Vector2(0.52, 0.30), "defend": Vector2(0.32, 0.36)},
+		{"pos": "CDM", "role": "M", "spot": Vector2(0.30, 0.50), "attack": Vector2(0.40, 0.50), "defend": Vector2(0.25, 0.50)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.38, 0.70), "attack": Vector2(0.52, 0.70), "defend": Vector2(0.32, 0.64)},
+		{"pos": "RW", "role": "F", "spot": Vector2(0.56, 0.15), "attack": Vector2(0.72, 0.10), "defend": Vector2(0.46, 0.22)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.62, 0.50), "attack": Vector2(0.76, 0.50), "defend": Vector2(0.54, 0.50)},
+		{"pos": "LW", "role": "F", "spot": Vector2(0.56, 0.85), "attack": Vector2(0.72, 0.90), "defend": Vector2(0.46, 0.78)},
+	],
+	"4-5-1": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.02, 0.50), "attack": Vector2(0.14, 0.50), "defend": Vector2(-0.02, 0.50)},
+		{"pos": "RB", "role": "D", "spot": Vector2(0.20, 0.15), "attack": Vector2(0.32, 0.12), "defend": Vector2(0.13, 0.24)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.38), "attack": Vector2(0.26, 0.36), "defend": Vector2(0.12, 0.41)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.62), "attack": Vector2(0.26, 0.64), "defend": Vector2(0.12, 0.59)},
+		{"pos": "LB", "role": "D", "spot": Vector2(0.20, 0.85), "attack": Vector2(0.32, 0.88), "defend": Vector2(0.13, 0.76)},
+		{"pos": "RM", "role": "M", "spot": Vector2(0.40, 0.15), "attack": Vector2(0.56, 0.10), "defend": Vector2(0.32, 0.22)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.34, 0.38), "attack": Vector2(0.46, 0.38), "defend": Vector2(0.28, 0.42)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.34, 0.62), "attack": Vector2(0.46, 0.62), "defend": Vector2(0.28, 0.58)},
+		{"pos": "LM", "role": "M", "spot": Vector2(0.40, 0.85), "attack": Vector2(0.56, 0.90), "defend": Vector2(0.32, 0.78)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.62, 0.50), "attack": Vector2(0.76, 0.50), "defend": Vector2(0.50, 0.50)},
+		{"pos": "CAM", "role": "M", "spot": Vector2(0.48, 0.50), "attack": Vector2(0.62, 0.46), "defend": Vector2(0.40, 0.50)},
+	],
+	"5-3-2": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.02, 0.50), "attack": Vector2(0.14, 0.50), "defend": Vector2(-0.02, 0.50)},
+		{"pos": "RWB", "role": "D", "spot": Vector2(0.24, 0.12), "attack": Vector2(0.48, 0.08), "defend": Vector2(0.16, 0.20)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.32), "attack": Vector2(0.27, 0.30), "defend": Vector2(0.13, 0.36)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.15, 0.50), "attack": Vector2(0.24, 0.50), "defend": Vector2(0.11, 0.50)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.17, 0.68), "attack": Vector2(0.27, 0.70), "defend": Vector2(0.13, 0.64)},
+		{"pos": "LWB", "role": "D", "spot": Vector2(0.24, 0.88), "attack": Vector2(0.48, 0.92), "defend": Vector2(0.16, 0.80)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.38, 0.32), "attack": Vector2(0.50, 0.30), "defend": Vector2(0.32, 0.38)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.36, 0.50), "attack": Vector2(0.46, 0.50), "defend": Vector2(0.30, 0.50)},
+		{"pos": "CM", "role": "M", "spot": Vector2(0.38, 0.68), "attack": Vector2(0.50, 0.70), "defend": Vector2(0.32, 0.62)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.60, 0.40), "attack": Vector2(0.74, 0.40), "defend": Vector2(0.52, 0.44)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.60, 0.60), "attack": Vector2(0.74, 0.60), "defend": Vector2(0.52, 0.56)},
+	],
+}
+const DEFAULT_FORMATION := "4-4-2"
 
 var name: String
 var short: String
@@ -47,7 +101,8 @@ static func make_material(kit: Dictionary) -> ShaderMaterial:
 func to_pitch(spot: Vector2) -> Vector2:
 	var field := Pitch.field_rect()
 	var x := spot.x if side > 0 else 1.0 - spot.x
-	return Vector2(x * field.size.x, spot.y * field.size.y)
+	var y := 1.0 - spot.y if side > 0 else spot.y  # spot y 0 is the right flank, whichever way the side attacks
+	return Vector2(x * field.size.x, y * field.size.y)
 
 
 func goal_attacked() -> Vector2:
