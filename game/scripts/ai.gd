@@ -350,7 +350,7 @@ static func options(p: Footballer, m: Match) -> Array:
 		out.append(["pass", clampf(passing[1] * 0.3, -40.0, 90.0) + (20.0 if pressed else 0.0), passing[0]])
 	var runner := through_ball(p, m)
 	if runner:
-		out.append(["through ball", p.skill("vision", 45.0, 85.0), runner])
+		out.append(["through ball", p.skill("vision", 20.0, 55.0), runner])  # level with a long shot: it mustn't crowd them out
 	if m.wide_in_final_third(p):
 		var target := _cross_target(p, m)
 		if target:
