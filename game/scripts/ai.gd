@@ -280,18 +280,20 @@ static func _lane_blocked(p: Footballer, mate: Footballer, m: Match) -> bool:
 
 
 ## Best teammate to pass to. With a non-zero `aim`, only mates within 60 degrees
-## of it count (used for the human pass button).
+## of it count (used for the human pass button). The passer's vision: how far he sees
+## (400-560 px) and how surely he spots a pass that's cut off.
 static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 	var goal := p.team.goal_attacked()
 	var best: Footballer = null
 	var best_score := -INF
 	var offside: Array = m.offside_players(p) if Match.offside_on else []
+	var sight := p.skill("vision", 400.0, 560.0)
 	for mate in p.team.players:
 		if mate == p or mate.role == "G":
 			continue
 		var offset := mate.position - p.position
 		var dist := offset.length()
-		if dist < 50.0 or dist > 480.0:
+		if dist < 50.0 or dist > sight:
 			continue
 		if aim != Vector2.ZERO and absf(aim.angle_to(offset)) > PI / 3.0:
 			continue
@@ -301,7 +303,7 @@ static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 		if _winger(mate) and m.wide_within(mate, Pitch.LENGTH_M / 2.0) and not _winger(p):
 			score += 60.0  # get it out wide: a winger in their half can go down the line and cross
 		if _lane_blocked(p, mate, m):
-			score -= 250.0
+			score -= p.skill("vision", 150.0, 350.0)
 		if mate in offside:
 			score -= 400.0  # he'd be flagged
 		if score > best_score:

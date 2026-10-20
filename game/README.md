@@ -187,6 +187,8 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | free kicks | freeKickAccuracy | up to 55 px off → 6 px |
 | getting tired | stamina | fatigue per second running 0.012 → 0.0045 (see Rules) |
 | staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
+| seeing a pass (AI and the pass button's pick) | vision | sees mates up to 400 → 560 px away; a cut-off lane counts against a mate 150 → 350; leads a runner 0.15 s → 0.65 s of his run |
+| bending it | curve | long shots and free-kick shots leave 0 → 0.3 rad off line and curl in on target: the keeper, reading the ball's line, dives late or the wrong way |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
 checks each against an elite and a poor player.

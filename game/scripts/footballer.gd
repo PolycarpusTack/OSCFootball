@@ -198,16 +198,21 @@ func _draw_marks() -> void:
 		_marks.draw_colored_polygon(PackedVector2Array([Vector2(-5, -54), Vector2(5, -54), Vector2(0, -47)]), pass_marker)
 
 
-## Kick the ball toward `target` (pitch position) with the given speed and lift.
-func kick_to(target: Vector2, speed: float, lift: float, anim := "shoot", kind := "shot") -> void:
+## Kick the ball toward `target` (pitch position) with the given speed and lift; with `bend`
+## (rad, either sign) it leaves that far off the line and curls in onto `target`.
+func kick_to(target: Vector2, speed: float, lift: float, anim := "shoot", kind := "shot", bend := 0.0) -> void:
 	if not await _wind_up(target, anim, KICK_CONTACT):
 		return
-	ball.kick((target - ball.position).normalized() * speed, lift)
+	var line := target - ball.position
+	ball.kick(line.normalized().rotated(bend) * speed, lift)
+	if bend != 0.0:
+		ball.curl_to(target, 2.0 * absf(bend) * speed / line.length())
 	ball.kick_kind = kind
 
 
 ## Shoot at `target`: finishing (longShots from beyond 20 m, or `stat`) decides how far
-## off it goes, shotPower how hard.
+## off it goes, shotPower how hard. Long shots and free kicks curl in (curve: how much),
+## so a keeper reading the ball's line off the boot reads it wrong.
 ## Throw-in: the animation shows the ball in the hands (the match hides the real one)
 ## until it lets go over the head.
 func throw_in(target: Vector2, speed: float) -> void:
@@ -226,7 +231,10 @@ func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 	var miss := skill(stat, 55.0, 6.0) * pressure_factor()
 	target += Vector2(0.0, randf_range(-miss, miss))
 	var speed := lerpf(470.0, 660.0, power) * skill("shotPower", 0.88, 1.12)
-	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot")
+	var bend := 0.0
+	if stat in ["longShots", "freeKickAccuracy"]:
+		bend = skill("curve", 0.0, 0.3) * (1.0 if randf() < 0.5 else -1.0)
+	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot", bend)
 
 
 ## A cross into the box: lofted so it comes down at head height where `mate` is running to.
@@ -312,8 +320,10 @@ func air_touch(anim: String, v := Vector2.ZERO, up := 0.0, kind := "") -> void:
 	touch_cooldown = 0.35
 
 
+## Pass to `mate`, ahead of him if he's running: vision decides how far ahead (the ball
+## takes about 0.8 s to get there, so even 95 leaves him checking his run a little).
 func pass_to(mate: Footballer) -> void:
-	var lead := mate.position + mate.velocity * 0.4
+	var lead := mate.position + mate.velocity * skill("vision", 0.15, 0.65)
 	var dist := position.distance_to(lead)
 	var stat := "gkKicking" if role == "G" else "longPassing" if dist > 300.0 else "shortPassing"
 	var err := skill(stat, 40.0, 4.0) * pressure_factor()

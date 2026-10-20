@@ -216,8 +216,91 @@ func _initialize() -> void:
 	print("knocked down: fresh dizzy %s, tired dizzy %s, tired in Classic dizzy %s, events %s" % [fresh_dizzy, tired_dizzy, classic_dizzy, dizzies])
 	ok = ok and not fresh_dizzy and tired_dizzy and not classic_dizzy and dizzies == ["BRU"]
 
+	# vision: a mate 520 px away in the clear is only seen by the far-sighted passer, and
+	# a runner gets the ball further ahead of him
+	m.state = 5
+	var seer = m.home.players[6]
+	var far = m.home.players[9]
+	for t in [m.home, m.away]:
+		for p in t.players:
+			p.velocity = Vector2.ZERO
+			p.wish = Vector2.ZERO
+			p.position = Vector2(500, 300) if t == m.home else Vector2(60, 1100)  # mates too close to count
+	seer.position = Vector2(500, 300)
+	far.position = seer.position + Vector2(m.home.side * 520.0, 0)
+	var ai = load("res://scripts/ai.gd")
+	seer.stats = {"vision": 95}
+	var seen_far: bool = ai.best_pass(seer, m, Vector2.ZERO) == far
+	seer.stats = {"vision": 40}
+	var seen_poor: bool = ai.best_pass(seer, m, Vector2.ZERO) == far
+	var leads := []
+	for rating in [95, 40]:
+		seer.stats = {"vision": rating, "shortPassing": 99}
+		far.position = seer.position + Vector2(m.home.side * 250.0, 0)
+		far.speed_factor = 0.0  # stands still after: only his run at the moment of the pass counts
+		m.ball.stop_at(seer.feet_front())
+		m.ball.take(seer)
+		while seer.busy():
+			await physics_frame
+		far.velocity = Vector2(0, 200)  # running across, down the pitch
+		var was: Vector2 = far.position
+		seer.pass_to(far)
+		while m.ball.holder == seer or m.ball.velocity.length() < 100.0:
+			await physics_frame
+		var v: Vector2 = m.ball.velocity
+		leads.append(m.ball.position.y + v.y * (was.x - m.ball.position.x) / v.x - was.y)
+		await create_timer(0.3).timeout
+		m.ball.stop_at(Vector2(300, 300))
+	far.speed_factor = 1.0
+	print("vision: mate 520 px away seen with 95 %s, with 40 %s; runner led by %.0f px (95) vs %.0f px (40)" % [seen_far, seen_poor, leads[0], leads[1]])
+	ok = ok and seen_far and not seen_poor and leads[0] > leads[1] + 60.0
+
+	# curve: 25 m shots bend in, still on target, but a keeper reading the line off the
+	# ball 0.55 s out (when he'd dive) reads it wrong
+	var curler = m.home.players[9]
+	var curls := []
+	for rating in [95, 40]:
+		curler.stats = {"curve": rating, "longShots": 99, "shotPower": 70}
+		var aim_off := 0.0
+		var read_off := 0.0
+		for i in 8:
+			var r: Array = await _curled_shot(curler)
+			aim_off += r[0] / 8.0
+			read_off += r[1] / 8.0
+		curls.append([aim_off, read_off])
+	print("curve 95: %.1f px off target, keeper's read %.1f px out; curve 40: %.1f px, %.1f px" % [curls[0][0], curls[0][1], curls[1][0], curls[1][1]])
+	ok = ok and curls[0][0] < 12.0 and curls[1][0] < 12.0 and curls[0][1] > 25.0 and curls[1][1] < 1.0
+
 	print("RATINGS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
+
+
+## A 25 m shot at the middle of the goal (nobody in the way): [how far from it the ball
+## crosses the goal line, how far from that its straight line 0.55 s out pointed].
+func _curled_shot(p) -> Array:
+	var goal: Vector2 = p.team.goal_attacked()
+	p.position = goal - Vector2(p.team.side * Pitch.m(25.0), 0)
+	p.velocity = Vector2.ZERO
+	p.facing = 2 if p.team.side > 0 else 6
+	m.ball.stop_at(p.feet_front())
+	m.ball.take(p)
+	while p.busy():
+		await physics_frame
+	p.shoot(goal, 0.8)
+	while m.ball.holder == p or m.ball.velocity.length() < 100.0:
+		await physics_frame
+	var read := INF
+	var frames := 0
+	while signf(goal.x - m.ball.position.x) == p.team.side and frames < 300:
+		frames += 1
+		var v: Vector2 = m.ball.velocity
+		var t: float = (goal.x - m.ball.position.x) / v.x
+		if read == INF and t <= 0.55:
+			read = m.ball.position.y + v.y * t
+		await physics_frame
+	var crossed: float = m.ball.position.y
+	await create_timer(0.3).timeout
+	return [absf(crossed - goal.y), absf(read - crossed)]
 
 
 ## One shot at the middle of the goal; how far from it (px) the ball crosses the goal line.

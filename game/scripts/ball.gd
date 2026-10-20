@@ -27,6 +27,8 @@ var power_target := Vector2.ZERO
 var prev_position := Vector2.ZERO  # before this frame's step: the match checks the goal frame against it
 var prev_z := 0.0
 var touch_revision := 0  # cancels Chaos flight effects on any kick, catch or reset
+var curl := 0.0  # rad/s a curled kick turns toward curl_target; 0 once it's on line (see curl_to)
+var curl_target := Vector2.ZERO
 
 var _frames: Array[Texture2D] = []
 var _roll := 0.0
@@ -82,8 +84,16 @@ func launch_super(kind: String, v: Vector2, up: float, target: Vector2) -> void:
 	kicked.emit(v.length())
 
 
+## Bend toward `target` at `rate` rad/s until the ball is on line for it. Kicked `bend` rad
+## off that line, 2 x bend / flight time traces the arc that comes in on target (Footballer.kick_to).
+func curl_to(target: Vector2, rate: float) -> void:
+	curl = rate
+	curl_target = target
+
+
 func end_power() -> void:
 	touch_revision += 1
+	curl = 0.0
 	power = ""
 	_trail.clear()
 	_sprite.modulate = Color.WHITE
@@ -147,6 +157,11 @@ func coming_down(height: float) -> Vector2:
 
 
 func _normal_flight(delta: float) -> void:
+	if curl > 0.0:
+		var diff := wrapf((curl_target - position).angle() - velocity.angle(), -PI, PI)
+		velocity = velocity.rotated(clampf(diff, -curl * delta, curl * delta))
+		if absf(diff) <= curl * delta:
+			curl = 0.0  # on line: it flies straight from here
 	position += velocity * delta
 	if z > 0.0 or vz > 0.0:
 		vz -= GRAVITY * delta
