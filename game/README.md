@@ -40,7 +40,12 @@ clear; 30). The role moves play our own art (`brand/sprites/line_actions`).
 **P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
 R cycles only the moves your player's line can do (plus the keeper's and the captain's).
 The HUD shows the selected one between its neighbours, white when ready and grey when not,
-and what it still needs. **Esc → MOVES** lists every move: its input in the keyboard's or
+and what it still needs. Along the bottom, each player's **prompts** show what his player can
+do right now (with the ball, without it, a ball in the air, a keeper holding it) in the
+buttons of the keyboard or gamepad he's using, Chaos costs grey when the bar is short; in
+front, the directions he's just entered (F2 hides them), or what a combo he couldn't afford
+needs ("LASER PASS: NEED 30"). Ticks on the energy bar mark the cost of his ↓↘→ move
+(orange) and his selected special (cyan). **Esc → MOVES**, or **M / Y on the title screen**, lists every move: its input in the keyboard's or
 the gamepad's buttons, its cost and what it does, your line's moves first, with the
 animation looping beside it. Keeper moves command your keeper
 while you control an outfielder. Classic mode has none of these powers.
@@ -56,6 +61,7 @@ godot --headless --path game -s res://tests/smoke_test.gd                       
 godot --headless --path game -s res://tests/chaos_actions_test.gd                # 11 actions, counters, input and Classic isolation
 godot --headless --path game -s res://tests/role_moves_test.gd                   # line moves (↓↘→ per line) and the four signature specials
 godot --headless --path game -s res://tests/move_list_test.gd                    # pause-menu move list, special picker by line
+godot --headless --path game -s res://tests/control_hints_test.gd                # bottom prompts per situation, input trail, cost ticks
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
@@ -95,8 +101,9 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick; a throw-in always goes into the field) |
 | Space / X at a free kick | Space: shoot (aim with the stick, freeKickAccuracy), X: pass |
 | Space at full time | back to the title screen (the full-time screen shows possession, goals, shots, saves, fouls, cards, offsides and corners for each side, and the Man of the Match) |
-| Esc (gamepad Start) | pause: the clock, the AI and the ball stop. ↑/↓ and Space/Enter pick Resume, Restart match or Quit to title; Esc again resumes |
+| Esc (gamepad Start) | pause: the clock, the AI and the ball stop. ↑/↓ and Space/Enter pick Resume, Moves (every move, see Chaos special actions), Restart match or Quit to title; Esc again resumes |
 | F1 | animation viewer |
+| F2 | hide / show the input trail in front of the prompts |
 | **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass, Right Ctrl switch. P1 switches with Q |
 | **Gamepad** | left stick or d-pad: move, B: shoot (hold for power) / slide, A: pass, X or LB: switch. Alone: any pad is player 1's. Two players: one pad goes to player 2 (player 1 keeps the keyboard), two pads are player 1's and player 2's in connection order. Plugging in or out rebinds |
 | F3 | debug overlay: each player's AI decision (chase, defend, support, dribble, pass, shoot, keeper states), BUSY while an animation locks them, touch cooldown; ball holder and last touch; frame rate, match state, clock, ball height/speed, energy |
@@ -113,6 +120,7 @@ scripts/team.gd           Team: name, kits, 4-4-2 formation, pitch-side helpers;
 scripts/footballer.gd     a player's body: movement, animation, carrying the ball, kick/pass/shoot/slide
 scripts/ball.gd           ball with height, bounce, friction, holder (dribbler); super-shot flight and trails
 scripts/supers.gd         super-shot table (cost, animation, speed, colour) and energy rewards
+scripts/control_hints.gd  the prompts along the bottom of a match, input trail, cost ticks on the energy bar
 scripts/line_moves.gd     Chaos line moves: ↓↘→ per line (Bulldozer Clear, Laser Pass, Cannon Punt)
 scripts/combo_input.gd    fighting-game input buffer; directions relative to the goal you attack
 scripts/human.gd          one person at the controls: team, controlled player, shot/combo state; keyboard and gamepad bindings

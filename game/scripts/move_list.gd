@@ -55,8 +55,6 @@ const PAGES := [
 	]},
 ]
 const LINE_NAMES := {"G": "keepers", "D": "defenders", "M": "midfielders", "F": "strikers"}
-const PAD_NAMES := {JOY_BUTTON_A: "A", JOY_BUTTON_B: "B", JOY_BUTTON_X: "X", JOY_BUTTON_Y: "Y",
-	JOY_BUTTON_LEFT_SHOULDER: "LB", JOY_BUTTON_RIGHT_SHOULDER: "RB"}
 const FACING_RIGHT := 2
 const ROW_HEIGHT := 30
 
@@ -64,7 +62,8 @@ var page := 0
 var pick := 0
 var pad := false  # show the gamepad's buttons, not the keyboard's
 var role := ""  # the controlled player's line; "" highlights everything
-var team: Team  # whose kit the preview wears
+var outfield_kit: Material  # what the preview wears: an outfielder's kit ...
+var keeper_kit: Material  # ... or a keeper's
 var _tabs := RichTextLabel.new()
 var _rows := VBoxContainer.new()
 var _text := Label.new()
@@ -119,11 +118,12 @@ func _ready() -> void:
 	visible = false
 
 
-## Shown for `player_role`'s line ("" for none), in `kit_team`'s kit, with the gamepad's
-## buttons when `use_pad`.
+## Shown for `player_role`'s line ("" for none), in `kit_team`'s kit (null: none), with the
+## gamepad's buttons when `use_pad`.
 func open(player_role: String, kit_team: Team, use_pad: bool) -> void:
 	role = player_role
-	team = kit_team
+	outfield_kit = kit_team.outfield_material if kit_team else null
+	keeper_kit = kit_team.keeper_material if kit_team else null
 	pad = use_pad
 	page = 0
 	pick = 0
@@ -179,21 +179,20 @@ func usable(r: Dictionary) -> bool:
 	return role == "" or role in r.lines
 
 
-## `action`'s first button: keyboard (player 1's) or gamepad.
-func button_name(action: String) -> String:
-	if action == "move":
-		return "stick" if pad else "WASD"
-	if pad:
-		return PAD_NAMES.get(Human.PAD_BUTTONS[action][0], "?")
-	return OS.get_keycode_string(Human.KEYS[0][action][0])
-
-
-## The input as bbcode: buttons boxed, directions as they are.
+## The input in player 1's buttons (see input_bbcode).
 func input_text(input: Array) -> String:
+	return input_bbcode(input, 0, pad)
+
+
+## An input as bbcode: "@action" is player `i`'s button for it (the gamepad's when `use_pad`),
+## "!Esc" a fixed key; both boxed. Directions stay as they are.
+static func input_bbcode(input: Array, i: int, use_pad: bool) -> String:
 	var parts := []
 	for t: String in input:
 		if t.begins_with("@"):
-			parts.append("[bgcolor=#ffffff38] %s [/bgcolor]" % button_name(t.substr(1)))
+			parts.append("[bgcolor=#ffffff38] %s [/bgcolor]" % Human.button_name(i, t.substr(1), use_pad))
+		elif t.begins_with("!"):
+			parts.append("[bgcolor=#ffffff38] %s [/bgcolor]" % t.substr(1))
 		else:
 			parts.append(t)
 	return " ".join(parts)
@@ -220,9 +219,7 @@ func _refresh() -> void:
 	_time = 0.0
 	_preview.visible = r.anim != "" and Anims.has(r.anim)
 	if _preview.visible:
-		var keeper: bool = r.lines == "G"
-		_preview.material = null if Anims.own_art(r.anim) or team == null \
-			else (team.keeper_material if keeper else team.outfield_material)
+		_preview.material = null if Anims.own_art(r.anim) else (keeper_kit if r.lines == "G" else outfield_kit)
 
 
 ## "Everyone", "Outfield players" or e.g. "Midfielders and strikers".

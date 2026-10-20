@@ -2,7 +2,8 @@ extends Control
 ## Boot sequence: the PTE intro video and its end card (any key skips), then the title screen
 ## with the title music until Space / Enter (gamepad A, B or Start) goes to team select.
 ## Left / Right picks Chaos or Classic Football (Match.chaos), Up / Down one or two
-## players (Match.players). The menu sits in the dark band along the title card's bottom.
+## players (Match.players). M (gamepad Y) shows every move (MoveList); Esc / B goes back.
+## The menu sits in the dark band along the title card's bottom.
 
 const INTRO := "res://brand/intro.ogv"
 const INTRO_END := "res://brand/intro_end.png"
@@ -18,6 +19,7 @@ var _title := TextureRect.new()
 var _prompt := Label.new()
 var _mode := Label.new()
 var _music := AudioStreamPlayer.new()
+var _moves := MoveList.new()
 var _time := 0.0
 
 
@@ -41,7 +43,7 @@ func _ready() -> void:
 	_title.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_title.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_title.visible = false
-	_prompt.text = "PRESS SPACE TO KICK OFF"
+	_prompt.text = "PRESS SPACE TO KICK OFF      M / Y: MOVES"
 	_prompt.add_theme_font_size_override("font_size", 26)
 	_prompt.add_theme_color_override("font_outline_color", Color.BLACK)
 	_prompt.add_theme_constant_override("outline_size", 8)
@@ -66,6 +68,7 @@ func _ready() -> void:
 	music.loop_offset = MUSIC_LOOP_FROM
 	_music.stream = music
 	add_child(_music)
+	add_child(_moves)  # last: over everything
 	_video.play()
 
 
@@ -107,8 +110,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	var button: bool = event is InputEventJoypadButton and event.pressed
 	if not key and not button and not (event is InputEventMouseButton and event.pressed):
 		return
-	if _video.visible or _end_card.visible:
+	if _moves.visible:
+		if (key and event.keycode in [KEY_ESCAPE, KEY_M]) or (button and event.button_index in [JOY_BUTTON_B, JOY_BUTTON_Y]):
+			_moves.visible = false
+		elif key or button:
+			_moves.handle(event)
+	elif _video.visible or _end_card.visible:
 		_show_title()
+	elif (key and event.keycode == KEY_M) or (button and event.button_index == JOY_BUTTON_Y):
+		var clubs := Team.league()  # the previews wear the first club's kit
+		_moves.open("", Team.from_league(clubs[0].name) if not clubs.is_empty() else null, button)
 	elif (key and event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]) \
 			or (button and event.button_index in [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]):
 		Match.chaos = not Match.chaos
