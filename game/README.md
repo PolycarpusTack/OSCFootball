@@ -23,6 +23,7 @@ godot --headless --path game -s res://tests/smoke_test.gd                       
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
+godot --headless --path game -s res://tests/ratings_test.gd                      # ratings: pace, finishing, keepers, tackling
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -114,7 +115,25 @@ players: they get `unknown.png`, a silhouette. From each photo it also samples a
 colour (cheeks) and hair colour (crown) that `kit.gdshader` applies to the sprite's skin
 and hair palette ramps (indices 219-227 and 215-218); players without a photo keep FIFA
 96's own colours. A cap or headband in the photo gives the wrong hair colour. The ratings are loaded into
-`Footballer.stats` but don't change play yet.
+`Footballer.stats` and change play (see "Ratings in play").
+
+## Ratings in play
+
+`Footballer.skill(stat, lo, hi)` maps a rating onto a range: 40 or less gives `lo`, 95 or
+more `hi`, and a player without ratings is halfway (the behaviour before ratings).
+
+| Play | Ratings | 40 → 95 |
+|---|---|---|
+| top speed, acceleration | sprintSpeed, acceleration | 0.86-1.14x, 0.75-1.25x |
+| shot accuracy | finishing (longShots beyond 20 m, penalties at a penalty) | up to 55 px off → 6 px |
+| shot speed | shotPower | 0.88-1.12x |
+| pass accuracy | shortPassing, longPassing (gkKicking for keepers) | up to 40 px off → 4 px |
+| winning the ball | standingTackle vs the holder's ballControl | steal rate 0.5-1.5x / 1.4-0.6x |
+| slide tackles | slidingTackle | 55-100% success, one try per slide |
+| keeper reach | gkReflexes standing, gkDiving diving | 0.8-1.2x |
+
+The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
+checks each against an elite and a poor player.
 
 ## Rebuilding the assets
 

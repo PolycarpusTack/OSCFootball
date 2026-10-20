@@ -48,7 +48,7 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 	if p.think_timer <= 0.0:
 		p.think_timer = 0.25
 		if to_goal.length() < SHOOT_RANGE:
-			var spread := 40.0 + to_goal.length() * 0.25  # less accurate from further out
+			var spread := 15.0 + to_goal.length() * 0.18  # less accurate from further out; finishing adds its own miss
 			var target := goal + Vector2(0, randf_range(-spread, spread))
 			p.ai_state = "shoot"
 			if not _try_super(p, m, target):

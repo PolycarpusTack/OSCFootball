@@ -81,10 +81,18 @@ func feet_front() -> Vector2:
 	return position + Anims.FACING_VECTORS[facing] * 10.0
 
 
+## A rating (EA SPORTS FC, 0-99) mapped onto lo..hi: 40 or less gives lo, 95 or more hi.
+## Without ratings (no squad loaded) a player is average: halfway, today's behaviour.
+func skill(stat: String, lo: float, hi: float) -> float:
+	var v: float = stats.get(stat, 67.5)
+	return lerpf(lo, hi, clampf((v - 40.0) / 55.0, 0.0, 1.0))
+
+
 func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
-	velocity = velocity.move_toward(w * RUN_SPEED * speed_factor, ACCEL * delta)
+	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14)
+	velocity = velocity.move_toward(w * top, ACCEL * skill("acceleration", 0.75, 1.25) * delta)
 	position += velocity * delta
 	if velocity.length() > 10.0:
 		facing = Anims.facing_from(velocity)
@@ -125,13 +133,23 @@ func kick_to(target: Vector2, speed: float, lift: float, anim := "shoot", kind :
 	ball.kick_kind = kind
 
 
-func shoot(target: Vector2, power := 0.5) -> void:
-	kick_to(target, lerpf(470.0, 660.0, power), lerpf(110.0, 170.0, power), "shoot", "shot")
+## Shoot at `target`: finishing (longShots from beyond 20 m, or `stat`) decides how far
+## off it goes, shotPower how hard.
+func shoot(target: Vector2, power := 0.5, stat := "") -> void:
+	if stat == "":
+		stat = "longShots" if position.distance_to(target) > 20.0 * Pitch.PX_PER_M else "finishing"
+	var miss := skill(stat, 55.0, 6.0)
+	target += Vector2(0.0, randf_range(-miss, miss))
+	var speed := lerpf(470.0, 660.0, power) * skill("shotPower", 0.88, 1.12)
+	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot")
 
 
 func pass_to(mate: Footballer) -> void:
 	var lead := mate.position + mate.velocity * 0.4
 	var dist := position.distance_to(lead)
+	var stat := "gkKicking" if role == "G" else "longPassing" if dist > 300.0 else "shortPassing"
+	var err := skill(stat, 40.0, 4.0)
+	lead += Vector2(randf_range(-err, err), randf_range(-err, err))
 	var speed := clampf(dist * 1.6, 220.0, 520.0)
 	var lift := 20.0 if dist < 300.0 else 160.0
 	if role == "G":  # keepers loft it over the players waiting at the edge of the box, landing at the mate

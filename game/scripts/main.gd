@@ -346,7 +346,7 @@ func _resolve_possession(delta: float) -> void:
 				if p.touch_cooldown > 0.0 or (p.busy() and not p.sliding() and not p.diving()):
 					continue
 				var keeper: bool = p.role == "G" and p.position.distance_to(t.goal_defended()) < 200.0
-				var reach := (DIVE_REACH if p.diving() else KEEPER_REACH) if keeper else Footballer.REACH
+				var reach := keeper_reach(p) if keeper else Footballer.REACH
 				if not keeper and ball.z > 12.0:
 					continue
 				var d := minf(p.feet_front().distance_to(ball.position), p.position.distance_to(ball.position))
@@ -366,7 +366,10 @@ func _resolve_possession(delta: float) -> void:
 		if o.sliding() and from_behind:
 			_foul(o, holder)
 			return
-		if o.sliding() or randf() < STEAL_RATE * delta:
+		if o.sliding() and randf() > o.skill("slidingTackle", 0.55, 1.0):
+			o.touch_cooldown = 0.6  # missed: one try per slide
+			continue
+		if o.sliding() or randf() < steal_rate(o, holder) * delta:
 			ball.release()
 			ball.kick(Anims.FACING_VECTORS[o.facing] * 90.0, 0.0)
 			holder.touch_cooldown = 0.6
@@ -374,6 +377,16 @@ func _resolve_possession(delta: float) -> void:
 			if o.sliding():
 				holder.perform("fall")
 			return
+
+
+## Keeper's reach for a ball: reflexes standing, diving in a dive.
+func keeper_reach(k: Footballer) -> float:
+	return DIVE_REACH * k.skill("gkDiving", 0.8, 1.2) if k.diving() else KEEPER_REACH * k.skill("gkReflexes", 0.8, 1.2)
+
+
+## Chance per second that `tackler`, touching the ball, takes it off `holder`.
+func steal_rate(tackler: Footballer, holder: Footballer) -> float:
+	return STEAL_RATE * tackler.skill("standingTackle", 0.5, 1.5) / holder.skill("ballControl", 0.6, 1.4)
 
 
 ## A keeper with the ball in his hands can't be challenged: opponents (AI or human)
@@ -487,7 +500,7 @@ func _penalty(delta: float) -> void:
 		var lean := Input.get_axis(h.action("move_up"), h.action("move_down"))
 		if lean != 0.0:
 			corner = signf(lean)
-	taker.shoot(goal + Vector2(0, corner * GOAL_HALF_WIDTH * 0.75))
+	taker.shoot(goal + Vector2(0, corner * GOAL_HALF_WIDTH * 0.75), 0.5, "penalties")
 	var keeper := opponent(taker.team).keeper()
 	var guess := corner if randf() < 0.45 else -corner
 	get_tree().create_timer(Footballer.KICK_CONTACT).timeout.connect(
