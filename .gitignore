@@ -28,6 +28,9 @@ game/OSCF_*
 game/pte-end-card-*
 game/Stadium Breakbeat.*
 game/ball_*.png*
+# full-size music originals and art source archives
+game/*.m4a
+game/*.zip
 
 # standalone builds (contain the EA assets: personal use only)
 build/
