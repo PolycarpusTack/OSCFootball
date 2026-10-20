@@ -8,7 +8,8 @@ const INTRO := "res://brand/intro.ogv"
 const INTRO_END := "res://brand/intro_end.png"
 const INTRO_END_SECONDS := 3.0  # the end card stays up this long after the video
 const TITLE := "res://brand/title.png"
-const MUSIC := "res://assets/audio/music/QUE_TITL.wav"
+const MUSIC := "res://brand/title_music.ogg"  # "Stadium Breakbeat", cut to end on bar 40 of the loop
+const MUSIC_LOOP_FROM := 52.722  # seconds: after the build-up, 160 beats before the end (139.8 BPM)
 const TEAM_SELECT := "res://scenes/team_select.tscn"
 
 var _video := VideoStreamPlayer.new()
@@ -60,9 +61,9 @@ func _ready() -> void:
 	_mode.visible = false
 	add_child(_mode)
 	_show_mode()
-	var music: AudioStreamWAV = load(MUSIC)
-	music.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	music.loop_end = int(music.get_length() * music.mix_rate)
+	var music: AudioStreamOggVorbis = load(MUSIC)
+	music.loop = true
+	music.loop_offset = MUSIC_LOOP_FROM
 	_music.stream = music
 	add_child(_music)
 	_video.play()
