@@ -58,6 +58,17 @@ const BRIBE_FLAG := 2.0  # seconds later he flags it
 const REF_VIEW_ANGLE := deg_to_rad(50.0)  # either side of where he looks
 const REF_VIEW_RANGE := 40.0 * Pitch.PX_PER_M
 const REF_NEAR := 6.0 * Pitch.PX_PER_M  # this close he sees it whichever way he looks
+# advantage: a seen foul where the fouled side has the ball running to one of its own plays on
+const ADVANTAGE_REACH := 5.0 * Pitch.PX_PER_M  # a teammate this close to where the ball runs, first to it
+const ADVANTAGE_TIME := 2.0  # seconds he waits; lost to the offenders meanwhile, he brings it back
+const ADVANTAGE_RUN := 140.0  # px/s the fouled man's ball runs on at
+const LATE_LOOK := 1.5  # seconds a man fouled behind the referee's back stays down: seen, a late whistle
+const WARN_AT := 70.0  # Chaos: the meter past this, the first time since a booking: he calls him over
+const REPEAT_STEP := 0.12  # each foul called on a man before makes his next one count this much more
+const REPEAT_CAP := 1.6
+const BOOKED_RATE := 0.85  # a booked man's meter fills slower: second yellows come later
+const LAST_MAN_RANGE := 35.0 * Pitch.PX_PER_M  # a foul on a man this close to goal with only the keeper to beat
+const LAST_MAN_RED := {"behind": 0.6, "front": 0.3}  # ... is a straight red this often
 const REF_TURN := 2.5  # radians a second his gaze turns toward the ball
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
@@ -109,6 +120,9 @@ var referee_gaze := Vector2.UP  # where he looks: toward the ball, turning at RE
 var ref_mood := {}  # Team -> his mood with that side (Chaos); angry, he books faster
 var bribed := {}  # Team -> seconds of play he still leans its way (Chaos)
 var _bribe_flag := {}  # Team -> seconds until the linesman flags its bribe
+var _advantage := {}  # a foul he's playing advantage on: by, victim, from_behind, spot, left
+var _late_cards: Array = []  # fouls from advantage played: judged at the next stoppage
+var _unseen := {}  # Chaos: a foul behind his back, its victim still down: by, victim, from_behind, left
 var _blow_up := {}  # he's fuming at a side: team, left (seconds until the whistle stun)
 var referee_cone := true  # false: he sees everything (tests that aren't about him)
 var state := State.KICKOFF
@@ -349,6 +363,7 @@ func request_sub(t: Team, slot: int, entry: Dictionary) -> bool:
 
 ## A stoppage: the CPU manager's decisions, then the substitutions waiting for it. Banner text, or "".
 func _stoppage_news() -> String:
+	_cards_held_over()
 	var lines: Array = []
 	for t in [home, away]:
 		var text := _cover_goal(t)
@@ -360,6 +375,19 @@ func _stoppage_news() -> String:
 	if subs != "":
 		lines.append(subs)
 	return "\n".join(lines)
+
+
+## At a stoppage: advantage still running is played, and the cards from advantage played
+## are shown now; a man fouled behind his back is up again.
+func _cards_held_over() -> void:
+	if not _advantage.is_empty():
+		_late_cards.append(_advantage)
+		_advantage = {}
+	_unseen = {}
+	var due := _late_cards
+	_late_cards = []
+	for a in due:
+		_punish(a)
 
 
 ## `t`'s keeper sent off: a forward (the weakest; else the weakest outfield player) makes way
@@ -522,7 +550,7 @@ func _physics_process(delta: float) -> void:
 					p.wear(delta / half_seconds * 45.0)
 			if cpu:
 				cpu.tick(delta)
-			if _referee_temper(delta):
+			if _referee_temper(delta) or _watch_advantage(delta) or _late_whistle(delta):
 				return
 			for t in [home, away]:
 				for p in t.players:
@@ -1175,7 +1203,14 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 	if not referee_sees(victim.position):  # Chaos: play on
 		flash("REF DIDN'T SEE IT!", 1.2)
 		event.emit("unseen foul", by.team)
+		_unseen = {"by": by, "victim": victim, "from_behind": from_behind, "left": LATE_LOOK}
 		return
+	_call_foul(by, victim, from_behind)
+
+
+## The referee saw `by` foul `victim`: a free kick or penalty, and maybe a card. Unless the
+## ball runs on to one of the fouled side and it isn't in the box: advantage (see _watch_advantage).
+func _call_foul(by: Footballer, victim: Footballer, from_behind: bool) -> void:
 	if bribed.has(by.team):  # Chaos: he looks the other way
 		flash("PLAY ON!", 1.2)
 		event.emit("bribed call", by.team)
@@ -1183,20 +1218,131 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 	victim.team.gain(Supers.GAIN.fouled)
 	event.emit("foul", by.team)
 	player_event.emit("foul", by)
+	var spot := victim.position.clamp(Vector2.ZERO, Pitch.field_rect().size)
+	var a := {"by": by, "victim": victim, "from_behind": from_behind, "spot": spot, "left": ADVANTAGE_TIME}
 	if in_penalty_area(victim.position, by.team):
 		award_penalty(victim.team)
-	else:
-		_award_restart("free kick", victim.team, victim.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
-	if not cards_on:
+	elif _advantage_on(by, victim):
+		_advantage = a
+		flash("ADVANTAGE!", ADVANTAGE_TIME)
+		event.emit("advantage", victim.team)
 		return
-	var odds: Array = CARD_ODDS["behind" if from_behind else "front"]
-	var r := randf() / by.skill("aggression", 0.7, 1.3)
-	if r < odds[1]:
-		book(by, true)
-	elif chaos:  # yellows come from the discipline meter
-		offence(by, victim.position, "foul from behind" if from_behind else "foul")
-	elif r < odds[0] + odds[1]:
-		book(by, false)
+	else:
+		_award_restart("free kick", victim.team, spot)
+	_punish(a)
+
+
+## Advantage for a foul by `by` on `victim`: he had the ball, and where it runs on (ADVANTAGE_RUN
+## his way) one of his teammates is close and first there. The ball is set running if so.
+func _advantage_on(by: Footballer, victim: Footballer) -> bool:
+	if ball.holder != victim:
+		return false
+	var dir: Vector2 = Anims.FACING_VECTORS[victim.facing]
+	var to := ball.position + dir * ADVANTAGE_RUN * 0.6
+	var first: Footballer = null
+	for t in [home, away]:
+		for p in t.players:
+			if p != by and p != victim and not p.sent_off and p.role != "G" \
+					and (first == null or p.time_to(to) < first.time_to(to)):
+				first = p
+	if first == null or first.team != victim.team or first.position.distance_to(to) > ADVANTAGE_REACH:
+		return false
+	ball.release()
+	ball.kick(dir * ADVANTAGE_RUN, 0.0)
+	ball.last_touch = victim
+	return true
+
+
+## Every frame of play while he plays advantage: the offenders win the ball, and he brings it
+## back for the free kick; the time is up with the fouled side still on it, and play stands
+## (the card waits for the next stoppage); loose and nobody's, he brings it back too. True
+## if play stopped.
+func _watch_advantage(delta: float) -> bool:
+	if _advantage.is_empty():
+		return false
+	var a := _advantage
+	var holder := ball.holder
+	var theirs: bool = (holder.team if holder else (ball.last_touch.team if ball.last_touch else null)) == a.victim.team
+	if holder != null and not theirs:
+		_bring_back("ADVANTAGE LOST\nFREE KICK")
+		return true
+	a.left -= delta
+	if a.left > 0.0:
+		return false
+	if theirs:
+		_advantage = {}
+		_late_cards.append(a)
+		event.emit("advantage played", a.victim.team)
+		return false
+	_bring_back("FREE KICK")
+	return true
+
+
+func _bring_back(text: String) -> void:
+	var a := _advantage
+	_advantage = {}
+	event.emit("brought back", a.victim.team)
+	_award_restart("free kick", a.victim.team, a.spot)
+	flash(text, 1.4)
+	_punish(a)
+
+
+## Chaos, every frame of play: a man fouled behind the referee's back is still down when the
+## referee looks his way: a late whistle. True if play stopped.
+func _late_whistle(delta: float) -> bool:
+	if _unseen.is_empty():
+		return false
+	_unseen.left -= delta
+	if _unseen.left <= 0.0 or _unseen.victim.sent_off or _unseen.by.sent_off:
+		_unseen = {}
+		return false
+	if not referee_sees(_unseen.victim.position):
+		return false
+	var u := _unseen
+	_unseen = {}
+	flash("LATE WHISTLE!", 1.2)
+	event.emit("late whistle", u.by.team)
+	_call_foul(u.by, u.victim, u.from_behind)
+	return state != State.PLAY
+
+
+## The card for a called foul (`a` from _call_foul): denying a man with only the keeper to
+## beat is often a straight red; otherwise a straight red is rare (aggression), and a yellow
+## comes from the odds in Classic and from the discipline meter in Chaos. Repeat offenders
+## are dealt with harder.
+func _punish(a: Dictionary) -> void:
+	var by: Footballer = a.by
+	if cards_on and not by.sent_off:
+		var odds: Array = CARD_ODDS["behind" if a.from_behind else "front"]
+		var r := randf() / by.skill("aggression", 0.7, 1.3)
+		if last_man(by, a.victim) and randf() < LAST_MAN_RED["behind" if a.from_behind else "front"]:
+			flash("LAST MAN!", 1.2)
+			event.emit("last man", by.team)
+			book(by, true)
+		elif r < odds[1]:
+			book(by, true)
+		elif chaos:  # yellows come from the discipline meter
+			offence(by, a.spot, "foul from behind" if a.from_behind else "foul", true)
+		elif r < (odds[0] + odds[1]) * repeat_factor(by):
+			book(by, false)
+	by.fouls += 1
+
+
+## How much harder the referee is on `p` for the fouls he's already been called for.
+func repeat_factor(p: Footballer) -> float:
+	return minf(REPEAT_CAP, 1.0 + REPEAT_STEP * p.fouls)
+
+
+## `victim` was through on goal when `by` fouled him: near `by`'s goal, and no outfield man of
+## `by`'s side but `by` himself between him and it.
+func last_man(by: Footballer, victim: Footballer) -> bool:
+	var goal := by.team.goal_defended()
+	if victim.position.distance_to(goal) > LAST_MAN_RANGE:
+		return false
+	for p in by.team.players:
+		if p != by and p.role != "G" and not p.sent_off and absf(p.position.x - goal.x) < absf(victim.position.x - goal.x):
+			return false
+	return true
 
 
 ## The referee shows `p` a card. A second yellow is a red: off he goes, for the rest of the
@@ -1314,13 +1460,21 @@ func referee_sees(pos: Vector2) -> bool:
 ## Chaos: `p` did something rough (`kind`, see DISCIPLINE) at `pos`. If the referee saw it,
 ## p's discipline meter fills, faster the angrier he is with p's side, and so does his mood.
 ## Full, p is booked (a second time: sent off) and it starts again. A human side's foul
-## (play has stopped) waits PARRY_WINDOW for "Sorry, ref!" first.
-func offence(p: Footballer, pos: Vector2, kind: String) -> void:
-	if not chaos or p.sent_off or not referee_sees(pos) or bribed.has(p.team):
+## (play has stopped) waits PARRY_WINDOW for "Sorry, ref!" first. Repeat offenders fill it
+## faster, a booked man slower; past WARN_AT the first time he's called over. `seen`: he
+## already saw it (a foul he played advantage on).
+func offence(p: Footballer, pos: Vector2, kind: String, seen := false) -> void:
+	if not chaos or p.sent_off or not (seen or referee_sees(pos)) or bribed.has(p.team):
 		return
-	var added: float = DISCIPLINE[kind] * (1.0 + ref_mood.get(p.team, 0.0) / MOOD_FULL)
+	var added: float = DISCIPLINE[kind] * (1.0 + ref_mood.get(p.team, 0.0) / MOOD_FULL) \
+		* repeat_factor(p) * (BOOKED_RATE if p.yellow else 1.0)
 	p.discipline += added
 	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + added * MOOD_GAIN)
+	if not p.warned and p.discipline >= WARN_AT and p.discipline < DISCIPLINE_FULL:
+		p.warned = true
+		referee.facing = Anims.facing_from(p.position - referee.position)
+		flash("REF CALLS %s OVER" % p.display_name, 1.5)
+		event.emit("ref warning", p.team)
 	if state != State.PLAY and not autoplay and human_for(p.team) != null:
 		if not _parry.is_empty():  # the one before it is judged now
 			_judge(_parry.p)
@@ -1448,6 +1602,7 @@ func _whistle_stun(t: Team) -> void:
 func _judge(p: Footballer) -> void:
 	if p.discipline >= DISCIPLINE_FULL:
 		p.discipline = 0.0
+		p.warned = false
 		if cards_on:
 			book(p, false)
 

@@ -77,6 +77,7 @@ godot --headless --path game -s res://tests/options_test.gd                     
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
 godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
+godot --headless --path game -s res://tests/discipline_test.gd                   # advantage, late whistle, warning, repeat offenders, last man
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -317,7 +318,14 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 - Cards (Classic): a foul from behind is booked 45% of the time and is a straight red 10%;
   other fouls 12% yellow. Aggression scales both (0.7x → 1.3x). A second yellow is a red: the
   player leaves the pitch for the rest of the match. In Chaos the yellows come from the
-  discipline meter instead (see The Chaos referee); straight reds stay.
+  discipline meter instead (see The Chaos referee); straight reds stay. A player is dealt
+  with harder for every foul he's been called for (12% more each, up to 60%). Fouling a man
+  through on goal (within 35 m, nobody but the fouler between him and the keeper) is a
+  straight red 60% of the time from behind, 30% from the front.
+- Advantage: a foul outside the box on a man whose ball runs on to a teammate close by and
+  first to it: ADVANTAGE!, play on. If the other side wins the ball within 2 seconds, or it's
+  loose and nobody's when they're up, he brings it back for the free kick; if not, play
+  stands and any card for the foul is shown at the next stoppage.
 - Offside: a player in the opponents' half, nearer their goal line than the ball and than the
   second-last defender when a teammate kicks it (a pass, a cross, a shot, a header), is
   offside if he plays that ball, also after it comes back off the woodwork: a free kick to
@@ -360,13 +368,16 @@ and he can't touch the ball. Expect a few a match.
 **View cone:** the referee looks toward the ball, turning to it at about 140° a second, and
 sees 50° either side of where he looks, up to 40 m (a faint wedge on the grass), and
 anything within 6 m of him. A foul he doesn't see goes unpunished: REF DIDN'T SEE IT!, the
-victim goes down, play on.
+victim goes down, play on. But if the referee looks his way while he's still down (1.5 s):
+LATE WHISTLE!, and the foul is given after all.
 
 **Discipline meter:** every player has one (your player's is the bar under his portrait).
 What the referee sees fills it: a foul from behind 45, another foul 30, a body check 20, a
 Chaos stun (Stego Sweep, Bass Drop) 20. Full, he's booked and it starts again: twice full is
 a red. It cools by 1.5 a second of play. A body check is never a foul, but the referee
-remembers it.
+remembers it. Past 70 for the first time since his last booking, the referee calls him over
+(REF CALLS ... OVER): a warning, and the moment to say sorry. Repeat offenders fill it
+faster (as their cards, above), and a booked player's fills 15% slower.
 
 **His mood:** two bars over his head, one per side (home on top, in the sides' colours).
 Every offence he sees makes him angrier with that side (half of what it adds to the meter),

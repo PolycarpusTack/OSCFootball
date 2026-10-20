@@ -33,6 +33,7 @@ func _initialize() -> void:
 	_look_at(c)
 	victim.position = c
 	events.clear()
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(hacker, victim, false)
 	print("seen foul from the front: events %s, discipline %.0f" % [events, hacker.discipline])
 	ok = ok and events.has("foul:AND") and events.has("free kick:BRU") and is_equal_approx(hacker.discipline, 30.0)
@@ -44,9 +45,11 @@ func _initialize() -> void:
 	m.referee_gaze = Vector2.RIGHT  # away from the centre spot
 	victim.position = c
 	events.clear()
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(hacker, victim, false)
 	print("foul behind his back: events %s, state %d (1 = play on), discipline %.0f -> %.0f" % [events, m.state, before, hacker.discipline])
 	ok = ok and events == ["unseen foul:AND"] and m.state == 1 and is_equal_approx(hacker.discipline, before)
+	m._unseen = {}  # no late whistle for it (see discipline_test)
 
 	# ... but right next to him he sees it whichever way he looks
 	m.referee.position = c + Vector2(Pitch.m(4.0), 0.0)
@@ -73,6 +76,7 @@ func _initialize() -> void:
 	victim.position = c
 	hacker.discipline = 80.0
 	events.clear()
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(hacker, victim, false)
 	var first := events.filter(func(e): return "card" in e)
 	var after_first: float = hacker.discipline
@@ -81,6 +85,7 @@ func _initialize() -> void:
 	victim.position = c
 	hacker.discipline = 80.0
 	events.clear()
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(hacker, victim, false)
 	var second := events.filter(func(e): return "card" in e)
 	print("meter full: %s, then at %.0f; full again: %s, sent off %s" % [first, after_first, second, hacker.sent_off])
@@ -100,12 +105,14 @@ func _initialize() -> void:
 	var rough = m.away.players[3]
 	_look_at(c)
 	victim.position = c
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(rough, victim, false)
 	var mood: float = m.ref_mood.get(m.away, 0.0)
 	await _play()
 	_look_at(c)
 	victim.position = c
 	var before_second: float = rough.discipline
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(rough, victim, false)
 	print("mood with AND after a foul: %.0f; the next foul adds %.1f (30 when calm)" % [mood, rough.discipline - before_second])
 	ok = ok and is_equal_approx(mood, 15.0) and rough.discipline - before_second > 30.0
@@ -120,6 +127,7 @@ func _initialize() -> void:
 	foe.position = c
 	sorry.discipline = 90.0
 	events.clear()
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(sorry, foe, false)
 	await _press("special")
 	await create_timer(0.8).timeout
@@ -134,6 +142,7 @@ func _initialize() -> void:
 	foe.position = c
 	late.discipline = 90.0
 	events.clear()
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(late, foe, false)
 	await create_timer(0.8).timeout
 	var calm: float = m.ref_mood.get(m.home, 0.0)
@@ -264,6 +273,7 @@ func _initialize() -> void:
 	bruiser.position = c - Vector2(16.0, 0.0)
 	_look_at(c)
 	m.offence(bruiser, c, "body check")
+	m.ball.release()  # not his ball: no advantage, the free kick at once
 	m._foul(bruiser, hacked)
 	print("bribed: mood %.0f, discipline after a body check %.0f, foul: events %s, state %d, dive odds %.2f, again: '%s'" % [
 		m.ref_mood.get(m.home, 0.0), bruiser.discipline, events, m.state, m.dive_odds(diver), m.chaos_actions.unavailable(briber, "bribe")])
