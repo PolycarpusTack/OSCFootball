@@ -19,6 +19,13 @@ const PRESSURE := 3.0 * Pitch.PX_PER_M  # an opponent closer than this unsettles
 const BODY_CHECK_TIME := 0.8  # the shoulder-barge part of the bodychk animation (it goes on to land)
 const BODY_CHECK_SPEED := 360.0
 # skill moves: seconds into the animation the foot plays the ball, and how long it ties him up
+# stamina: fatigue (0 fresh .. 1 spent) builds while running, a little faster with poor stamina,
+# and goes off walking or standing; it costs top speed and acceleration
+const TIRING := [0.012, 0.0045]  # per second running: stamina 40 .. 95
+const RECOVERY := 0.004  # per second at walking pace or standing
+const TIRED_SPEED := 0.15  # top speed lost when spent
+const TIRED_ACCEL := 0.2
+const DIZZY_SPEED := 0.5
 const SKILL_MOVES := {"nutmeg": [0.4, 0.7], "rainbow": [0.45, 0.75], "bckheel": [0.4, 0.7]}
 
 var team: Team
@@ -43,6 +50,8 @@ var touch_cooldown := 0.0  # can't take the ball while > 0 (just kicked or lost 
 var think_timer := 0.0  # AI: time until the next pass/shoot decision
 var ai_state := ""  # AI: what it last decided to do, for the debug overlay
 var charge := 0.0  # 0..1 while the shoot button is held; drawn as a ring
+var fatigue := 0.0  # 0 fresh .. 1 spent (see TIRING); the control ring empties with it
+var dizzy_left := 0.0  # Chaos: seeing stars after a knockdown when tired (see Match.knock_down)
 
 var _anim := "xstandd"
 var _anim_time := 0.0
@@ -106,10 +115,17 @@ func _physics_process(delta: float) -> void:
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
 	if _anim in ["jump", "bodychk", "nutmeg", "rainbow"] and busy():  # a dodge, body check or skill move: carries on at his speed
 		w = velocity / maxf(RUN_SPEED, velocity.length())
-	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14)
+	var running := velocity.length() > 120.0
+	fatigue = clampf(fatigue + (skill("stamina", TIRING[0], TIRING[1]) if running else -RECOVERY) * delta, 0.0, 1.0)
+	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14) * (1.0 - TIRED_SPEED * fatigue)
 	if has_ball():
 		top *= skill("dribbling", 0.9, 1.0)
-	velocity = velocity.move_toward(w * top, ACCEL * skill("acceleration", 0.75, 1.25) * skill("agility", 0.85, 1.15) * delta)
+	if dizzy_left > 0.0 and not busy():  # up off the floor, staggering about
+		dizzy_left -= delta
+		top *= DIZZY_SPEED
+		touch_cooldown = maxf(touch_cooldown, 0.1)
+	velocity = velocity.move_toward(w * top, ACCEL * skill("acceleration", 0.75, 1.25) * skill("agility", 0.85, 1.15) \
+		* (1.0 - TIRED_ACCEL * fatigue) * delta)
 	position += velocity * delta
 	if velocity.length() > 10.0:
 		facing = Anims.facing_from(velocity)
@@ -138,10 +154,14 @@ func _draw_marks() -> void:
 		_marks.draw_arc(Vector2(0, -56), 9.0, -PI / 2.0, -PI / 2.0 + TAU * minf(charge, 1.0), 32, c, 3.0 if full else 2.0)
 	_marks.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.4))
 	_marks.draw_circle(Vector2.ZERO, 9.0, Color(0, 0, 0, 0.3))
-	if controlled:
-		_marks.draw_arc(Vector2.ZERO, 12.0, 0.0, TAU, 24, marker, 2.0)
-	if pass_marker.a > 0.0:  # a small arrow over the head (undo the shadow's squash first)
-		_marks.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if controlled:  # empties as he tires
+		_marks.draw_arc(Vector2.ZERO, 12.0, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - 0.75 * fatigue), 24, marker, 2.0)
+	_marks.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)  # undo the shadow's squash
+	if dizzy_left > 0.0:  # stars circling his head
+		for i in 3:
+			var a := dizzy_left * 6.0 + TAU * i / 3.0
+			_marks.draw_circle(Vector2(cos(a) * 9.0, -58.0 + sin(a) * 3.0), 2.0, Color(1.0, 0.9, 0.2))
+	if pass_marker.a > 0.0:  # a small arrow over the head
 		_marks.draw_colored_polygon(PackedVector2Array([Vector2(-5, -54), Vector2(5, -54), Vector2(0, -47)]), pass_marker)
 
 

@@ -165,6 +165,57 @@ func _initialize() -> void:
 	print("nutmeg gets through: dribbler 95 vs defender 40 %.0f%%, 40 vs 95 %.0f%%" % [nut_good * 100.0, nut_poor * 100.0])
 	ok = ok and nut_good > 0.8 and nut_poor < 0.25
 
+	# stamina: 30 s of running about tires the poor one faster; spent, he's slower
+	var fit = m.home.players[4]
+	var unfit = m.home.players[5]
+	fit.stats = {"stamina": 95}
+	unfit.stats = {"stamina": 40}
+	for p in [fit, unfit]:
+		p.position = Vector2(700, 300 if p == fit else 600)
+		p.fatigue = 0.0
+	var ran := 0.0
+	while ran < 30.0:
+		for p in [fit, unfit]:
+			p.wish = Vector2.RIGHT.rotated(ran * 0.6)  # big circles: always running
+		await physics_frame
+		ran += 1.0 / 60.0
+	var tired_fit: float = fit.fatigue
+	var tired_unfit: float = unfit.fatigue
+	fit.stats = {}
+	unfit.stats = {}
+	fit.fatigue = 0.0
+	unfit.fatigue = 1.0
+	var from := {}
+	for p in [fit, unfit]:
+		p.velocity = Vector2.ZERO
+		p.wish = Vector2.RIGHT
+		from[p] = p.position.x
+	await create_timer(3.0).timeout
+	var fresh_run: float = (fit.position.x - from[fit]) / Pitch.PX_PER_M
+	var spent_run: float = (unfit.position.x - from[unfit]) / Pitch.PX_PER_M
+	for p in [fit, unfit]:
+		p.wish = Vector2.ZERO
+	print("stamina 95 vs 40 after 30 s running: fatigue %.2f vs %.2f; 3 s run fresh %.1f m, spent %.1f m" % [tired_fit, tired_unfit, fresh_run, spent_run])
+	ok = ok and tired_unfit > tired_fit * 2.0 and tired_unfit > 0.15 and spent_run < fresh_run - 1.0
+
+	# Chaos: knocked down when tired, he gets up dizzy (not when fresh, not in Classic)
+	var dizzies := []
+	m.event.connect(func(kind, t): if kind == "dizzy": dizzies.append(t.short))
+	var floored = m.home.players[6]
+	floored.fatigue = 0.0
+	m.knock_down(floored, "fall")
+	var fresh_dizzy: bool = floored.dizzy_left > 0.0
+	floored.fatigue = 0.7
+	m.knock_down(floored, "fall")
+	var tired_dizzy: bool = floored.dizzy_left > 0.0
+	floored.dizzy_left = 0.0
+	m.chaos = false
+	m.knock_down(floored, "fall")
+	var classic_dizzy: bool = floored.dizzy_left > 0.0
+	m.chaos = true
+	print("knocked down: fresh dizzy %s, tired dizzy %s, tired in Classic dizzy %s, events %s" % [fresh_dizzy, tired_dizzy, classic_dizzy, dizzies])
+	ok = ok and not fresh_dizzy and tired_dizzy and not classic_dizzy and dizzies == ["BRU"]
+
 	print("RATINGS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
 

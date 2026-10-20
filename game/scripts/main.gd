@@ -21,6 +21,9 @@ const POST_HIT := 3.0  # pitch pixels from a post or the bar (ball plus post rad
 const AIR_REQUEST := 0.4  # seconds a header / volley button press waits for the ball
 const DODGE_GAIN := 10.0  # energy for hopping over a slide (Chaos)
 const BODY_CHECK_COST := 20.0
+const KNOCK_FATIGUE := 0.1  # going down takes it out of you
+const DIZZY_AT := 0.6  # Chaos: knocked down this tired, he sees stars
+const DIZZY_TIME := 2.5
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
@@ -488,7 +491,7 @@ func _resolve_possession(delta: float) -> void:
 			holder.touch_cooldown = 0.6
 			o.team.gain(Supers.GAIN.tackle)
 			if o.sliding() and randf() >= holder.skill("balance", 0.0, 0.5):  # good balance: stays up
-				holder.perform("fall")
+				knock_down(holder, "fall")
 			return
 
 
@@ -568,12 +571,22 @@ func _body_check_hits(o: Footballer, holder: Footballer) -> void:
 		ball.last_touch = o
 		holder.touch_cooldown = 0.8
 		o.touch_cooldown = 0.3  # he can run onto it
-		holder.perform("stumble")
 		flash("BODY CHECK!", 1.0)
+		knock_down(holder, "stumble")
 		event.emit("body check won", o.team)
 	else:
-		o.perform("stumble")  # bounced off him
+		knock_down(o, "stumble")  # bounced off him
 		o.velocity = Vector2.ZERO
+
+
+## `p` goes down (`anim`): it tires him, and in Chaos a tired player gets up dizzy.
+func knock_down(p: Footballer, anim: String) -> void:
+	p.perform(anim)
+	p.fatigue = minf(1.0, p.fatigue + KNOCK_FATIGUE)
+	if chaos and p.fatigue >= DIZZY_AT and p.dizzy_left <= 0.0:
+		p.dizzy_left = DIZZY_TIME
+		flash("DIZZY!", 1.0)
+		event.emit("dizzy", p.team)
 
 
 ## Chance a body check by `o` knocks `holder` off the ball: even between equals.
@@ -702,7 +715,7 @@ func _plough_through() -> void:
 			if p.role == "G" and ball.power == "fireball" and randf() < 0.3:
 				_take(p)
 				return
-			p.perform("fall")
+			knock_down(p, "fall")
 			p.touch_cooldown = 1.0
 			p.velocity = ball.velocity.normalized() * 120.0
 			ball.velocity *= 0.92
@@ -729,7 +742,7 @@ func _take(p: Footballer) -> void:
 
 ## Slide tackle that took the player, not the ball.
 func _foul(by: Footballer, victim: Footballer) -> void:
-	victim.perform("fall")
+	knock_down(victim, "fall")
 	victim.touch_cooldown = 0.0
 	by.touch_cooldown = 1.0  # one foul per slide: the slider is still on the ball for a moment
 	victim.team.gain(Supers.GAIN.fouled)
@@ -804,6 +817,9 @@ func _end_half() -> void:
 		for p in t.players:
 			p.wish = Vector2.ZERO
 	if half == 1:
+		for t in [home, away]:
+			for p in t.players:
+				p.fatigue *= 0.5  # the break
 		state = State.HALF_TIME
 		_state_left = 4.0
 		flash("HALF TIME", 4.0)

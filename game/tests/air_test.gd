@@ -146,7 +146,7 @@ func _setup(at: Dictionary) -> void:
 	for t in [m.home, m.away]:
 		for p in t.players:
 			if p.role != "G":
-				p.position = c + Vector2(-Pitch.m(40.0) * t.side, Pitch.m(25.0))  # far from both boxes
+				p.position = c + Vector2(-Pitch.m(3.0) * t.side, -Pitch.m(30.0))  # halfway, far touchline: away from every spot used
 				p.velocity = Vector2.ZERO
 	for p in at:
 		p.position = at[p]

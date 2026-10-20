@@ -37,7 +37,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 |---|---|
 | Left / Right on the title screen | Chaos or Classic Football |
 | Up / Down on the title screen | 1 player (vs the AI) or 2 players (Brugge vs Anderlecht) |
-| WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow) |
+| WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow; the ring empties as he tires) |
 | Space | with the ball: shoot on release, hold for power (aims at goal when you face it). Without: slide tackle |
 | ↓ ↘ → then Space | **Fireball** (50 energy): flat rocket, bowls over anyone in the way |
 | ← → then Space | **Banana Shot** (50): bends hard toward the far post |
@@ -154,6 +154,7 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | turning and getting going | agility | acceleration 0.85x → 1.15x (on top of acceleration) |
 | shoulder to shoulder | strength | steal rate x0.8 → 1.2 (against the holder's); wins a header both go up for; Body Check odds |
 | skill moves | dribbling vs defensiveAwareness, ballControl | nutmeg through 21% → 90% (even: 50%); rainbow clean 50% → 100%; AI dribblers with a man right in front try one 5% → 30% of decisions |
+| getting tired | stamina | fatigue per second running 0.012 → 0.0045 (see Rules) |
 | staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
@@ -218,6 +219,19 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   heading past them.
 - `tests/demo.gd` stages three situations (Brugge attack, Anderlecht attack, foul in the box)
   and lets the AI play them out; `seed=2` gives a save, a goal and a scored penalty.
+
+## Stamina
+
+Each player has a fatigue level, 0 (fresh) to 1 (spent). It builds while he runs
+(`Footballer.TIRING`, by the stamina rating), and every time he goes down (+0.1).
+It eases off while he walks or stands, and halves at half time. Spent, he has lost 15% of his
+top speed and 20% of his acceleration. The ring around your player empties as he tires: a
+quarter is left when he's spent. Over a match the players who chase the ball most end up
+near 1, and the rest around 0.3.
+
+**Dizzy** (Chaos Football only): a player knocked down (slid, body checked, bowled over by a
+fireball, fouled) at 0.6 fatigue or more gets up seeing stars: DIZZY!, 2.5 s at half speed,
+and he can't touch the ball. Expect a few a match.
 
 ## Energy and super-shots (Chaos Football only)
 
