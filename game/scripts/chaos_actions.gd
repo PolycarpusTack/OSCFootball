@@ -351,10 +351,11 @@ func think_ai() -> void:
 		ids.shuffle()
 		for id: String in ids:
 			var aim: Vector2 = (t.goal_attacked() - p.position).normalized()
-			if id == "rocket":  # the keeper throws it to a teammate, as he'd pass it; upfield only if nobody's free
+			if id == "rocket":  # only to a teammate with a clear lane; otherwise he distributes it as usual
 				var mate := AI.best_pass(p, match_game, Vector2.ZERO)
-				if mate:
-					aim = (mate.position - p.position).normalized()
+				if mate == null or AI._lane_blocked(p, mate, match_game):
+					continue
+				aim = (mate.position - p.position).normalized()
 			if start(p, id, aim): break
 
 func update_labels() -> void:

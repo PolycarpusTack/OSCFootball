@@ -269,6 +269,23 @@ func _initialize() -> void:
 	actions.tick(0.01)
 	check(actions.active.is_empty() and not k.chaos_lock, "Disabling Chaos clears live actions")
 	m.get_script().chaos = true
+	reset()
+	m.away.energy = 0.0
+	b.take(k)
+	for far in m.home.players.slice(1):  # nobody in passing range: no throw into space
+		far.position = k.position + Vector2(0.0, 2000.0)
+	actions.think_ai()
+	check(actions.active.is_empty(), "AI keeper doesn't throw it when no teammate is free")
+	reset()
+	m.away.energy = 0.0
+	b.take(k)
+	var mate = m.home.players[9]
+	for far in m.home.players.slice(1):  # one teammate in range, with an opponent in his lane
+		far.position = k.position + Vector2(0.0, 2000.0)
+	mate.position = k.position + Vector2(450.0, 0.0)
+	o.position = k.position + Vector2(225.0, 0.0)  # past the 9.15 m the keeper waits for
+	actions.think_ai()
+	check(actions.active.is_empty(), "AI keeper doesn't throw it through an opponent")
 	print("CHAOS ACTIONS TEST ", "PASSED" if failed == 0 else "FAILED (%d)" % failed)
 	m.queue_free()
 	await create_timer(0.1).timeout
