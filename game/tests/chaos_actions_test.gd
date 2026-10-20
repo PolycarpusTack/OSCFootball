@@ -240,6 +240,18 @@ func _initialize() -> void:
 	contact("rocket")
 	check(b.last_touch == k and b.holder == null, "Routed throw releases keeper's ball")
 
+	# a keeper with the ball in his hands in his own box can't be challenged, by specials either
+	reset()
+	k.position = m.home.goal_defended() + Vector2(m.home.side * Pitch.m(5.0), 0.0)
+	o.position = k.position + Vector2(m.home.side * 20.0, 0.0)
+	b.take(k)
+	check(actions.unavailable(o, "stego") != "" and actions.unavailable(o, "bass") != "", "No sweep or bass drop on a keeper holding the ball")
+	k.position = Pitch.field_rect().get_center()
+	o.position = k.position + Vector2(m.home.side * 20.0, 0.0)
+	b.stop_at(k.feet_front())  # the ball goes with him (physics is off here)
+	b.take(k)
+	check(actions.unavailable(o, "stego") == "", "Outside his box he's fair game")
+
 	# AI uses the same validation and cannot spend a human side's energy.
 	reset()
 	b.take(k)
@@ -250,6 +262,9 @@ func _initialize() -> void:
 	m.away.energy = 0.0
 	actions.think_ai()
 	check(actions.active.size() == 1 and actions.active[0].id == "rocket", "AI selects a valid keeper throw")
+	var thrown_at: Vector2 = actions.active[0].aim if actions.active.size() == 1 else Vector2.ZERO
+	var to_mate: bool = m.home.players.slice(1).any(func(q): return thrown_at.dot((q.position - k.position).normalized()) > 0.999)
+	check(to_mate, "AI keeper throw is aimed at a teammate")
 	m.get_script().chaos = false
 	actions.tick(0.01)
 	check(actions.active.is_empty() and not k.chaos_lock, "Disabling Chaos clears live actions")

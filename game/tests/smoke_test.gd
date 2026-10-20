@@ -131,6 +131,7 @@ func _initialize() -> void:
 	while m.state != 1:
 		await physics_frame
 	var fouls := events.count("foul:AND")
+	m.chaos_actions.ai_enabled = false  # an AI special knocking the ball loose first would leave nothing to foul
 	var victim = m.home.players[6]
 	victim.position = Pitch.field_rect().get_center()
 	victim.facing = 2
@@ -148,6 +149,7 @@ func _initialize() -> void:
 	Input.action_release("pass")
 	while m.state != 1:
 		await physics_frame
+	m.chaos_actions.ai_enabled = true
 
 	# half time: ends change, Brugge kick off; full time stops the match
 	m.clock = m.half_seconds - 0.2

@@ -102,6 +102,9 @@ func unavailable(p: Footballer, id: String) -> String:
 		"palm": valid = valid and b.holder == null and match_game.in_penalty_area(p.position, p.team)
 	if id == "rocket":  # a keeper's throw waits for the box to clear, like any release
 		valid = valid and match_game.keeper_may_release(p)
+	if id in ["stego", "bass"] and b.holder != null and b.holder.role == "G" \
+			and match_game.in_penalty_area(b.holder.position, b.holder.team):  # nobody challenges a keeper with the ball in his hands
+		valid = false
 	return "" if valid else d.hint.capitalize()
 
 func lock(p: Footballer, anim: String) -> int:
@@ -347,7 +350,12 @@ func think_ai() -> void:
 		else: ids = ["stego", "magnet", "bass", "wall"]
 		ids.shuffle()
 		for id: String in ids:
-			if start(p, id, (t.goal_attacked() - p.position).normalized()): break
+			var aim: Vector2 = (t.goal_attacked() - p.position).normalized()
+			if id == "rocket":  # the keeper throws it to a teammate, as he'd pass it; upfield only if nobody's free
+				var mate := AI.best_pass(p, match_game, Vector2.ZERO)
+				if mate:
+					aim = (mate.position - p.position).normalized()
+			if start(p, id, aim): break
 
 func update_labels() -> void:
 	for i in labels.size():
