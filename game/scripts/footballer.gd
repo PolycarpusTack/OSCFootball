@@ -228,23 +228,38 @@ func throw_in(target: Vector2, speed: float) -> void:
 func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 	if stat == "":
 		stat = "longShots" if position.distance_to(target) > 20.0 * Pitch.PX_PER_M else "finishing"
-	var miss := skill(stat, 55.0, 6.0) * pressure_factor()
+	var miss := skill(stat, 55.0, 6.0) * pressure_factor() * foot_factor(target)
 	target += Vector2(0.0, randf_range(-miss, miss))
 	var speed := lerpf(470.0, 660.0, power) * skill("shotPower", 0.88, 1.12)
-	var bend := 0.0
-	if stat in ["longShots", "freeKickAccuracy"]:
-		bend = skill("curve", 0.0, 0.3) * (1.0 if randf() < 0.5 else -1.0)
+	var bend := curl_bend() if stat in ["longShots", "freeKickAccuracy"] else 0.0
 	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot", bend)
 
 
-## A cross into the box: lofted so it comes down at head height where `mate` is running to.
+## A cross into the box: lofted so it comes down at head height where `mate` is running to,
+## whipped in with curve.
 func cross_to(mate: Footballer) -> void:
 	var speed := clampf(position.distance_to(mate.position) * 1.3, 330.0, 520.0)
 	var lead := mate.position + mate.velocity * (KICK_CONTACT + position.distance_to(mate.position) / speed)
-	var err := skill("crossing", 50.0, 6.0) * pressure_factor()
+	var err := skill("crossing", 50.0, 6.0) * pressure_factor() * foot_factor(lead)
 	lead += Vector2(randf_range(-err, err), randf_range(-err, err))
 	var t := position.distance_to(lead) / speed
-	kick_to(lead, speed, (HEAD_TOP + Ball.GRAVITY * t * t / 2.0) / t, "kick", "cross")
+	kick_to(lead, speed, (HEAD_TOP + Ball.GRAVITY * t * t / 2.0) / t, "kick", "cross", curl_bend())
+
+
+## How far off line (rad, either way) a curled kick of his leaves: curve 40 none, 95 0.3.
+func curl_bend() -> float:
+	return skill("curve", 0.0, 0.3) * (1.0 if randf() < 0.5 else -1.0)
+
+
+## Kicking toward `target` more than 20 degrees across his body (to his left for a
+## right-footer) is with his weaker foot: aim error x1 with 5 weak-foot stars (or no
+## squad) up to x1.6 with 1.
+func foot_factor(target: Vector2) -> float:
+	var heading: Vector2 = velocity if velocity.length() > 20.0 else Anims.FACING_VECTORS[facing]
+	var across := heading.normalized().cross((target - position).normalized())  # < 0: to his left
+	if absf(across) < 0.35 or (across < 0.0) == (entry.get("preferred_foot", "right") == "left"):
+		return 1.0
+	return 1.0 + (5 - int(entry.get("weak_foot", 5))) * 0.15
 
 
 ## How much an opponent close by spoils his aim: 1 with nobody within PRESSURE, up to
@@ -322,11 +337,13 @@ func air_touch(anim: String, v := Vector2.ZERO, up := 0.0, kind := "") -> void:
 
 ## Pass to `mate`, ahead of him if he's running: vision decides how far ahead (the ball
 ## takes about 0.8 s to get there, so even 95 leaves him checking his run a little).
-func pass_to(mate: Footballer) -> void:
+## `space` (px): a through ball, that much further on toward the goal he attacks.
+func pass_to(mate: Footballer, space := 0.0) -> void:
 	var lead := mate.position + mate.velocity * skill("vision", 0.15, 0.65)
+	lead += (mate.team.goal_attacked() - mate.position).normalized() * space
 	var dist := position.distance_to(lead)
 	var stat := "gkKicking" if role == "G" else "longPassing" if dist > 300.0 else "shortPassing"
-	var err := skill(stat, 40.0, 4.0) * pressure_factor()
+	var err := skill(stat, 40.0, 4.0) * pressure_factor() * foot_factor(lead)
 	lead += Vector2(randf_range(-err, err), randf_range(-err, err))
 	var speed := clampf(dist * 1.6, 220.0, 520.0)
 	var lift := 20.0 if dist < 300.0 else 160.0

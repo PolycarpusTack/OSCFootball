@@ -271,8 +271,145 @@ func _initialize() -> void:
 	print("curve 95: %.1f px off target, keeper's read %.1f px out; curve 40: %.1f px, %.1f px" % [curls[0][0], curls[0][1], curls[1][0], curls[1][1]])
 	ok = ok and curls[0][0] < 12.0 and curls[1][0] < 12.0 and curls[0][1] > 25.0 and curls[1][1] < 1.0
 
+	ok = await _unused_ratings(ai) and ok
 	print("RATINGS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
+
+
+## The ratings that only showed on the team sheet before: weak foot, skill-move stars,
+## gkHandling, gkPositioning, positioning, and more for vision and curve.
+func _unused_ratings(ai) -> bool:
+	var ok := true
+	var match_script: GDScript = load("res://scripts/main.gd")  # Match; the class can't be named here
+	m.state = 5
+	for t in [m.home, m.away]:
+		for p in t.players:
+			p.velocity = Vector2.ZERO
+			p.wish = Vector2.ZERO
+			p.position = Vector2(500, 300) if t == m.home else Vector2(60, 1100)
+
+	# weak foot: a right-footer facing right (2) kicks to his left (up) with his left foot
+	var kicker = m.home.players[6]
+	kicker.velocity = Vector2.ZERO
+	kicker.facing = 2
+	var left: Vector2 = kicker.position + Vector2(0, -100)
+	var right: Vector2 = kicker.position + Vector2(0, 100)
+	kicker.entry = {"preferred_foot": "right", "weak_foot": 1}
+	var weak1: float = kicker.foot_factor(left)
+	var strong1: float = kicker.foot_factor(right)
+	var ahead1: float = kicker.foot_factor(kicker.position + Vector2(100, 10))
+	kicker.entry = {"preferred_foot": "right", "weak_foot": 5}
+	var weak5: float = kicker.foot_factor(left)
+	kicker.entry = {"preferred_foot": "left", "weak_foot": 1}
+	var lefty: float = kicker.foot_factor(right)
+	print("weak foot: 1 star across the body x%.2f, strong side x%.2f, straight on x%.2f; 5 stars x%.2f; a left-footer to his right x%.2f" % [weak1, strong1, ahead1, weak5, lefty])
+	ok = ok and weak1 > 1.5 and strong1 == 1.0 and ahead1 == 1.0 and weak5 == 1.0 and lefty > 1.5
+
+	# skill-move stars: a rainbow needs 3
+	var trickster = m.home.players[7]
+	trickster.position = Vector2(700, 600)
+	m.ball.stop_at(trickster.feet_front())
+	m.ball.take(trickster)
+	while trickster.busy():
+		await physics_frame
+	trickster.entry = {"skill_moves": 2}
+	var two_star: bool = m.skill_move(trickster, "rainbow")
+	var two_nutmeg: bool = m.skill_move(trickster, "nutmeg")  # no one in front: still a touch on
+	await create_timer(1.2).timeout
+	m.ball.stop_at(trickster.feet_front())
+	m.ball.take(trickster)
+	trickster.entry = {"skill_moves": 3}
+	var three_star: bool = m.skill_move(trickster, "rainbow")
+	await create_timer(1.5).timeout
+	m.ball.stop_at(Vector2(300, 300))
+	trickster.position = Vector2(500, 300)
+	print("rainbow with 2 skill-move stars %s (nutmeg %s), with 3 %s" % [two_star, two_nutmeg, three_star])
+	ok = ok and not two_star and two_nutmeg and three_star
+
+	# gkHandling: hard shots he gets to, 40 tries each
+	var k = m.away.keeper()
+	var spills := []
+	for rating in [40, 95]:
+		k.stats = {"gkHandling": rating}
+		var spilled := 0
+		for i in 40:
+			k.touch_cooldown = 0.0
+			m.ball.stop_at(k.position)
+			m.ball.velocity = Vector2(-m.away.side * 400.0, 0)
+			m.ball.last_touch = m.home.players[9]
+			m._take(k)
+			if m.ball.holder != k:
+				spilled += 1
+		spills.append(spilled)
+	m.ball.stop_at(Vector2(300, 300))
+	k.stats = {}
+	var unrated_spill: float = m.spill_odds(k)
+	print("hard shots spilled out of 40: gkHandling 40 %d, 95 %d; no ratings %.0f%%" % [spills[0], spills[1], unrated_spill * 100.0])
+	ok = ok and spills[0] >= 6 and spills[0] <= 26 and spills[1] == 0 and unrated_spill == 0.0
+
+	# gkPositioning: how far off his line, how far he comes for a loose ball
+	var goal: Vector2 = m.away.goal_defended()
+	m.ball.stop_at(goal + Vector2(m.away.side * 180.0, 0))
+	var spots := []
+	for rating in [95, 40]:
+		k.stats = {"gkPositioning": rating}
+		var out: bool = ai.keeper_spot(k, m) == m.ball.position
+		m.ball.take(m.home.players[9])  # held: he guards his line
+		spots.append([absf(ai.keeper_spot(k, m).x - goal.x), out])
+		m.ball.stop_at(goal + Vector2(m.away.side * 180.0, 0))
+	m.ball.stop_at(Vector2(300, 300))
+	print("keeper off his line: gkPositioning 95 %.0f px (out to a loose ball 10 m away %s), 40 %.0f px (%s)" % [spots[0][0], spots[0][1], spots[1][0], spots[1][1]])
+	ok = ok and spots[0][0] > spots[1][0] + 15.0 and spots[0][1] and not spots[1][1]
+
+	# positioning: how tight to the offside line an attacker waits, always onside
+	var striker = m.home.players[9]
+	var line_gaps := []
+	var line: float = m.onside_depth(m.home)
+	for rating in [95, 40]:
+		striker.stats = {"positioning": rating}
+		var at: Vector2 = ai._onside(striker, m, m.home.goal_attacked())
+		line_gaps.append(absf(m.home.goal_attacked().x - at.x) - line)
+	print("waiting for the ball: positioning 95 %.1f px behind the offside line, 40 %.1f px" % line_gaps)
+	ok = ok and line_gaps[0] > 0.0 and line_gaps[1] > line_gaps[0] + 10.0
+
+	# vision: the pass button's cone, and a through ball for a forward with room ahead
+	match_script.offside_on = false
+	var seer = m.home.players[6]
+	var wide = m.home.players[8]
+	seer.position = Vector2(500, 300)
+	wide.position = seer.position + Vector2(m.home.side, 0).rotated(deg_to_rad(70.0)) * 200.0
+	var aim := Vector2(m.home.side, 0)
+	seer.stats = {"vision": 95}
+	var cone_good: bool = ai.best_pass(seer, m, aim) == wide
+	seer.stats = {"vision": 40}
+	var cone_poor: bool = ai.best_pass(seer, m, aim) == wide
+	wide.position = Vector2(500, 300)
+	striker.position = seer.position + Vector2(m.home.side * 250.0, 0)
+	var through = ai.through_ball(seer, m)
+	m.away.players[4].position = striker.position + Vector2(m.home.side * 108.0, 0)  # in the space
+	var blocked = ai.through_ball(seer, m)
+	m.away.players[4].position = Vector2(60, 1100)
+	match_script.offside_on = true
+	print("pass button, mate 70 degrees off the aim: vision 95 %s, 40 %s; through ball to the striker %s, with a defender in the space %s" % [cone_good, cone_poor, through == striker, blocked])
+	ok = ok and cone_good and not cone_poor and through == striker and blocked == null
+
+	# curve: how far out the CPU shoots from, and a curler going for the far corner
+	var curler = m.home.players[9]
+	curler.stats = {"curve": 95}
+	var range_good: float = ai.shoot_range(curler) / Pitch.PX_PER_M
+	var bend_good: float = absf(curler.curl_bend())
+	var target_goal: Vector2 = m.home.goal_attacked()
+	curler.position = target_goal - Vector2(m.home.side * Pitch.m(22.0), 0)
+	var keeper = m.away.keeper()
+	keeper.position = target_goal + Vector2(-m.home.side * 18.0, -20.0)  # a little to one side
+	var aimed: Vector2 = ai._shot_target(curler, m)
+	curler.stats = {"curve": 40}
+	var range_poor: float = ai.shoot_range(curler) / Pitch.PX_PER_M
+	var bend_poor: float = absf(curler.curl_bend())
+	print("CPU shoots from: curve 95 %.1f m, 40 %.1f m; curl %.2f vs %.2f rad; a curler from 22 m aims %+.0f px (keeper at -20)" % [range_good, range_poor, bend_good, bend_poor, aimed.y - target_goal.y])
+	ok = ok and range_good > 24.0 and absf(range_poor - 330.0 / Pitch.PX_PER_M) < 0.1 and bend_good > 0.29 and bend_poor == 0.0 \
+		and aimed.y - target_goal.y > 40.0
+	return ok
 
 
 ## A 25 m shot at the middle of the goal (nobody in the way): [how far from it the ball

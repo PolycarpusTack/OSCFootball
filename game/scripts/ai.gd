@@ -9,6 +9,7 @@ extends RefCounted
 const SHOOT_RANGE := 330.0
 const PRESSURE := 45.0
 const KEEPER_HOLD := 0.8
+const THROUGH_SPACE := 108.0  # px (6 m) ahead of a runner a through ball is played
 ## How far a player's spot follows the ball, by role, [without the ball, with it]: x along the
 ## pitch, y across, per unit of the ball's pitch fraction. Defenders follow it up and down least
 ## (the back line stays together) and the whole side slides across more without the ball.
@@ -85,13 +86,13 @@ static func _box_run(p: Footballer, m: Match) -> Vector2:
 	return Vector2.INF
 
 
-## `target` pulled back level with the offside line (half a metre short of it), so an
-## attacker waiting for the ball doesn't stand offside.
+## `target` pulled back level with the offside line, so an attacker waiting for the ball
+## doesn't stand offside: positioning decides how tight to it (0.9 m short, 0.1 m at 95).
 static func _onside(p: Footballer, m: Match, target: Vector2) -> Vector2:
 	if not Match.offside_on:
 		return target
 	var goal_x := p.team.goal_attacked().x
-	var depth := m.onside_depth(p.team) - Pitch.m(0.5)
+	var depth := m.onside_depth(p.team) + Pitch.m(p.skill("positioning", 0.9, 0.1))
 	if absf(goal_x - target.x) < depth:
 		target.x = goal_x + p.team.side * -depth
 	return target
@@ -158,21 +159,26 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 				p.ai_state = "cross"
 				p.cross_to(target)
 				return
-		if not _winger(p) and to_goal.length() > SHOOT_RANGE and randf() < 0.08:
+		if not _winger(p) and to_goal.length() > SHOOT_RANGE and randf() < p.skill("vision", 0.03, 0.13):
 			var wide := _free_winger(p, m)
 			if wide:
 				p.ai_state = "pass wide"
 				p.pass_to(wide)
 				return
-		if to_goal.length() < SHOOT_RANGE:
-			var spread := 15.0 + to_goal.length() * 0.18  # less accurate from further out; finishing adds its own miss
-			var target := goal + Vector2(0, randf_range(-spread, spread))
+		if to_goal.length() < shoot_range(p):
+			var target := _shot_target(p, m)
 			p.ai_state = "shoot"
 			if not _try_super(p, m, target):
 				p.shoot(target)
 			return
-		if m.opponent_ahead(p) and randf() < p.skill("dribbling", 0.05, 0.3) \
-				and m.skill_move(p, "nutmeg" if randf() < 0.5 else "rainbow"):
+		var runner := through_ball(p, m)
+		if runner and randf() < p.skill("vision", 0.0, 0.3):
+			p.ai_state = "through ball"
+			p.pass_to(runner, THROUGH_SPACE)
+			return
+		var stars := int(p.entry.get("skill_moves", 3))
+		if m.opponent_ahead(p) and randf() < p.skill("dribbling", 0.05, 0.3) * stars / 3.0 \
+				and m.skill_move(p, "rainbow" if stars >= Match.SKILL_STARS.rainbow and randf() < 0.5 else "nutmeg"):
 			p.ai_state = "skill move"
 			return
 		var down_the_line := _winger(p) and m.wide_within(p, Pitch.LENGTH_M / 2.0)
@@ -189,6 +195,46 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 	if _winger(p) and absf(p.position.y - goal.y) > Match.BOX_HALF_WIDTH * 0.7:
 		dir = Vector2(p.team.side, 0.0)
 	p.wish = dir.normalized()
+
+
+## How far out `p` shoots from: SHOOT_RANGE (18 m), up to 25 m for a curler (curve 95).
+static func shoot_range(p: Footballer) -> float:
+	return maxf(SHOOT_RANGE, SHOOT_RANGE + p.skill("curve", -120.0, 120.0))
+
+
+## Where `p` aims: around the middle, wider from further out (finishing adds its own miss).
+## From beyond 20 m a curler goes for the corner the keeper is furthest from (curve 40
+## never, 95 always).
+static func _shot_target(p: Footballer, m: Match) -> Vector2:
+	var goal := p.team.goal_attacked()
+	var dist := p.position.distance_to(goal)
+	if dist > Pitch.m(20.0) and randf() < p.skill("curve", 0.0, 1.0):
+		var k := m.opponent(p.team).keeper()
+		var away := -signf(k.position.y - goal.y) if k and k.position.y != goal.y else (1.0 if randf() < 0.5 else -1.0)
+		return goal + Vector2(0, away * Match.GOAL_HALF_WIDTH * 0.75)
+	var spread := 15.0 + dist * 0.18
+	return goal + Vector2(0, randf_range(-spread, spread))
+
+
+## A forward or winger ahead of `p`, onside, in sight, with a clear lane and room in front
+## of him toward goal to run onto a ball played there (pass_to with THROUGH_SPACE); null if none.
+static func through_ball(p: Footballer, m: Match) -> Footballer:
+	var goal := p.team.goal_attacked()
+	var offside: Array = m.offside_players(p) if Match.offside_on else []
+	var sight := p.skill("vision", 400.0, 560.0)
+	for mate in p.team.players:
+		if mate == p or not (mate.role == "F" or _winger(mate)) or mate in offside or mate.sent_off:
+			continue
+		var dist := p.position.distance_to(mate.position)
+		if dist > sight or p.position.distance_to(goal) - mate.position.distance_to(goal) < Pitch.m(5.0):
+			continue
+		var space := mate.position + (goal - mate.position).normalized() * THROUGH_SPACE
+		var crowded := false
+		for o in m.opponent(p.team).players:
+			crowded = crowded or o.position.distance_to(space) < 90.0
+		if not crowded and not _lane_blocked(p, mate, m):
+			return mate
+	return null
 
 
 ## A winger of `p`'s team in the opponents' half with room and a clear lane; null if none.
@@ -225,7 +271,6 @@ static func _try_super(p: Footballer, m: Match, target: Vector2) -> bool:
 
 
 static func _keeper(p: Footballer, m: Match) -> void:
-	var goal := p.team.goal_defended()
 	if p.has_ball():
 		p.ai_state = "keeper: hold"
 		p.wish = Vector2.ZERO
@@ -238,7 +283,6 @@ static func _keeper(p: Footballer, m: Match) -> void:
 			if mate:
 				p.pass_to(mate)
 		return
-	var b := m.ball.position
 	if not p.busy() and m.ball.holder == null:
 		var dive := dive_for_shot(p, m)
 		if dive != Vector2.ZERO:
@@ -246,12 +290,21 @@ static func _keeper(p: Footballer, m: Match) -> void:
 			p.dive(dive, m.ball.z > 20.0 or m.ball.vz > 60.0)
 			return
 	p.ai_state = "keeper: guard"
-	var target := Vector2(goal.x + p.team.side * 18.0, clampf(b.y, goal.y - 55.0, goal.y + 55.0))
-	# come out for loose balls near the goal
-	if m.ball.holder == null and b.distance_to(goal) < 160.0:
+	var target := keeper_spot(p, m)
+	if target == m.ball.position:
 		p.ai_state = "keeper: come out"
-		target = b
 	p.wish = ((target - p.position) / 20.0).limit_length(1.0)
+
+
+## Where keeper `p` goes without the ball: off his line (gkPositioning: 8 px, cutting the
+## angle down to 28 px), across with the ball, and out to a loose ball near goal (within
+## 120 px, a good one 200 px).
+static func keeper_spot(p: Footballer, m: Match) -> Vector2:
+	var goal := p.team.goal_defended()
+	var b := m.ball.position
+	if m.ball.holder == null and b.distance_to(goal) < p.skill("gkPositioning", 120.0, 200.0):
+		return b
+	return Vector2(goal.x + p.team.side * p.skill("gkPositioning", 8.0, 28.0), clampf(b.y, goal.y - 55.0, goal.y + 55.0))
 
 
 ## Direction to dive for a shot heading for goal, or ZERO when no dive is needed.
@@ -279,9 +332,9 @@ static func _lane_blocked(p: Footballer, mate: Footballer, m: Match) -> bool:
 	return false
 
 
-## Best teammate to pass to. With a non-zero `aim`, only mates within 60 degrees
+## Best teammate to pass to. With a non-zero `aim`, only mates within 45-75 degrees
 ## of it count (used for the human pass button). The passer's vision: how far he sees
-## (400-560 px) and how surely he spots a pass that's cut off.
+## (400-560 px), how wide around his aim and how surely he spots a pass that's cut off.
 static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 	var goal := p.team.goal_attacked()
 	var best: Footballer = null
@@ -295,7 +348,7 @@ static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 		var dist := offset.length()
 		if dist < 50.0 or dist > sight:
 			continue
-		if aim != Vector2.ZERO and absf(aim.angle_to(offset)) > PI / 3.0:
+		if aim != Vector2.ZERO and absf(aim.angle_to(offset)) > p.skill("vision", PI / 4.0, PI * 5.0 / 12.0):
 			continue
 		var progress := p.position.distance_to(goal) - mate.position.distance_to(goal)
 		var space := minf(m.nearest_opponent_distance(mate), 120.0)

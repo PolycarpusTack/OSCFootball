@@ -187,8 +187,15 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | free kicks | freeKickAccuracy | up to 55 px off → 6 px |
 | getting tired | stamina | fatigue per second running 0.012 → 0.0045 (see Rules) |
 | staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
-| seeing a pass (AI and the pass button's pick) | vision | sees mates up to 400 → 560 px away; a cut-off lane counts against a mate 150 → 350; leads a runner 0.15 s → 0.65 s of his run |
-| bending it | curve | long shots and free-kick shots leave 0 → 0.3 rad off line and curl in on target: the keeper, reading the ball's line, dives late or the wrong way |
+| seeing a pass (AI and the pass button's pick) | vision | sees mates up to 400 → 560 px away, 45° → 75° either side of the pass button's aim; a cut-off lane counts against a mate 150 → 350; leads a runner 0.15 s → 0.65 s of his run |
+| switching play, through balls (AI) | vision | out to a free winger 3% → 13% of decisions; a forward with room ahead gets the ball played 6 m into that space 0% → 30% of decisions |
+| bending it | curve | long shots, free-kick shots, crosses and corners leave 0 → 0.3 rad off line and curl in on target: a keeper reading the ball's line dives late or the wrong way |
+| shooting from distance (AI) | curve | shoots from 18 m, up to 25 m at 95 (never less); from beyond 20 m goes for the corner furthest from the keeper 0% → 100% of shots |
+| weaker foot | weak_foot, preferred_foot | kicking more than 20° across the body: shot / pass / cross error x1.6 (1 star) → x1.0 (5 stars, or no squad) |
+| skill moves | skill_moves | nutmeg and backheel need 2 stars, rainbow 3 (no squad: 3); without them the switch button dodges. AI tries them x stars / 3 as often |
+| holding a shot | gkHandling | a hard shot he gets to is spilled loose 40% → 0% (67.5 and up hold everything) |
+| narrowing the angle (AI keeper) | gkPositioning | stands 8 → 28 px off his line; comes for a loose ball 120 → 200 px from goal |
+| waiting on the offside line (AI) | positioning | 0.9 m → 0.1 m behind it |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`
 checks each against an elite and a poor player.

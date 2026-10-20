@@ -60,6 +60,7 @@ const REF_NEAR := 6.0 * Pitch.PX_PER_M  # this close he sees it whichever way he
 const REF_TURN := 2.5  # radians a second his gaze turns toward the ball
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
+const SKILL_STARS := {"nutmeg": 2, "bckheel": 2, "rainbow": 3}  # skill-move stars a move needs (no squad: 3)
 const SHOT_RANGE := 40.0 * Pitch.PX_PER_M  # a "shot" kick from farther out is a punt or a blind pass, not a shot
 const SHOOTOUT_KICKS := 5  # each, before sudden death
 const SHOOTOUT_ORDER := [9, 10, 8, 7, 6, 5, 4, 3, 2, 1, 0]  # squad slots: strikers first, the keeper last
@@ -803,9 +804,10 @@ func _resolve_possession(delta: float) -> void:
 ## through the legs of the opponent in front and on 5 m (dribbling against his
 ## defensiveAwareness; when it fails he has it). The rainbow flicks it over everyone's head
 ## to land 5 m on (ballControl, or it drops short). The backheel plays it to a teammate
-## behind. In Chaos, beating an opponent with one flashes and earns energy.
+## behind. In Chaos, beating an opponent with one flashes and earns energy. A player
+## without the skill-move stars for it (SKILL_STARS) can't: false, as when he's busy.
 func skill_move(p: Footballer, kind: String) -> bool:
-	if not p.has_ball() or p.busy():
+	if not p.has_ball() or p.busy() or int(p.entry.get("skill_moves", 3)) < SKILL_STARS[kind]:
 		return false
 	var ahead: Vector2 = Anims.FACING_VECTORS[p.facing]
 	var o := opponent_ahead(p)
@@ -1058,16 +1060,37 @@ func _take(p: Footballer) -> void:
 	if ball.kick_kind in ["pass", "cross"] and ball.last_touch and ball.last_touch != p and ball.last_touch.team == p.team:
 		p.team.gain(Supers.GAIN.pass)
 	ball.kick_kind = ""
+	if p.role == "G" and fast and shot_on_goal and randf() < spill_odds(p):
+		_spill(p)
+		return
 	ball.take(p)
 	if p.role == "G" and fast:
 		if not p.diving():
 			p.perform("gjmctch" if ball.z > 30.0 else "gmdctch" if ball.z > 12.0 else "glwctch")
 		p.think_timer = 0.0
 		if shot_on_goal:
-			flash("SAVE!", 1.2)
-			event.emit("save", p.team)
-			play_sfx("ooh", -4.0)
-			p.team.gain(Supers.GAIN.save)
+			_saved(p)
+
+
+## Chance a keeper can't hold a hard shot he gets to: gkHandling 40 spills 40%, 67.5
+## (or no squad) and up hold everything.
+func spill_odds(k: Footballer) -> float:
+	return maxf(0.0, k.skill("gkHandling", 0.4, -0.4))
+
+
+## A shot the keeper got to but couldn't hold: parried out in front of him, loose.
+func _spill(k: Footballer) -> void:
+	ball.last_touch = k
+	ball.kick(Vector2(k.team.side * randf_range(120.0, 200.0), randf_range(-160.0, 160.0)), 60.0)
+	k.touch_cooldown = 0.6
+	_saved(k)
+
+
+func _saved(k: Footballer) -> void:
+	flash("SAVE!", 1.2)
+	event.emit("save", k.team)
+	play_sfx("ooh", -4.0)
+	k.team.gain(Supers.GAIN.save)
 
 
 ## Slide tackle that took the player, not the ball: a free kick where it happened (a penalty
@@ -1770,7 +1793,7 @@ func _restart(delta: float) -> void:
 			taker.throw_in(target, clampf(taker.position.distance_to(target) * 1.2, 180.0, 340.0))
 		"corner":  # cross into the box
 			var target := goal - Vector2(taker.team.side * Pitch.m(randf_range(6.0, 12.0)), Pitch.m(randf_range(-8.0, 8.0)))
-			taker.kick_to(target, taker.position.distance_to(target) * 1.3, 230.0, "kick", "pass")
+			taker.kick_to(target, taker.position.distance_to(target) * 1.3, 230.0, "kick", "pass", taker.curl_bend())
 		"goal kick":
 			var target := mate.position if mate else taker.position + Vector2(taker.team.side * 500.0, 0.0)
 			target = target if mate and mate.position.distance_to(taker.position) > 250.0 \
