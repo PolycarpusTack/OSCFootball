@@ -14,6 +14,8 @@ game/assets/sprites/*
 game/data/*
 !game/data/league.json
 lisez-moi.txt
+# installers of other games kept in the root for reference (e.g. Championship Manager 3)
+*.exe
 
 # Generated
 game/.godot/

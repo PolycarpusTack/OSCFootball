@@ -25,7 +25,7 @@ func _initialize() -> void:
 	m.book(hacker, false)
 	await create_timer(0.5).timeout
 	print("booked twice: events %s, referee %s, sent off %s, visible %s, at %s" % [events, anim, hacker.sent_off, hacker.visible, hacker.position])
-	ok = ok and events == ["yellow card:AND", "red card:AND"] and anim == "rcard" and hacker.sent_off \
+	ok = ok and events == ["yellow card:AND", "red card:AND"] and anim == "ref_card" and hacker.sent_off \
 		and not hacker.visible and not Pitch.field_rect().has_point(hacker.position)
 	m.kickoff(m.away)
 	await physics_frame

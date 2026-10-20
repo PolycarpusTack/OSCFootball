@@ -26,7 +26,8 @@ the next match until the game is closed.
 Chaos now includes eleven additional playable action prototypes: Ghost Step, Magnet Sole,
 Pinball Pass, Stego Sweep, Bass Drop, Phalanx Wall, Spring Header, Boomerang Cross,
 Rocket Throw, **Palm Barrage** (rapid keeper parries) and **Cyclone Scissor**
-(an inverted spinning aerial kick).
+(an inverted spinning aerial kick). Three more deal with the referee: **Dive**, **Captain** and
+**Bribe** (see The Chaos referee).
 
 **P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
 The HUD shows the selected action and requirements. Keeper moves command your keeper
@@ -48,11 +49,12 @@ godot --headless --path game -s res://tests/ratings_test.gd                     
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
+godot --headless --path game -s res://tests/referee_art_test.gd                  # the referee's own sprites, yellow and red card
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
-godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!"
+godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -289,8 +291,10 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   farther out are punts and blind passes). Possession is the time on the ball (or since the
   last touch) in open play. Shoot-out kicks don't count. Man of the Match: 4 points a goal,
   2 a save, 1 a shot; level, the winners' man.
-- The referee (in black) follows play about 12 m from the ball, points to free kicks and
-  shows the cards.
+- The referee (in black) follows play about 12 m from the ball, points to free kicks,
+  shows the cards and blows the whistle. He is our own art (`assets/sprites/oscf_roles`,
+  packed by `tools/pack_oscf_referee.gd`), not FIFA 96's; the card is keyed green in the
+  sheets and drawn yellow or red by `scripts/referee_card.gdshader`.
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots
   heading past them. A keeper holding the ball in his box (AI or human) can't play it until
   opponents are 9.15 m away, which they walk to, or after six seconds.
@@ -333,6 +337,32 @@ been called, while SORRY? shows over his head (half a second). He takes back hal
 it added to the meter and to his mood, and a booking it earned becomes a warning (the meter
 left at 80). Pressed at a stoppage with nothing to be sorry for, it's dissent: +20 mood
 with your side. Only for fouls, which stop play; the AI never says sorry.
+
+**The dive** (Chaos action DIVE, 10 energy, with an opponent within 2.5 m): your player
+throws himself down and the ball rolls free. If the referee doesn't see it, nothing comes of it.
+If he does, he may fall for it: a foul on you by the nearest opponent (a penalty in the box;
+the opponent's meter fills as for any foul). The odds are 50% for an average diver with a calm
+referee, more for a high composure rating, down to a fifth of that when he's furious with your
+side. If he sees through it: a yellow for diving, +20 mood, a free kick the other way.
+
+**The captain** (Chaos action CAPTAIN, 30 energy): your side's captain, the outfield player
+with the highest composure rating (a C over his head), has a word with the referee from
+within 25 m: his mood with your side drops by 40. Only when he's angry with you at all.
+
+**The whistle stun:** when his mood with a side is full, he fumes for 1.2 seconds, for all to
+see (a pulsing ring around him and !! next to his mood bars, THE REF IS FUMING!), then blows
+his top: that side's players within 20 m of him are stunned for 1.2 seconds, a stunned
+dribbler drops the ball, and his mood with the side falls to 50. Get away from him while he
+fumes, dodge, or send the captain: talked down in time, he doesn't blow.
+
+**The bribe** (Chaos action BRIBE, a full bar, within 10 m of the referee): for 30 seconds
+of play he leans your way: he's no longer angry with you, your offences don't fill any
+meter, your fouls are play on and he falls for every dive. A gold coin ringed in your colour
+by his mood bars shows it, to both sides. One time in three the linesman saw it: two
+seconds later he flags it, the bribe is off, the other side gets a penalty and the referee
+is furious with you (so a whistle stun follows).
+
+The AI neither dives, sends its captain nor bribes yet.
 
 ## Energy and super-shots (Chaos Football only)
 

@@ -41,6 +41,18 @@ const MOOD_COOL := 1.0  # per second of play
 const DISSENT := 20.0  # mood for "sorry" pressed when there's nothing to be sorry for
 const PARRY_WINDOW := 0.5  # seconds after a called foul in which "Sorry, ref!" (special) counts
 const WARNING_AT := 80.0  # a booking talked down to a warning leaves the meter here
+const DIVE_RANGE := 2.5 * Pitch.PX_PER_M  # a dive needs an opponent this close to blame
+const DIVE_FOOLS := 0.5  # chance an average diver fools a calm referee who sees it
+const CAPTAIN_RANGE := 25.0 * Pitch.PX_PER_M  # the captain talks to him from this close
+const CAPTAIN_CALMS := 40.0  # mood the captain talks him down by
+const BLOW_UP_TELL := 1.2  # seconds he fumes, for all to see, before he blows his top
+const WHISTLE_STUN_RANGE := 20.0 * Pitch.PX_PER_M  # ... stunning that side's players this close
+const WHISTLE_STUN := 1.2  # seconds
+const BLOWN_MOOD := 50.0  # his mood with that side once he's let off steam
+const BRIBE_RANGE := 10.0 * Pitch.PX_PER_M  # an envelope is handed over from this close
+const BRIBE_TIME := 30.0  # seconds of play he leans your way
+const BRIBE_CAUGHT := 0.3  # chance the linesman saw it
+const BRIBE_FLAG := 2.0  # seconds later he flags it
 const REF_VIEW_ANGLE := deg_to_rad(50.0)  # either side of where he looks
 const REF_VIEW_RANGE := 40.0 * Pitch.PX_PER_M
 const REF_NEAR := 6.0 * Pitch.PX_PER_M  # this close he sees it whichever way he looks
@@ -62,6 +74,11 @@ const SFX := {
 	"whistle": "slot030", "long_whistle": "slot029", "roar": "slot021", "ooh": "slot005",
 }
 const THUNDER_HOLD := 0.8  # seconds to hold shoot for a Thunder Strike (needs a full bar)
+## The referee's own art (assets/sprites/oscf_roles) in place of the players' animations
+const REFEREE_ART := {"xstandd": "ref_idle", "walk": "ref_run", "jog": "ref_run", "run": "ref_run",
+	"rcard": "ref_card", "rpoint": "ref_point"}
+const YELLOW_CARD := Color("ffd400")
+const RED_CARD := Color("e3102b")
 
 ## Chaos Football: energy bars and super-shots. Classic Football: plain FIFA 96 rules,
 ## same players, ball and AI. Chosen on the title screen; kept between matches.
@@ -87,6 +104,9 @@ var humans: Array[Human] = []  # player 1 (home), player 2 (away) when two play
 var referee: Footballer  # follows play, points to free kicks and shows the cards; nobody's team
 var referee_gaze := Vector2.UP  # where he looks: toward the ball, turning at REF_TURN (Chaos view cone)
 var ref_mood := {}  # Team -> his mood with that side (Chaos); angry, he books faster
+var bribed := {}  # Team -> seconds of play he still leans its way (Chaos)
+var _bribe_flag := {}  # Team -> seconds until the linesman flags its bribe
+var _blow_up := {}  # he's fuming at a side: team, left (seconds until the whistle stun)
 var referee_cone := true  # false: he sees everything (tests that aren't about him)
 var state := State.KICKOFF
 var clock := 0.0  # seconds of play (stopped during goals, restarts, breaks)
@@ -190,6 +210,9 @@ func _ready() -> void:
 	referee.ball = ball
 	referee.name = "Referee"
 	referee.speed_factor = 0.9
+	referee.anim_names = REFEREE_ART
+	referee.art_material = ShaderMaterial.new()
+	referee.art_material.shader = preload("res://scripts/referee_card.gdshader")
 	world.add_child(referee)
 
 	_start_crowd()
@@ -329,6 +352,8 @@ func _physics_process(delta: float) -> void:
 						p.wish = Vector2.ZERO
 		State.PLAY:
 			clock += delta
+			if _referee_temper(delta):
+				return
 			for t in [home, away]:
 				for p in t.players:
 					p.discipline = maxf(0.0, p.discipline - DISCIPLINE_COOL * delta)
@@ -926,6 +951,10 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 		flash("REF DIDN'T SEE IT!", 1.2)
 		event.emit("unseen foul", by.team)
 		return
+	if bribed.has(by.team):  # Chaos: he looks the other way
+		flash("PLAY ON!", 1.2)
+		event.emit("bribed call", by.team)
+		return
 	victim.team.gain(Supers.GAIN.fouled)
 	event.emit("foul", by.team)
 	if in_penalty_area(victim.position, by.team):
@@ -950,6 +979,7 @@ func book(p: Footballer, red: bool) -> void:
 	red = red or p.yellow
 	p.yellow = true
 	referee.facing = Anims.facing_from(p.position - referee.position)
+	referee.art_material.set_shader_parameter("card", RED_CARD if red else YELLOW_CARD)
 	referee.perform("rcard")
 	flash("%s CARD\n%s" % ["RED" if red else "YELLOW", p.display_name], 2.0)
 	event.emit("red card" if red else "yellow card", p.team)
@@ -1058,7 +1088,7 @@ func referee_sees(pos: Vector2) -> bool:
 ## Full, p is booked (a second time: sent off) and it starts again. A human side's foul
 ## (play has stopped) waits PARRY_WINDOW for "Sorry, ref!" first.
 func offence(p: Footballer, pos: Vector2, kind: String) -> void:
-	if not chaos or p.sent_off or not referee_sees(pos):
+	if not chaos or p.sent_off or not referee_sees(pos) or bribed.has(p.team):
 		return
 	var added: float = DISCIPLINE[kind] * (1.0 + ref_mood.get(p.team, 0.0) / MOOD_FULL)
 	p.discipline += added
@@ -1069,6 +1099,120 @@ func offence(p: Footballer, pos: Vector2, kind: String) -> void:
 		_parry = {"p": p, "added": added, "left": PARRY_WINDOW}
 		return
 	_judge(p)
+
+
+## Chaos: `t`'s captain, the steadiest head on the pitch (highest composure).
+func captain(t: Team) -> Footballer:
+	var best: Footballer = null
+	for p in t.players:
+		if p.role != "G" and not p.sent_off and (best == null or p.stats.get("composure", 67.5) > best.stats.get("composure", 67.5)):
+			best = p
+	return best
+
+
+## Chaos: `p` throws himself down next to an opponent. Unseen, nothing comes of it but the
+## ball rolling free. Seen, the referee may fall for it, likelier for a cool head and less
+## so the angrier he is with p's side: a foul on p by the nearest opponent. Or he sees
+## through it: a yellow for diving, more mood, and a free kick to the other side.
+func dive(p: Footballer) -> void:
+	if ball.holder == p:
+		ball.release()
+	if not referee_sees(p.position):
+		flash("NOBODY SAW IT", 1.0)
+		return
+	var blamed: Footballer = null
+	for o in opponent(p.team).players:
+		if not o.sent_off and (blamed == null or o.position.distance_to(p.position) < blamed.position.distance_to(p.position)):
+			blamed = o
+	if randf() < dive_odds(p):
+		event.emit("dive bought", p.team)
+		_foul(blamed, p, false)
+		return
+	event.emit("dive", p.team)
+	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + DISSENT)
+	_award_restart("free kick", blamed.team, p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
+	if cards_on:
+		book(p, false)
+	else:
+		flash("DIVE!", 1.2)
+
+
+## Chance the referee falls for `p`'s dive when he sees it.
+func dive_odds(p: Footballer) -> float:
+	if bribed.has(p.team):
+		return 1.0
+	return DIVE_FOOLS * p.skill("composure", 0.6, 1.4) * (1.0 - 0.8 * ref_mood.get(p.team, 0.0) / MOOD_FULL)
+
+
+## Chaos: `t`'s captain has a word: the referee's mood with `t` drops by CAPTAIN_CALMS.
+func calm_referee(t: Team) -> void:
+	ref_mood[t] = maxf(0.0, ref_mood.get(t, 0.0) - CAPTAIN_CALMS)
+	if _blow_up.get("team") == t:  # just in time
+		_blow_up = {}
+	flash("THE CAPTAIN CALMS HIM", 1.2)
+
+
+## Chaos: `t` slips him an envelope. For BRIBE_TIME seconds of play he leans its way: its
+## offences go unnoticed, its fouls are play on and he falls for every dive, and he's no
+## longer angry with it. But the linesman may have seen it: see _referee_temper.
+func bribe(t: Team) -> void:
+	bribed[t] = BRIBE_TIME
+	ref_mood[t] = 0.0
+	if _blow_up.get("team") == t:
+		_blow_up = {}
+	if randf() < BRIBE_CAUGHT:
+		_bribe_flag[t] = BRIBE_FLAG
+
+
+## Chaos, every frame of play: bribes run out or are flagged by the linesman (a penalty
+## against the briber, and the referee furious with it), and a referee furious with a side
+## fumes for BLOW_UP_TELL seconds (puffed up, for all to see: get away from him, or send the
+## captain), then blows his top: a whistle stun for that side's players near him. True if
+## play stopped.
+func _referee_temper(delta: float) -> bool:
+	if not chaos:
+		return false
+	for t in bribed.keys():
+		bribed[t] -= delta
+		if bribed[t] <= 0.0:
+			bribed.erase(t)
+	for t in _bribe_flag.keys():
+		_bribe_flag[t] -= delta
+		if _bribe_flag[t] <= 0.0:
+			_bribe_flag.erase(t)
+			bribed.erase(t)
+			ref_mood[t] = MOOD_FULL
+			event.emit("bribe caught", t)
+			award_penalty(opponent(t))
+			flash("LINESMAN SAW THE BRIBE!\nPENALTY!", 2.5)
+			return true
+	if _blow_up.is_empty():
+		for t in [home, away]:
+			if ref_mood.get(t, 0.0) >= MOOD_FULL:
+				_blow_up = {"team": t, "left": BLOW_UP_TELL}
+				flash("THE REF IS FUMING!", BLOW_UP_TELL)
+				event.emit("ref fuming", t)
+				break
+	elif _blow_up.left > delta:
+		_blow_up.left -= delta
+	else:
+		_whistle_stun(_blow_up.team)
+		_blow_up = {}
+	return false
+
+
+## The referee blows his top at `t`: its players within WHISTLE_STUN_RANGE of him are
+## stunned (a dodge gets out of it), a stunned dribbler drops the ball, and he calms to
+## BLOWN_MOOD with `t`.
+func _whistle_stun(t: Team) -> void:
+	play_sfx("long_whistle")
+	flash("WHISTLE STUN!", 1.0)
+	event.emit("whistle stun", t)
+	ref_mood[t] = BLOWN_MOOD
+	for p in t.players:
+		if not p.sent_off and p.position.distance_to(referee.position) <= WHISTLE_STUN_RANGE \
+				and chaos_actions.stun(p, WHISTLE_STUN) and ball.holder == p:
+			ball.release()
 
 
 ## A full discipline meter: a booking, and it starts again.
@@ -1112,18 +1256,40 @@ func _sorry_ref(delta: float) -> void:
 
 
 ## Over the referee's head: his mood with each side, a bar in each side's colour (home on
-## top), and "SORRY?" while a called foul is open to "Sorry, ref!".
+## top), "SORRY?" while a called foul is open to "Sorry, ref!", and a C over each human
+## side's captain.
 func _draw_mood_meter() -> void:
-	if not chaos or autoplay:
+	if not chaos:
 		return
 	var at := stadium.to_screen(referee.position, Pitch.m(2.6))
 	var w := 48.0
+	if not _blow_up.is_empty():  # fuming: a pulsing ring in the side's colour, and !!
+		var pulse := 1.0 + 0.25 * sin(_blow_up.left * 30.0)
+		var s3 := stadium.to_screen(referee.position, Pitch.m(1.0))
+		var ref_at := Vector2(s3.x, s3.y)
+		_mood_meter.draw_arc(ref_at, 26.0 * pulse, 0.0, TAU, 32, Color.RED, 3.0)
+		_mood_meter.draw_arc(ref_at, 20.0 * pulse, 0.0, TAU, 32, _blow_up.team.colour, 2.0)
+		_mood_meter.draw_string(ThemeDB.fallback_font, Vector2(at.x + w / 2.0 + 4.0, at.y - 4.0), "!!",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.RED)
+	for i in bribed.size():  # a gold coin per side he's been bribed by, ringed in its colour
+		var t: Team = bribed.keys()[i]
+		var coin := Vector2(at.x - w / 2.0 - 10.0 - i * 16.0, at.y - 9.0)
+		_mood_meter.draw_circle(coin, 7.0, t.colour)
+		_mood_meter.draw_circle(coin, 5.0, Color(1.0, 0.8, 0.1))
+		_mood_meter.draw_string(ThemeDB.fallback_font, coin + Vector2(-3.5, 4.5), "$", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.4, 0.25, 0.0))
+	if autoplay:
+		return
 	for i in 2:
 		var t: Team = [home, away][i]
 		var bar := Rect2(at.x - w / 2.0, at.y - 16.0 + i * 8.0, w, 6.0)
 		_mood_meter.draw_rect(bar, Color(0.15, 0.15, 0.15, 0.7))
 		_mood_meter.draw_rect(Rect2(bar.position, Vector2(w * ref_mood.get(t, 0.0) / MOOD_FULL, bar.size.y)), t.colour)
 		_mood_meter.draw_rect(bar, Color(1, 1, 1, 0.6), false, 1.0)
+	for h in humans:  # a C over each human side's captain
+		var cap := captain(h.team)
+		if cap:
+			var c := stadium.to_screen(cap.position, Pitch.m(2.4))
+			_mood_meter.draw_string(ThemeDB.fallback_font, Vector2(c.x - 5.0, c.y), "C", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.9, 0.2))
 	if not _parry.is_empty():
 		_mood_meter.draw_string(ThemeDB.fallback_font, Vector2(at.x - w / 2.0, at.y - 22.0), "SORRY?",
 			HORIZONTAL_ALIGNMENT_CENTER, w, 14, Color(1.0, 0.9, 0.2))
@@ -1591,6 +1757,8 @@ func play_sfx(key: String, volume_db := 0.0) -> void:
 	p.stream = load("res://assets/audio/sfx/%s.wav" % SFX[key])
 	p.volume_db = volume_db
 	p.play()
+	if key.ends_with("whistle") and referee and not referee.busy():  # he's the one blowing it
+		referee.perform("ref_whistle")
 
 
 func _start_crowd() -> void:
