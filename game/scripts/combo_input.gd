@@ -1,0 +1,46 @@
+class_name ComboInput
+extends RefCounted
+## Fighting-game style input buffer. Directions are numpad notation relative to
+## the goal being attacked: 6 = toward goal, 4 = away, 8 = up the screen, 2 = down,
+## 5 = neutral. Only changes of direction are recorded.
+
+const WINDOW := 0.7  # seconds a combo's inputs must fit in, ending at the button press
+
+const COMBOS := [
+	["fireball", [2, 3, 6]],  # down, down-forward, forward
+	["fireball", [8, 9, 6]],  # mirrored for players on the other wing
+	["banana", [4, 6]],       # back, forward
+]
+
+var _history: Array = []  # [direction, time]
+
+
+static func direction(stick: Vector2, attack_side: int) -> int:
+	var fx := stick.x * attack_side
+	var col := 1 if fx < -0.5 else (3 if fx > 0.5 else 2)
+	var row := 0 if stick.y < -0.5 else (2 if stick.y > 0.5 else 1)
+	return [[7, 8, 9], [4, 5, 6], [1, 2, 3]][row][col - 1]
+
+
+func feed(dir: int, now: float) -> void:
+	if _history.is_empty() or _history[-1][0] != dir:
+		_history.append([dir, now])
+	while _history.size() > 12:
+		_history.pop_front()
+
+
+## The combo just completed (checked when the shoot button goes down), or "".
+func detect(now: float) -> String:
+	var recent: Array[int] = []
+	for e in _history:
+		if e[1] >= now - WINDOW and e[0] != 5:
+			recent.append(e[0])
+	for c in COMBOS:
+		var seq: Array = c[1]
+		if recent.size() >= seq.size() and recent.slice(recent.size() - seq.size()) == seq:
+			return c[0]
+	return ""
+
+
+func clear() -> void:
+	_history.clear()

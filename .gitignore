@@ -1,0 +1,18 @@
+# Original game and everything derived from it: rebuilt from the ISO with tools/
+# (see game/README.md "Rebuilding the assets"). EA's property, kept out of history.
+FIFA96.ISO
+extracted/
+decoded/
+game/assets/
+game/data/*
+!game/data/squads.json
+lisez-moi.txt
+
+# Generated
+game/.godot/
+tools/.venv/
+__pycache__/
+*.mp4
+*.avi
+.DS_Store
+._*
