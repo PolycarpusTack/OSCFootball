@@ -97,6 +97,7 @@ func _ready() -> void:
 	ball.kicked.connect(func(speed): play_sfx("kick" if speed > 400.0 else "pass", linear_to_db(clampf(speed / 600.0, 0.3, 1.0))))
 	ball.bounced.connect(func(speed): play_sfx("bounce", linear_to_db(clampf(speed / 300.0, 0.15, 0.7))))
 	_add_hud()
+	add_child(DebugOverlay.new(self))
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
 
@@ -497,6 +498,7 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 				best_d = p.position.distance_to(spot)
 				taker = p
 	_restart_taker = taker
+	taker.ai_state = "take " + kind
 	# square to the line (diagonal at a corner), with the ball just inside the pitch
 	var to_centre := Pitch.field_rect().get_center() - spot
 	var into_pitch := Vector2(0.0, signf(to_centre.y))
@@ -669,7 +671,7 @@ func _add_hud() -> void:
 	help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
 	if chaos:
 		help.text += "Combos then Space: ↓↘→ FIREBALL, ←→ BANANA (50)  Hold Space, full bar: THUNDER  "
-	help.text += "F1: anims"
+	help.text += "F1: anims  F3: debug"
 	help.position = Vector2(12, 690)
 	layer.add_child(help)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -711,7 +713,7 @@ static func _bind_inputs() -> void:
 	var keys := {
 		"move_up": [KEY_W, KEY_UP], "move_down": [KEY_S, KEY_DOWN],
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
-		"shoot": [KEY_SPACE], "pass": [KEY_X, KEY_K], "anim_viewer": [KEY_F1],
+		"shoot": [KEY_SPACE], "pass": [KEY_X, KEY_K], "anim_viewer": [KEY_F1], "debug_overlay": [KEY_F3],
 	}
 	for action in keys:
 		if InputMap.has_action(action):

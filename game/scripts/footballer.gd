@@ -22,6 +22,7 @@ var velocity := Vector2.ZERO
 var facing := 4
 var touch_cooldown := 0.0  # can't take the ball while > 0 (just kicked or lost it)
 var think_timer := 0.0  # AI: time until the next pass/shoot decision
+var ai_state := ""  # AI: what it last decided to do, for the debug overlay
 var charge := 0.0  # 0..1 while the shoot button is held; drawn as a ring
 
 var _anim := "xstandd"

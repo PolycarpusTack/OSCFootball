@@ -18,11 +18,14 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 		_with_ball(p, m)
 	elif m.ball.holder == null or m.ball.holder.team != p.team:
 		if m.chaser(p.team) == p:
+			p.ai_state = "chase"
 			var lead := m.ball.position + m.ball.velocity * 0.25
 			p.wish = (lead - p.position).normalized()
 		else:
+			p.ai_state = "defend"
 			_hold_position(p, m, false)
 	else:
+		p.ai_state = "support"
 		_hold_position(p, m, true)
 
 
@@ -47,15 +50,18 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 		if to_goal.length() < SHOOT_RANGE:
 			var spread := 40.0 + to_goal.length() * 0.25  # less accurate from further out
 			var target := goal + Vector2(0, randf_range(-spread, spread))
+			p.ai_state = "shoot"
 			if not _try_super(p, m, target):
 				p.shoot(target)
 			return
 		if m.nearest_opponent_distance(p) < PRESSURE and randf() < 0.6:
 			var mate := best_pass(p, m, Vector2.ZERO)
 			if mate:
+				p.ai_state = "pass"
 				p.pass_to(mate)
 				return
 	# dribble at goal, drifting toward the middle
+	p.ai_state = "dribble"
 	var dir := to_goal.normalized()
 	dir.y += (Pitch.field_rect().size.y / 2.0 - p.position.y) / 900.0
 	p.wish = dir.normalized()
@@ -64,16 +70,21 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 ## Spend the bar when it's worth it: a full bar usually goes on a Thunder Strike.
 static func _try_super(p: Footballer, m: Match, target: Vector2) -> bool:
 	var e := p.team.energy
+	var kind := ""
 	if e >= Supers.cost("thunder") and randf() < 0.5:
-		return m.try_super(p, "thunder", target)
-	if e >= Supers.cost("fireball") and randf() < 0.4:
-		return m.try_super(p, ["fireball", "banana"][randi() % 2], target)
-	return false
+		kind = "thunder"
+	elif e >= Supers.cost("fireball") and randf() < 0.4:
+		kind = ["fireball", "banana"][randi() % 2]
+	if kind == "" or not m.try_super(p, kind, target):
+		return false
+	p.ai_state = kind
+	return true
 
 
 static func _keeper(p: Footballer, m: Match) -> void:
 	var goal := p.team.goal_defended()
 	if p.has_ball():
+		p.ai_state = "keeper: hold"
 		p.wish = Vector2.ZERO
 		if p.think_timer <= 0.0:
 			p.think_timer = KEEPER_HOLD
@@ -86,11 +97,14 @@ static func _keeper(p: Footballer, m: Match) -> void:
 	if not p.busy() and m.ball.holder == null:
 		var dive := dive_for_shot(p, m)
 		if dive != Vector2.ZERO:
+			p.ai_state = "keeper: dive"
 			p.dive(dive, m.ball.z > 20.0 or m.ball.vz > 60.0)
 			return
+	p.ai_state = "keeper: guard"
 	var target := Vector2(goal.x + p.team.side * 18.0, clampf(b.y, goal.y - 55.0, goal.y + 55.0))
 	# come out for loose balls near the goal
 	if m.ball.holder == null and b.distance_to(goal) < 160.0:
+		p.ai_state = "keeper: come out"
 		target = b
 	p.wish = ((target - p.position) / 20.0).limit_length(1.0)
 

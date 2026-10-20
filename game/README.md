@@ -35,6 +35,7 @@ godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick) |
 | Space at full time | back to the title screen |
 | F1 | animation viewer |
+| F3 | debug overlay: each player's AI decision (chase, defend, support, dribble, pass, shoot, keeper states), BUSY while an animation locks them, touch cooldown; ball holder and last touch; frame rate, match state, clock, ball height/speed, energy |
 
 ## Layout
 
@@ -52,6 +53,7 @@ scripts/kit.gdshader      recolours kit parts of the original palette-indexed sp
 scripts/anim_library.gd   autoload "Anims": all player animations, frame lookup by facing (8 dirs)
 scripts/pitch.gd          grass from the original texture, markings to real dimensions (18 px/m), baked into the 3D pitch's texture
 scripts/anim_viewer.gd    browse the 81 animations
+scripts/debug_overlay.gd  F3 overlay: AI decisions (Footballer.ai_state), ball ownership, match state, frame rate
 data/squads.json          optional real squads (see below)
 ```
 
