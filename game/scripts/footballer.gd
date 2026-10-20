@@ -316,7 +316,7 @@ func _wind_up(target: Vector2, anim: String, contact: float) -> bool:
 	facing = Anims.facing_from(target - position)
 	_play_action(anim)
 	var mine := _actions
-	await get_tree().create_timer(contact).timeout
+	await get_tree().create_timer(contact, false).timeout  # held while the match is paused
 	if _actions != mine:
 		return false
 	if has_ball() or (ball.holder == null and ball.position.distance_to(feet_front()) < REACH * 1.8):

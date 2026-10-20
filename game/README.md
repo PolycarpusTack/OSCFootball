@@ -29,6 +29,7 @@ godot --headless --path game -s res://tests/ratings_test.gd                     
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
+godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -55,6 +56,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick; a throw-in always goes into the field) |
 | Space / X at a free kick | Space: shoot (aim with the stick, freeKickAccuracy), X: pass |
 | Space at full time | back to the title screen |
+| Esc (gamepad Start) | pause: the clock, the AI and the ball stop. ↑/↓ and Space/Enter pick Resume, Restart match or Quit to title; Esc again resumes |
 | F1 | animation viewer |
 | **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass, Right Ctrl switch. P1 switches with Q |
 | **Gamepad** | left stick or d-pad: move, B: shoot (hold for power) / slide, A: pass, X or LB: switch. Alone: any pad is player 1's. Two players: one pad goes to player 2 (player 1 keeps the keyboard), two pads are player 1's and player 2's in connection order. Plugging in or out rebinds |

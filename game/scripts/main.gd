@@ -153,6 +153,7 @@ func _ready() -> void:
 	_aim_arrows.draw.connect(_draw_aim_arrows)
 	add_child(_aim_arrows)
 	add_child(DebugOverlay.new(self))
+	add_child(PauseMenu.new())
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
 
@@ -210,7 +211,7 @@ func kickoff(kicking: Team) -> void:
 	_banner.text = ""
 
 
-## Leaving mid slow-mo (F1, Esc) mustn't leave the game running at Thunder Strike speed.
+## Leaving mid slow-mo (F1, the pause menu) mustn't leave the game running at Thunder Strike speed.
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
 
@@ -447,7 +448,7 @@ func _super_connects(p: Footballer, kind: String, target: Vector2) -> void:
 	if kind == "thunder":
 		Engine.time_scale = 0.3
 		stadium.shake = 0.8
-		get_tree().create_timer(0.7, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
+		get_tree().create_timer(0.7, false, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
 
 
 ## Aim assist: when roughly facing the goal, shoot at it, biased to the side you lean.
@@ -945,7 +946,7 @@ func _penalty(delta: float) -> void:
 	taker.shoot(goal + Vector2(0, corner * GOAL_HALF_WIDTH * 0.75), 0.5, "penalties")
 	var keeper := opponent(taker.team).keeper()
 	var guess := corner if randf() < 0.45 else -corner
-	get_tree().create_timer(Footballer.KICK_CONTACT).timeout.connect(
+	get_tree().create_timer(Footballer.KICK_CONTACT, false).timeout.connect(
 		func(): keeper.dive(Vector2(0, guess), randf() < 0.5))
 	state = State.PLAY
 
@@ -1289,7 +1290,7 @@ func _add_hud() -> void:
 		help.text = "P1: WASD, Space shoot, X pass   P2: arrows, Enter shoot, Right Shift pass   "
 		if chaos:
 			help.text += "↓↘→ / ←→ then shoot: supers   "
-	help.text += "Pad: stick, B shoot, A pass   F1: anims  F3: debug"
+	help.text += "Pad: stick, B shoot, A pass   Esc / Start: pause  F1: anims  F3: debug"
 	help.position = Vector2(12, 694)
 	help.add_theme_font_size_override("font_size", 14)
 	layer.add_child(help)
