@@ -3,13 +3,15 @@
 A new football game built on the original FIFA 96 assets. Personal project: the art,
 audio and data belong to EA, so don't distribute it with them.
 
-Current state: **Club Brugge (player 1) vs Anderlecht (AI, or player 2)**, 11 a side, 4-4-2, two halves,
+Current state: the 18 clubs of the **Jupiler Pro League** (`data/league.json`): pick player 1's
+club and the opponent (AI, or player 2) on the team select screen. 11 a side, 4-4-2, two halves,
 in FIFA 96's 3D "Virtual Stadium" (original crowd, advertising boards, nets) seen from a
 side-on TV camera. Boots like the original: intro FMV (any key skips), title screen with
 the title music, Space to kick off. Left/Right on the title screen picks **Chaos Football**
 (energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
 same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players.
-Gamepads work on the title screen too (d-pad to choose, A/B/Start to kick off).
+Gamepads work on the title screen too (d-pad to choose, A/B/Start to go on). Then team select:
+W/S picks player 1's club, ↑/↓ the opponent's, Space kicks off, Esc goes back.
 
 ## Run
 
@@ -20,6 +22,7 @@ godot --editor --path game     # open in the Godot editor
 godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test (Chaos)
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
+godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -49,8 +52,9 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 scripts/main.gd           Match: teams, possession, tackles, fouls, penalties, restarts, halves, control switching, goals, kick-offs, sound, HUD
 scripts/stadium.gd        3D pitch, boards, stands and goals from the original textures; TV camera; pitch-to-screen projection
 scripts/title.gd          boot sequence: intro FMV, title screen, title music
+scripts/team_select.gd    pick both clubs from the league table
 scripts/ai.gd             AI decisions: hold formation (shifts with the ball), chase, dribble, pass, shoot, goalkeeping
-scripts/team.gd           Team: name, kits, 4-4-2 formation, pitch-side helpers; Club Brugge / Anderlecht definitions
+scripts/team.gd           Team: name, kits, 4-4-2 formation, pitch-side helpers; clubs from data/league.json, change kit on a clash
 scripts/footballer.gd     a player's body: movement, animation, carrying the ball, kick/pass/shoot/slide
 scripts/ball.gd           ball with height, bounce, friction, holder (dribbler); super-shot flight and trails
 scripts/supers.gd         super-shot table (cost, animation, speed, colour) and energy rewards
@@ -61,6 +65,7 @@ scripts/anim_library.gd   autoload "Anims": all player animations, frame lookup 
 scripts/pitch.gd          grass from the original texture, markings to real dimensions (18 px/m), baked into the 3D pitch's texture
 scripts/anim_viewer.gd    browse the 81 animations
 scripts/debug_overlay.gd  F3 overlay: AI decisions (Footballer.ai_state), ball ownership, match state, frame rate
+data/league.json          the 18 Jupiler Pro League clubs: name, 3-letter code, standings, kit colours
 data/squads.json          optional real squads (see below)
 ```
 
@@ -73,11 +78,19 @@ player and the ball through that camera (`Stadium.to_screen`) and draws the orig
 sprites there, scaled for distance and sorted by depth, the way FIFA 96 put its sprites
 into its 3D stadium. Camera height and distance are `CAM_OFFSET` / `CAM_FOV` in `stadium.gd`.
 
+## Clubs
+
+`data/league.json` lists the clubs in table order with their points (Sporza standings, fetched
+2026-10-20 after 8 matches) and kit colours. The kit colours are from general knowledge of
+each club's home kit, not checked against this season's (ASSUMED): edit the hex values to fix
+one. When the two shirts look alike, the away side wears a plain white or dark change kit
+(not the club's real away kit). Keeper kits are just contrasting colours.
+
 ## Kits
 
 Sprites keep FIFA 96's palette indices. `kit.gdshader` recolours five slots (shirt,
-shirt second colour, shorts, socks, boots); kit colours are set in `Team.club_brugge()` /
-`Team.anderlecht()`. The index-to-slot mapping is in `tools/build_godot_assets.py`
+shirt second colour, shorts, socks, boots); kit colours are set per club in
+`data/league.json`. The index-to-slot mapping is in `tools/build_godot_assets.py`
 (`KIT_SLOTS`), found by where each index appears on the body.
 
 ## Real squads

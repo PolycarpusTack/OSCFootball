@@ -13,7 +13,7 @@ var _label := Label.new()
 func _ready() -> void:
 	_names = Anims.names()
 	_names.sort()
-	var kit := Team.club_brugge().outfield_material
+	var kit := Team.from_league("Club Brugge").outfield_material
 	for facing in 8:
 		var s := Sprite2D.new()
 		s.material = kit

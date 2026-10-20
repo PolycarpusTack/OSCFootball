@@ -1,6 +1,6 @@
 class_name Match
 extends Node2D
-## Club Brugge (player 1) vs Anderlecht (AI or player 2), 11 a side: rules, possession,
+## Player 1's club (home) vs the AI's or player 2's (away), 11 a side: rules, possession,
 ## control switching, fouls, penalties, goals and kick-offs.
 
 signal event(kind: String, team: Team)  # goal, save, foul, penalty, or a super's name
@@ -29,12 +29,14 @@ const THUNDER_HOLD := 0.8  # seconds to hold shoot for a Thunder Strike (needs a
 ## Chaos Football: energy bars and super-shots. Classic Football: plain FIFA 96 rules,
 ## same players, ball and AI. Chosen on the title screen; kept between matches.
 static var chaos := true
-static var players := 1  # people playing: 1 (vs the AI) or 2 (Brugge vs Anderlecht); title screen
+static var players := 1  # people playing: 1 (vs the AI) or 2 (home vs away); title screen
+static var home_club := "Club Brugge"  # player 1's club (data/league.json); team select screen
+static var away_club := "Anderlecht"  # the AI's or player 2's club
 
 var ball: Ball
 var home: Team
 var away: Team
-var humans: Array[Human] = []  # player 1 (Brugge), player 2 (Anderlecht) when two play
+var humans: Array[Human] = []  # player 1 (home), player 2 (away) when two play
 var state := State.KICKOFF
 var clock := 0.0  # seconds of play (stopped during goals, restarts, breaks)
 var half := 1
@@ -68,8 +70,10 @@ func _ready() -> void:
 	ball.bounds = Pitch.field_rect().grow(Pitch.m(Pitch.MARGIN_M) - 4.0)
 	world.add_child(ball)
 
-	home = Team.club_brugge()
-	away = Team.anderlecht()
+	home = Team.from_league(home_club)
+	away = Team.from_league(away_club)
+	if away.clashes_with(home):
+		away.wear_change_kit(home)
 	home.side = 1
 	away.side = -1
 	humans.append(Human.new(home, 0))
@@ -176,7 +180,7 @@ func _physics_process(delta: float) -> void:
 				half = 2
 				for t in [home, away]:
 					t.side = -t.side  # change ends
-				kickoff(home)  # Anderlecht kicked off the first half
+				kickoff(home)  # the away side kicked off the first half
 		State.FULL_TIME:
 			for t in [home, away]:
 				for p in t.players:
@@ -695,7 +699,7 @@ func _add_hud() -> void:
 	if humans.size() == 1:
 		help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
 		if chaos:
-			help.text += "Combos then Space: ↓↘→ FIREBALL, ←→ BANANA (50)  Hold Space, full bar: THUNDER  "
+			help.text += "↓↘→ / ←→ then Space: supers  Hold Space, full bar: THUNDER  "
 	else:
 		help.text = "P1: WASD, Space shoot, X pass   P2: arrows, Enter shoot, Right Shift pass   "
 		if chaos:

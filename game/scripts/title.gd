@@ -1,13 +1,13 @@
 extends Control
 ## Boot sequence as in FIFA 96: the intro FMV (any key skips), then the title screen
-## with the title music until Space / Enter (gamepad A, B or Start) kicks off.
+## with the title music until Space / Enter (gamepad A, B or Start) goes to team select.
 ## Left / Right picks Chaos or Classic Football (Match.chaos), Up / Down one or two
 ## players (Match.players).
 
 const INTRO := "res://assets/video/intro.ogv"
 const TITLE := "res://assets/ui/title/000_0000.png"
 const MUSIC := "res://assets/audio/music/QUE_TITL.wav"
-const MATCH := "res://scenes/main.tscn"
+const TEAM_SELECT := "res://scenes/team_select.tscn"
 
 var _video := VideoStreamPlayer.new()
 var _title := TextureRect.new()
@@ -102,4 +102,4 @@ func _unhandled_input(event: InputEvent) -> void:
 		_show_mode()
 	elif event is InputEventMouseButton or (key and event.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]) \
 			or (button and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START]):
-		get_tree().change_scene_to_file(MATCH)
+		get_tree().change_scene_to_file(TEAM_SELECT)

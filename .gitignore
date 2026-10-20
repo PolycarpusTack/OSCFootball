@@ -6,6 +6,7 @@ decoded/
 game/assets/
 game/data/*
 !game/data/squads.json
+!game/data/league.json
 lisez-moi.txt
 
 # Generated

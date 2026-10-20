@@ -4,6 +4,7 @@ extends RefCounted
 
 const KIT_SHADER := preload("res://scripts/kit.gdshader")
 const PALETTE := preload("res://assets/sprites/players/palette.png")
+const LEAGUE := "res://data/league.json"
 
 ## 4-4-2, as fractions of the pitch: x from own goal line (0) to the opponent's (1).
 const FORMATION := [
@@ -69,13 +70,35 @@ func keeper() -> Footballer:
 	return players[0]
 
 
-static func club_brugge() -> Team:
-	return Team.new("Club Brugge", "BRU",
-		{"shirt": Color("0a5cc4"), "shirt2": Color("16161a"), "shorts": Color("1a1a1e"), "socks": Color("1a1a1e"), "boots": Color("111111")},
-		{"shirt": Color("f2d21c"), "shirt2": Color("f2d21c"), "shorts": Color("1a1a1e"), "socks": Color("f2d21c"), "boots": Color("111111")})
+## The league's clubs in table order, as in data/league.json.
+static func league() -> Array:
+	var data = JSON.parse_string(FileAccess.get_file_as_string(LEAGUE))
+	return data.teams if data is Dictionary else []
 
 
-static func anderlecht() -> Team:
-	return Team.new("Anderlecht", "AND",
-		{"shirt": Color("5b2a86"), "shirt2": Color("5b2a86"), "shorts": Color("5b2a86"), "socks": Color("5b2a86"), "boots": Color("111111")},
-		{"shirt": Color("2f9e44"), "shirt2": Color("2f9e44"), "shorts": Color("1a1a1e"), "socks": Color("2f9e44"), "boots": Color("111111")})
+## A club from data/league.json by name.
+static func from_league(club: String) -> Team:
+	for d in league():
+		if d.name == club:
+			var kit := {"boots": Color("111111")}
+			for part in d.kit:
+				kit[part] = Color(d.kit[part])
+			var keeper := Color(d.keeper)
+			return Team.new(d.name, d.short, kit,
+				{"shirt": keeper, "shirt2": keeper, "shorts": Color("1a1a1e"), "socks": keeper, "boots": Color("111111")})
+	push_error("no club %s in %s" % [club, LEAGUE])
+	return null
+
+
+## Shirts too alike to tell apart on the pitch?
+func clashes_with(other: Team) -> bool:
+	return Vector3(colour.r, colour.g, colour.b).distance_to(Vector3(other.colour.r, other.colour.g, other.colour.b)) < 0.35
+
+
+## Switch to a plain change kit (not the club's real away kit) that contrasts with `other`.
+func wear_change_kit(other: Team) -> void:
+	var light := other.colour.get_luminance() > 0.5
+	var main := Color("1a1a1e") if light else Color("f2f2f2")
+	var trim := Color("f2f2f2") if light else Color("1a1a1e")
+	colour = main
+	outfield_material = make_material({"shirt": main, "shirt2": main, "shorts": trim, "socks": main, "boots": Color("111111")})
