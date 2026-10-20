@@ -393,6 +393,7 @@ func _take(p: Footballer) -> void:
 func _foul(by: Footballer, victim: Footballer) -> void:
 	victim.perform("fall")
 	victim.touch_cooldown = 0.0
+	by.touch_cooldown = 1.0  # one foul per slide: the slider is still on the ball for a moment
 	victim.team.gain(Supers.GAIN.fouled)
 	event.emit("foul", by.team)
 	if in_penalty_area(victim.position, by.team):

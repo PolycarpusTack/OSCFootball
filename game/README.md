@@ -22,6 +22,7 @@ godot --headless --path game -s res://tests/classic_test.gd                     
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
+godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
 ```
 
 | Key | Action |

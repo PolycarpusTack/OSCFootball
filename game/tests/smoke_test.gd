@@ -92,6 +92,23 @@ func _initialize() -> void:
 	var last_team: String = m.ball.last_touch.team.short if m.ball.last_touch else "-"
 	print("goal kick: lurker came within %.1f m, last touch after the kick %s" % [closest / Pitch.PX_PER_M, last_team])
 	ok = ok and closest >= Pitch.m(9.15) - 1.0 and last_team == "AND"
+	# a slide from behind outside the box: one foul, not one per frame of the slide
+	while m.state != 1:
+		await physics_frame
+	var fouls := events.count("foul:AND")
+	var victim = m.home.players[6]
+	victim.position = Pitch.field_rect().get_center()
+	victim.facing = 2
+	m.ball.stop_at(victim.feet_front())
+	m.ball.take(victim)
+	var slider = m.away.players[6]
+	slider.position = victim.position - Vector2(16, 0)
+	slider.facing = 2
+	slider.slide()
+	await create_timer(1.0).timeout
+	print("slide from behind: %d foul(s)" % (events.count("foul:AND") - fouls))
+	ok = ok and events.count("foul:AND") - fouls == 1
+
 	# half time: ends change, Brugge kick off; full time stops the match
 	m.clock = m.HALF_SECONDS - 0.2
 	var side_before: int = m.home.side
