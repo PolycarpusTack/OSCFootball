@@ -62,6 +62,7 @@ var half := 1
 var autoplay := false  # AI plays both sides (demo / attract mode)
 
 var _state_left := 0.0
+var _conceded: Team  # kicks off after the goal (an own goal too)
 var _penalty_taker: Footballer
 var _restart_kind := ""  # "throw-in", "corner" or "goal kick" while state is RESTART
 var _restart_taker: Footballer
@@ -209,6 +210,11 @@ func kickoff(kicking: Team) -> void:
 	_banner.text = ""
 
 
+## Leaving mid slow-mo (F1, Esc) mustn't leave the game running at Thunder Strike speed.
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
+
+
 func _physics_process(delta: float) -> void:
 	_update_hud()
 	_referee_follows()
@@ -229,7 +235,7 @@ func _physics_process(delta: float) -> void:
 					if not p.busy():
 						p.wish = Vector2.ZERO
 			if _state_left <= 0.0:
-				kickoff(opponent(ball.last_touch.team) if ball.last_touch else away)
+				kickoff(_conceded)
 		State.PENALTY:
 			_penalty(delta)
 		State.RESTART:
@@ -423,11 +429,18 @@ func _mark_pass_target(h: Human, target: Footballer) -> void:
 
 
 ## Spend energy on a super-shot by `p`. False (and nothing happens) if the bar is too low.
+## The bar is spent, and the fanfare plays, only once his foot meets the ball.
 func try_super(p: Footballer, kind: String, target: Vector2) -> bool:
 	if not chaos or p.team.energy < Supers.cost(kind) or not p.has_ball() or p.busy():
 		return false
-	p.team.energy -= Supers.cost(kind)
-	p.super_shot(kind, target)
+	_super_connects(p, kind, target)
+	return true
+
+
+func _super_connects(p: Footballer, kind: String, target: Vector2) -> void:
+	if not await p.super_shot(kind, target):
+		return  # lost it in the wind-up
+	p.team.energy = maxf(0.0, p.team.energy - Supers.cost(kind))
 	flash(Supers.LIST[kind].title, 1.6)
 	event.emit(kind, p.team)
 	stadium.shake = 0.25
@@ -435,7 +448,6 @@ func try_super(p: Footballer, kind: String, target: Vector2) -> bool:
 		Engine.time_scale = 0.3
 		stadium.shake = 0.8
 		get_tree().create_timer(0.7, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
-	return true
 
 
 ## Aim assist: when roughly facing the goal, shoot at it, biased to the side you lean.
@@ -514,7 +526,9 @@ func _resolve_possession(delta: float) -> void:
 			continue
 		if o.sliding() or randf() < steal_rate(o, holder) * delta:
 			ball.release()
+			ball.last_touch = o  # his touch: if it runs out, it's the other side's ball
 			ball.kick(Anims.FACING_VECTORS[o.facing] * 90.0, 0.0)
+			ball.kick_kind = ""  # a tackle, not a pass: nobody's offside for it
 			holder.touch_cooldown = 0.6
 			o.team.gain(Supers.GAIN.tackle)
 			if o.sliding() and randf() >= holder.skill("balance", 0.0, 0.5):  # good balance: stays up
@@ -533,30 +547,44 @@ func skill_move(p: Footballer, kind: String) -> bool:
 	var ahead: Vector2 = Anims.FACING_VECTORS[p.facing]
 	var o := opponent_ahead(p)
 	var beaten: Footballer = null
+	var v := ahead * 200.0
+	var up := 0.0
+	var touch := "dribble"
 	match kind:
 		"nutmeg":
-			p.skill_touch(kind, ahead * 200.0, 0.0, "dribble")
 			if o and randf() < nutmeg_odds(p, o):
 				beaten = o
 		"rainbow":
 			if randf() < p.skill("ballControl", 0.5, 1.0):
-				p.skill_touch(kind, ahead * 120.0, 370.0, "rainbow")  # up to 76 px: nobody touches it going up
+				v = ahead * 120.0
+				up = 370.0  # up to 76 px: nobody touches it going up
+				touch = "rainbow"
 				beaten = o
-			else:
-				p.skill_touch(kind, ahead * 60.0, 150.0, "dribble")  # scuffed: drops at his feet
+			else:  # scuffed: drops at his feet
+				v = ahead * 60.0
+				up = 150.0
 		"bckheel":
 			var mate := AI.best_pass(p, self, -ahead)
 			var to := mate.position + mate.velocity * 0.4 if mate else p.position - ahead * 80.0
 			var err := p.skill("shortPassing", 40.0, 4.0) * p.pressure_factor()
 			to += Vector2(randf_range(-err, err), randf_range(-err, err))
-			p.skill_touch(kind, (to - p.position).normalized() * clampf(p.position.distance_to(to) * 1.6, 180.0, 420.0), 20.0, "pass")
-	event.emit(kind, p.team)
+			v = (to - p.position).normalized() * clampf(p.position.distance_to(to) * 1.6, 180.0, 420.0)
+			up = 20.0
+			touch = "pass"
 	if beaten:
-		beaten.touch_cooldown = Footballer.SKILL_MOVES[kind][0] + 0.8  # left standing
-		if chaos:
-			flash("NUTMEG!" if kind == "nutmeg" else "RAINBOW!", 0.8)
-			p.team.gain(SKILL_GAIN)
+		beaten.touch_cooldown = Footballer.SKILL_MOVES[kind][0] + 0.8  # left standing, from now: the wind-up is safe from him
+	_skill_connects(p, kind, v, up, touch, beaten)
 	return true
+
+
+## The skill move's event, and the Chaos fanfare for beating a man, once the touch is made.
+func _skill_connects(p: Footballer, kind: String, v: Vector2, up: float, touch: String, beaten: Footballer) -> void:
+	if not await p.skill_touch(kind, v, up, touch):
+		return  # lost it in the wind-up
+	event.emit(kind, p.team)
+	if beaten and chaos:
+		flash("NUTMEG!" if kind == "nutmeg" else "RAINBOW!", 0.8)
+		p.team.gain(SKILL_GAIN)
 
 
 ## Chance a nutmeg by `p` gets through `o`'s legs: even between equals.
@@ -1142,6 +1170,7 @@ func _check_goal() -> void:
 		return
 	var scorers := home if (x >= field.size.x) == (home.side > 0) else away
 	scorers.score += 1
+	_conceded = opponent(scorers)
 	ball.stop_at(Vector2(clampf(x, -14.0, field.size.x + 14.0), ball.position.y))
 	state = State.GOAL
 	_state_left = 3.5

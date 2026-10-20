@@ -8,6 +8,7 @@ const BOUNCE := 0.5
 const BANANA_TURN := 3.4  # rad/s the banana shot bends toward its target
 const SUPER_HEIGHT := 12.0  # fireball / thunder skim along at this height
 const TRAIL := 16
+const ZIG_ZAG := 9.5  # px either side: what the old 6 px a tick at 60 ticks/s swung
 
 signal kicked(speed: float)
 signal bounced(speed: float)
@@ -29,6 +30,7 @@ var prev_z := 0.0
 var _frames: Array[Texture2D] = []
 var _roll := 0.0
 var _power_time := 0.0
+var _zig := 0.0  # Thunder Strike: how far off its line of flight the zig-zag has it now
 var _trail: Array[Vector3] = []  # recent positions: pitch x, y and height z
 var _sprite := Sprite2D.new()
 var _fx := Node2D.new()  # shadow, glow and trail
@@ -74,6 +76,7 @@ func launch_super(kind: String, v: Vector2, up: float, target: Vector2) -> void:
 	power = kind
 	power_target = target
 	_power_time = 0.0
+	_zig = 0.0
 	_sprite.modulate = Supers.LIST[kind].colour.lightened(0.3)
 	kicked.emit(v.length())
 
@@ -172,8 +175,10 @@ func _super_flight(delta: float) -> void:
 			z = move_toward(z, SUPER_HEIGHT, 60.0 * delta)
 			vz = 0.0
 			position += velocity * delta
-			if power == "thunder":  # lightning zig-zag across the line of flight
-				position += velocity.orthogonal().normalized() * cos(_power_time * 38.0) * 6.0
+			if power == "thunder":  # lightning zig-zag across the line of flight, by flight time (slow-mo too)
+				var zig := sin(_power_time * 38.0) * ZIG_ZAG
+				position += velocity.orthogonal().normalized() * (zig - _zig)
+				_zig = zig
 	_trail.append(Vector3(position.x, position.y, z + 2.0))
 	if _trail.size() > TRAIL:
 		_trail.pop_front()

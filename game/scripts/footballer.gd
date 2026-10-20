@@ -58,6 +58,7 @@ var dizzy_left := 0.0  # Chaos: seeing stars after a knockdown when tired (see M
 var _anim := "xstandd"
 var _anim_time := 0.0
 var _action_left := 0.0  # while > 0 a one-shot animation plays and movement is ignored
+var _actions := 0  # counts one-shot animations started: a wind-up knows if it was cut short
 var _sprite := Sprite2D.new()
 var _marks := Node2D.new()  # shadow, control ring and charge meter, drawn under the sprite
 
@@ -244,15 +245,17 @@ func body_checking() -> bool:
 
 ## A skill move (see Match.skill_move): `anim` plays without turning him, and at its
 ## contact frame the ball leaves with `v` and `up`.
-func skill_touch(anim: String, v: Vector2, up: float, kind: String) -> void:
+func skill_touch(anim: String, v: Vector2, up: float, kind: String) -> bool:
 	if busy():
-		return
+		return false
 	var timing: Array = SKILL_MOVES[anim]
 	var played := await _wind_up(position + Anims.FACING_VECTORS[facing], anim, timing[0])
-	_action_left = minf(_action_left, timing[1] - timing[0])
+	if _anim == anim:  # not knocked over meanwhile
+		_action_left = minf(_action_left, timing[1] - timing[0])
 	if played:
 		ball.kick(v, up)
 		ball.kick_kind = kind
+	return played
 
 
 ## In the safe part of a dodge: slides and tackles miss him.
@@ -293,28 +296,33 @@ func pass_to(mate: Footballer) -> void:
 
 
 ## A super-shot (see Supers.LIST) at `target`. The banana starts off wide and bends in.
-func super_shot(kind: String, target: Vector2) -> void:
+func super_shot(kind: String, target: Vector2) -> bool:
 	var s: Dictionary = Supers.LIST[kind]
 	if not await _wind_up(target, s.anim, s.contact):
-		return
+		return false
 	var dir := (target - ball.position).normalized()
 	if kind == "banana":
 		dir = dir.rotated(0.75 if randf() < 0.5 else -0.75)
 	ball.launch_super(kind, dir * s.speed, s.lift, target)
 	ball.kick_kind = kind
+	return true
 
 
-## Play a kick animation facing `target`; true if the foot still meets the ball.
+## Play a kick animation facing `target`; true if the foot still meets the ball (false
+## too if he was slid or knocked down meanwhile: another animation took over).
 func _wind_up(target: Vector2, anim: String, contact: float) -> bool:
 	if busy():
 		return false
 	facing = Anims.facing_from(target - position)
 	_play_action(anim)
+	var mine := _actions
 	await get_tree().create_timer(contact).timeout
+	if _actions != mine:
+		return false
 	if has_ball() or (ball.holder == null and ball.position.distance_to(feet_front()) < REACH * 1.8):
 		ball.release()
 		ball.last_touch = self
-		touch_cooldown = 0.35
+		touch_cooldown = maxf(touch_cooldown, 0.35)
 		return true
 	return false
 
@@ -348,6 +356,7 @@ func perform(anim: String) -> void:
 
 
 func _play_action(anim: String, from := 0.0) -> void:
+	_actions += 1
 	_anim = anim
 	_anim_time = from
 	_action_left = Anims.length_seconds(anim) - from
