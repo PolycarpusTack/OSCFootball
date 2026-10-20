@@ -15,6 +15,8 @@ const MOVES := {
 	"rocket": {"name": "ROCKET THROW", "cost": 35, "wind": 0.45, "active": 0.1, "recovery": 0.35, "anim": "glwthrw", "hint": "keeper holding the ball"},
 	"palm": {"name": "PALM BARRAGE", "cost": 40, "wind": 0.12, "active": 0.7, "recovery": 0.4, "anim": "gpunchu", "hint": "keeper faces incoming shot"},
 	"cyclone": {"name": "CYCLONE SCISSOR", "cost": 40, "wind": 0.25, "active": 0.4, "recovery": 0.45, "anim": "bicycle", "hint": "under an aerial ball"},
+	"dive": {"name": "DIVE", "cost": 10, "wind": 0.1, "active": 0.1, "recovery": 0.7, "anim": "fall", "hint": "an opponent right by you"},
+	"captain": {"name": "CAPTAIN", "cost": 30, "wind": 0.3, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "captain near an angry referee"},
 }
 const COLOUR := Color("67f4ef")
 var match_game: Match
@@ -50,6 +52,8 @@ func chosen(h: Human) -> String:
 	return MOVES.keys()[h.special_index]
 
 func actor(h: Human, id: String) -> Footballer:
+	if id == "captain":
+		return match_game.captain(h.team)
 	return h.team.keeper() if id in ["rocket", "palm"] else h.controlled
 
 func activate(h: Human, aim: Vector2) -> bool:
@@ -100,6 +104,9 @@ func unavailable(p: Footballer, id: String) -> String:
 		"wall": valid = valid and not p.has_ball() and partner(p) != null
 		"spring", "cyclone": valid = valid and b.holder == null and b.power == "" and b.z > 12.0 and near <= 45.0
 		"palm": valid = valid and b.holder == null and match_game.in_penalty_area(p.position, p.team)
+		"dive": valid = valid and match_game.nearest_opponent_distance(p) <= Match.DIVE_RANGE
+		"captain": valid = valid and match_game.ref_mood.get(p.team, 0.0) > 0.0 \
+			and p.position.distance_to(match_game.referee.position) <= Match.CAPTAIN_RANGE
 	if id == "rocket":  # a keeper's throw waits for the box to clear, like any release
 		valid = valid and match_game.keeper_may_release(p)
 	if id in ["stego", "bass"] and b.holder != null and b.holder.role == "G" \
@@ -280,6 +287,10 @@ func apply_move(a: Dictionary, dt: float) -> void:
 		return
 	a.done = true
 	match a.id:
+		"dive":
+			match_game.dive(p)
+		"captain":
+			match_game.calm_referee(p.team)
 		"pinball", "boomerang", "rocket":
 			if not p.has_ball(): return
 			if a.id == "rocket": b.z = Footballer.HEAD_HEIGHT

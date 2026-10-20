@@ -41,6 +41,10 @@ const MOOD_COOL := 1.0  # per second of play
 const DISSENT := 20.0  # mood for "sorry" pressed when there's nothing to be sorry for
 const PARRY_WINDOW := 0.5  # seconds after a called foul in which "Sorry, ref!" (special) counts
 const WARNING_AT := 80.0  # a booking talked down to a warning leaves the meter here
+const DIVE_RANGE := 2.5 * Pitch.PX_PER_M  # a dive needs an opponent this close to blame
+const DIVE_FOOLS := 0.5  # chance an average diver fools a calm referee who sees it
+const CAPTAIN_RANGE := 25.0 * Pitch.PX_PER_M  # the captain talks to him from this close
+const CAPTAIN_CALMS := 40.0  # mood the captain talks him down by
 const REF_VIEW_ANGLE := deg_to_rad(50.0)  # either side of where he looks
 const REF_VIEW_RANGE := 40.0 * Pitch.PX_PER_M
 const REF_NEAR := 6.0 * Pitch.PX_PER_M  # this close he sees it whichever way he looks
@@ -1051,6 +1055,53 @@ func offence(p: Footballer, pos: Vector2, kind: String) -> void:
 	_judge(p)
 
 
+## Chaos: `t`'s captain, the steadiest head on the pitch (highest composure).
+func captain(t: Team) -> Footballer:
+	var best: Footballer = null
+	for p in t.players:
+		if p.role != "G" and not p.sent_off and (best == null or p.stats.get("composure", 67.5) > best.stats.get("composure", 67.5)):
+			best = p
+	return best
+
+
+## Chaos: `p` throws himself down next to an opponent. Unseen, nothing comes of it but the
+## ball rolling free. Seen, the referee may fall for it, likelier for a cool head and less
+## so the angrier he is with p's side: a foul on p by the nearest opponent. Or he sees
+## through it: a yellow for diving, more mood, and a free kick to the other side.
+func dive(p: Footballer) -> void:
+	if ball.holder == p:
+		ball.release()
+	if not referee_sees(p.position):
+		flash("NOBODY SAW IT", 1.0)
+		return
+	var blamed: Footballer = null
+	for o in opponent(p.team).players:
+		if not o.sent_off and (blamed == null or o.position.distance_to(p.position) < blamed.position.distance_to(p.position)):
+			blamed = o
+	if randf() < dive_odds(p):
+		event.emit("dive bought", p.team)
+		_foul(blamed, p, false)
+		return
+	event.emit("dive", p.team)
+	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + DISSENT)
+	_award_restart("free kick", blamed.team, p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
+	if cards_on:
+		book(p, false)
+	else:
+		flash("DIVE!", 1.2)
+
+
+## Chance the referee falls for `p`'s dive when he sees it.
+func dive_odds(p: Footballer) -> float:
+	return DIVE_FOOLS * p.skill("composure", 0.6, 1.4) * (1.0 - 0.8 * ref_mood.get(p.team, 0.0) / MOOD_FULL)
+
+
+## Chaos: `t`'s captain has a word: the referee's mood with `t` drops by CAPTAIN_CALMS.
+func calm_referee(t: Team) -> void:
+	ref_mood[t] = maxf(0.0, ref_mood.get(t, 0.0) - CAPTAIN_CALMS)
+	flash("THE CAPTAIN CALMS HIM", 1.2)
+
+
 ## A full discipline meter: a booking, and it starts again.
 func _judge(p: Footballer) -> void:
 	if p.discipline >= DISCIPLINE_FULL:
@@ -1092,7 +1143,8 @@ func _sorry_ref(delta: float) -> void:
 
 
 ## Over the referee's head: his mood with each side, a bar in each side's colour (home on
-## top), and "SORRY?" while a called foul is open to "Sorry, ref!".
+## top), "SORRY?" while a called foul is open to "Sorry, ref!", and a C over each human
+## side's captain.
 func _draw_mood_meter() -> void:
 	if not chaos or autoplay:
 		return
@@ -1104,6 +1156,11 @@ func _draw_mood_meter() -> void:
 		_mood_meter.draw_rect(bar, Color(0.15, 0.15, 0.15, 0.7))
 		_mood_meter.draw_rect(Rect2(bar.position, Vector2(w * ref_mood.get(t, 0.0) / MOOD_FULL, bar.size.y)), t.colour)
 		_mood_meter.draw_rect(bar, Color(1, 1, 1, 0.6), false, 1.0)
+	for h in humans:  # a C over each human side's captain
+		var cap := captain(h.team)
+		if cap:
+			var c := stadium.to_screen(cap.position, Pitch.m(2.4))
+			_mood_meter.draw_string(ThemeDB.fallback_font, Vector2(c.x - 5.0, c.y), "C", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.9, 0.2))
 	if not _parry.is_empty():
 		_mood_meter.draw_string(ThemeDB.fallback_font, Vector2(at.x - w / 2.0, at.y - 22.0), "SORRY?",
 			HORIZONTAL_ALIGNMENT_CENTER, w, 14, Color(1.0, 0.9, 0.2))
