@@ -66,7 +66,7 @@ scripts/pitch.gd          grass from the original texture, markings to real dime
 scripts/anim_viewer.gd    browse the 81 animations
 scripts/debug_overlay.gd  F3 overlay: AI decisions (Footballer.ai_state), ball ownership, match state, frame rate
 data/league.json          the 18 Jupiler Pro League clubs: name, 3-letter code, standings, kit colours
-data/squads.json          optional real squads (see below)
+data/squads.json          squads and EA ratings, built by tools/build_ea_assets.py (see below)
 ```
 
 ## How it's drawn
@@ -93,17 +93,25 @@ shirt second colour, shorts, socks, boots); kit colours are set per club in
 `data/league.json`. The index-to-slot mapping is in `tools/build_godot_assets.py`
 (`KIT_SLOTS`), found by where each index appears on the body.
 
-## Real squads
+## Squads, ratings, crests and portraits
 
-Create `data/squads.json`; players are assigned in formation order
-(GK, RB, CB, CB, LB, RM, CM, CM, LM, ST, ST). Without the file players are numbered.
+From EA SPORTS FC 27's public ratings site (1A Pro League: 502 players), for personal use
+only and kept out of git:
 
-```json
-{
-  "Club Brugge": [{"name": "Keeper Name", "number": 1}, ...11 entries],
-  "Anderlecht":  [{"name": "...", "number": 1}, ...]
-}
 ```
+tools/.venv/bin/python -I tools/fetch_ea_ratings.py downloads/ea_fc27   # 6 league pages, 18 crests, ~500 photos; slow on purpose
+tools/.venv/bin/python -I tools/build_ea_assets.py downloads/ea_fc27 game
+```
+
+`build_ea_assets.py` writes `data/squads.json`: per club, the best 4-4-2 picked greedily
+by position and overall rating (GK, RB, CB, CB, LB, RM, CM, CM, LM, ST, ST), then the subs,
+each with all ~35 EA ratings. Shirt numbers aren't on EA's pages: numbers go by formation
+slot. It also writes `assets/clubs/<SHORT>.png` (crest, on the scoreboard and team select),
+`<SHORT>_board.png` (a pitch-side board: every third board shows one of the two clubs) and
+`assets/portraits/<id>.png` (the photo pixelated to 40x40, 16 colours, shown above the
+controlled player's name). EA has no photo for about half the players, mostly squad
+players: they get `unknown.png`, a silhouette. The ratings are loaded into
+`Footballer.stats` but don't change play yet.
 
 ## Rebuilding the assets
 

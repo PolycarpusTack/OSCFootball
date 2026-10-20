@@ -2,10 +2,10 @@
 # (see game/README.md "Rebuilding the assets"). EA's property, kept out of history.
 FIFA96.ISO
 extracted/
+downloads/
 decoded/
 game/assets/
 game/data/*
-!game/data/squads.json
 !game/data/league.json
 lisez-moi.txt
 

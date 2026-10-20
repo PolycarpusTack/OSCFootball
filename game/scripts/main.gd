@@ -17,6 +17,8 @@ const BOX_HALF_WIDTH := 40.32 / 2.0 * Pitch.PX_PER_M
 const STEAL_RATE := 2.0  # chance per second of winning the ball when touching it
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
 const SQUADS := "res://data/squads.json"
+const PORTRAITS := "res://assets/portraits/"
+const CLUBS := "res://assets/clubs/"  # crests <SHORT>.png and boards <SHORT>_board.png
 ## Sound effects from SFX_GAME.BNK, identified by their spectra (ASSUMED: not confirmed
 ## by ear): short low thuds are ball contacts, ~3.8 kHz tones the referee's whistle.
 const SFX := {
@@ -51,9 +53,11 @@ var stadium := Stadium.new()
 var _crowd := AudioStreamPlayer.new()
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_next := 0
-var _score_label := Label.new()
+var _score_label := Label.new()  # "BRU  0 - 0  AND", between the two crests
+var _clock_label := Label.new()
 var _banner := Label.new()
 var _player_labels: Array[Label] = []  # each human's controlled player's name, as in FIFA 96
+var _player_portraits: Array[TextureRect] = []  # and their pixel portrait above it
 var _energy_bars := {}  # Team -> ColorRect fill
 var _energy_labels := {}  # Team -> Label
 
@@ -62,7 +66,6 @@ func _ready() -> void:
 	_bind_inputs()
 	Human.bind_inputs(players)
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
-	add_child(stadium)
 	var world := Node2D.new()  # simulation in pitch pixels; visuals are placed through the stadium camera
 	add_child(world)
 
@@ -79,6 +82,11 @@ func _ready() -> void:
 	humans.append(Human.new(home, 0))
 	if players == 2:
 		humans.append(Human.new(away, 1))
+	for t in [home, away]:
+		var board := CLUBS + "%s_board.png" % t.short
+		if ResourceLoader.exists(board):
+			stadium.club_boards.append(load(board))
+	add_child(stadium)
 	var squads := _load_squads()
 	for t in [home, away]:
 		var names: Array = squads.get(t.name, [])
@@ -89,7 +97,11 @@ func _ready() -> void:
 			p.home = Team.FORMATION[i][1]
 			p.ball = ball
 			p.number = names[i].number if i < names.size() else i + 1
-			p.name = names[i].name if i < names.size() else "%s %d" % [t.short, p.number]
+			p.name = "%s %d" % [t.short, p.number]
+			p.display_name = names[i].name if i < names.size() else p.name
+			if i < names.size():
+				p.stats = names[i].get("stats", {})
+				p.portrait = _portrait(names[i])
 			p.speed_factor = 1.0 if human_for(t) else 0.94
 			t.players.append(p)
 			world.add_child(p)
@@ -622,6 +634,11 @@ func _check_goal() -> void:
 	tween.tween_property(_crowd, "volume_db", -8.0, 1.0)
 
 
+func _portrait(entry: Dictionary) -> Texture2D:
+	var path := PORTRAITS + ("%d.png" % entry.id if entry.get("portrait", false) else "unknown.png")
+	return load(path) if ResourceLoader.exists(path) else null
+
+
 func _load_squads() -> Dictionary:
 	if not FileAccess.file_exists(SQUADS):
 		return {}
@@ -653,8 +670,14 @@ func _add_hud() -> void:
 	var panel := PanelContainer.new()
 	panel.position = Vector2(12, 10)
 	layer.add_child(panel)
+	var row := HBoxContainer.new()  # crest, score, crest, clock
+	panel.add_child(row)
 	_score_label.add_theme_font_size_override("font_size", 22)
-	panel.add_child(_score_label)
+	_clock_label.add_theme_font_size_override("font_size", 22)
+	row.add_child(_crest(home))
+	row.add_child(_score_label)
+	row.add_child(_crest(away))
+	row.add_child(_clock_label)
 	for i in (2 if chaos else 0):  # energy bars: Chaos only
 		var t: Team = [home, away][i]
 		var y := 56.0 + i * 22.0
@@ -695,6 +718,13 @@ func _add_hud() -> void:
 			label.position.x += -300.0 if h.index == 0 else 300.0
 		layer.add_child(label)
 		_player_labels.append(label)
+		var face := TextureRect.new()
+		face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.size = Vector2(80, 80)
+		face.position = Vector2(640.0 - 40.0 + (0.0 if humans.size() == 1 else (-300.0 if h.index == 0 else 300.0)), 720.0 - 160.0)
+		layer.add_child(face)
+		_player_portraits.append(face)
 	var help := Label.new()
 	if humans.size() == 1:
 		help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
@@ -705,7 +735,8 @@ func _add_hud() -> void:
 		if chaos:
 			help.text += "↓↘→ / ←→ then shoot: supers   "
 	help.text += "Pad: stick, B shoot, A pass   F1: anims  F3: debug"
-	help.position = Vector2(12, 690)
+	help.position = Vector2(12, 694)
+	help.add_theme_font_size_override("font_size", 14)
 	layer.add_child(help)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -717,13 +748,24 @@ func _add_hud() -> void:
 	layer.add_child(_banner)
 
 
+func _crest(t: Team) -> TextureRect:
+	var r := TextureRect.new()
+	var path := CLUBS + "%s.png" % t.short
+	r.texture = load(path) if ResourceLoader.exists(path) else null
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	r.custom_minimum_size = Vector2(28, 28) if r.texture else Vector2.ZERO
+	return r
+
+
 func _update_hud() -> void:
 	var minutes := clock / HALF_SECONDS * 45.0  # match time: 45 minutes a half
-	_score_label.text = " %s  %d - %d  %s     %02d:%02d " % [home.short, home.score, away.score, away.short,
-		int(minutes), int(fmod(minutes, 1.0) * 60.0)]
+	_score_label.text = " %s  %d - %d  %s " % [home.short, home.score, away.score, away.short]
+	_clock_label.text = "    %02d:%02d " % [int(minutes), int(fmod(minutes, 1.0) * 60.0)]
 	for i in humans.size():
 		var p := humans[i].controlled
-		_player_labels[i].text = p.name if p and not autoplay else ""
+		_player_labels[i].text = p.display_name if p and not autoplay else ""
+		_player_portraits[i].texture = p.portrait if p and not autoplay else null
 
 
 func _update_energy_hud() -> void:

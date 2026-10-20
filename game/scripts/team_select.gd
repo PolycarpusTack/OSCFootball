@@ -47,13 +47,22 @@ func _ready() -> void:
 		stripe.position = Vector2(482, y + 6)
 		stripe.size = Vector2(6, 18)
 		add_child(stripe)
+		var crest_path := "res://assets/clubs/%s.png" % d.short
+		if ResourceLoader.exists(crest_path):
+			var crest := TextureRect.new()
+			crest.texture = load(crest_path)
+			crest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			crest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			crest.position = Vector2(498, y + 2)
+			crest.size = Vector2(26, 26)
+			add_child(crest)
 		var place := _label("%d" % (i + 1), 20, Color(0.8, 0.8, 0.8))
 		place.position = Vector2(436, y)
 		var row := _label(d.name, 20, Color.WHITE)
-		row.position = Vector2(500, y)
+		row.position = Vector2(534, y)
 		_rows.append(row)
 		var points := _label("%d pts" % d.points, 20, Color(0.8, 0.8, 0.8))
-		points.position = Vector2(720, y)
+		points.position = Vector2(760, y)
 	for i in 2:
 		_cursors.append(_label("", 20, Human.MARKERS[i]))
 	_pick = [_index_of(Match.home_club), _index_of(Match.away_club)]
@@ -82,7 +91,7 @@ func _refresh() -> void:
 	var labels := ["P1 ▶", "◀ P2" if Match.players == 2 else "◀ CPU"]
 	for i in 2:
 		_cursors[i].text = labels[i]
-		_cursors[i].position = Vector2(370 if i == 0 else 810, TOP + _pick[i] * ROW)
+		_cursors[i].position = Vector2(370 if i == 0 else 850, TOP + _pick[i] * ROW)
 	for r in _rows.size():
 		var picked: bool = r == _pick[0] or r == _pick[1]
 		_rows[r].add_theme_color_override("font_color", Human.MARKERS[0] if r == _pick[0]

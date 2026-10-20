@@ -16,6 +16,7 @@ const CAM_FOLLOW := 3.0  # how quickly the camera catches up, 1/s
 
 var camera := Camera3D.new()
 var shake := 0.0  # seconds of camera shake left; set by the match
+var club_boards: Array[Texture2D] = []  # the two clubs' boards, mixed in with the originals; set before adding
 
 var _look := Vector3(52.5, 0.0, 34.0)
 var _rng := RandomNumberGenerator.new()  # own generator: shaking mustn't change the match's random sequence
@@ -121,7 +122,10 @@ func _build_boards() -> void:
 			var a: Vector3 = start + along * BOARD.x * i
 			var b: Vector3 = a + along * BOARD.x
 			var top := Vector3.UP * BOARD.y
-			_quad([a + top, b + top, b, a], _material(boards[n % boards.size()]))
+			var tex := boards[n % boards.size()]
+			if not club_boards.is_empty() and i % 3 == 1:  # every third board: one of the clubs playing
+				tex = club_boards[(i / 3) % club_boards.size()]
+			_quad([a + top, b + top, b, a], _material(tex))
 			_quad([b + top + behind, a + top + behind, a + behind, b + behind], back)
 			n += 3  # step through the set so neighbours differ
 

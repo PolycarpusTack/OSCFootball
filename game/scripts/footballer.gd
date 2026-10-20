@@ -13,6 +13,9 @@ const MARKER := Color(1.0, 0.95, 0.3)
 var team: Team
 var role := "M"  # G, D, M or F
 var number := 0
+var display_name := ""  # shown in the HUD (the node name stays unique: "BRU 7")
+var portrait: Texture2D  # pixel portrait for the HUD, or null
+var stats := {}  # EA SPORTS FC ratings by name (data/squads.json), empty without a squad
 var home := Vector2.ZERO  # formation spot as a pitch fraction (see Team.FORMATION)
 var ball: Ball
 var controlled := false
