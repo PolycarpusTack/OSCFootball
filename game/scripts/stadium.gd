@@ -13,7 +13,7 @@ const BOARD := Vector2(8.0, 1.0)  # one board texture (128x16) in metres
 # our own boards in place of the original ones that advertise the original game; the set is
 # used in the order 0 3 6 9 2 5 8 1 4 7, so the long and short ones alternate
 const OWN_BOARDS := {5: "res://brand/board_oscf_full.png", 8: "res://brand/board_oscf.png",
-	1: "res://brand/board_oscf_full.png", 7: "res://brand/board_oscf.png"}
+	1: "res://brand/board_oscf_full.png", 7: "res://brand/board_oscf.png", 9: "res://brand/board_oscf_long.png"}
 const CAM_OFFSET := Vector3(0.0, 15.0, 42.0)  # TV camera relative to what it looks at
 const CAM_FOV := 30.0
 const CAM_FOLLOW := 3.0  # how quickly the camera catches up, 1/s

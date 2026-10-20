@@ -5,7 +5,7 @@ extends Control
 
 const MATCH := "res://scenes/main.tscn"
 const TITLE := "res://scenes/title.tscn"
-const BACKGROUND := "res://assets/ui/title/000_0000.png"
+const BACKGROUND := "res://brand/title.png"
 const ROW := 30.0
 const TOP := 118.0
 
@@ -23,7 +23,7 @@ func _ready() -> void:
 	back.set_anchors_preset(Control.PRESET_FULL_RECT)
 	back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	back.modulate = Color(0.25, 0.25, 0.3)
+	back.modulate = Color(0.15, 0.15, 0.18)  # the bright title card mustn't compete with the table
 	add_child(back)
 	var heading := _label("JUPILER PRO LEAGUE", 30, Color(1, 0.85, 0.2))
 	heading.position = Vector2(0, 40)

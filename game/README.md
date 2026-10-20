@@ -8,7 +8,7 @@ club and the opponent (AI, or player 2) on the team select screen. 11 a side, 4-
 in FIFA 96's 3D "Virtual Stadium" (original crowd, advertising boards, nets) seen from a
 side-on TV camera; the boards that advertised the original game show OSCF (Old Skool Crazy
 Football) instead. Boots with the PTE (Polycarpus Tack Experiments) intro video and its end
-card (any key skips), then the title screen with
+card (any key skips), then the OSCF title screen with
 the title music, Space to kick off. Left/Right on the title screen picks **Chaos Football**
 (energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
 same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players.
@@ -70,7 +70,7 @@ scripts/anim_library.gd   autoload "Anims": all player animations, frame lookup 
 scripts/pitch.gd          grass from the original texture, markings to real dimensions (18 px/m), baked into the 3D pitch's texture
 scripts/anim_viewer.gd    browse the 81 animations
 scripts/debug_overlay.gd  F3 overlay: AI decisions (Footballer.ai_state), ball ownership, match state, frame rate
-brand/                    our own art, in git: intro.ogv + intro_end.png (PTE intro), board_oscf*.png (pitch-side boards)
+brand/                    our own art, in git: intro.ogv + intro_end.png (PTE intro), title.png (title and team select), board_oscf*.png (pitch-side boards)
 data/league.json          the 18 Jupiler Pro League clubs: name, 3-letter code, standings, kit colours
 data/squads.json          squads and EA ratings, built by tools/build_ea_assets.py (see below)
 ```
@@ -153,6 +153,8 @@ ffmpeg -i pte-intro-three-mascots.mp4 -c:v libtheora -q:v 7 -c:a libvorbis -q:a 
 ffmpeg -i pte-end-card-three-mascots.png -vf scale=1280:720:flags=lanczos brand/intro_end.png
 ffmpeg -i OSCF_full.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf_full.png
 ffmpeg -i OSCF_shor.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf.png
+ffmpeg -i OSCF_newpanel.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf_long.png
+ffmpeg -i OSCF_FullScreen.jpeg -vf scale=1280:-2:flags=lanczos brand/title.png
 ```
 
 ## Rules as implemented

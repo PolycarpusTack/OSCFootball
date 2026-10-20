@@ -2,12 +2,12 @@ extends Control
 ## Boot sequence: the PTE intro video and its end card (any key skips), then the title screen
 ## with the title music until Space / Enter (gamepad A, B or Start) goes to team select.
 ## Left / Right picks Chaos or Classic Football (Match.chaos), Up / Down one or two
-## players (Match.players).
+## players (Match.players). The menu sits in the dark band along the title card's bottom.
 
 const INTRO := "res://brand/intro.ogv"
 const INTRO_END := "res://brand/intro_end.png"
 const INTRO_END_SECONDS := 3.0  # the end card stays up this long after the video
-const TITLE := "res://assets/ui/title/000_0000.png"
+const TITLE := "res://brand/title.png"
 const MUSIC := "res://assets/audio/music/QUE_TITL.wav"
 const TEAM_SELECT := "res://scenes/team_select.tscn"
 
@@ -41,22 +41,22 @@ func _ready() -> void:
 	_title.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_title.visible = false
 	_prompt.text = "PRESS SPACE TO KICK OFF"
-	_prompt.add_theme_font_size_override("font_size", 28)
+	_prompt.add_theme_font_size_override("font_size", 26)
 	_prompt.add_theme_color_override("font_outline_color", Color.BLACK)
 	_prompt.add_theme_constant_override("outline_size", 8)
 	_prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_prompt.position.y -= 40
+	_prompt.position.y -= 14
 	_prompt.visible = false
 	add_child(_prompt)
-	_mode.add_theme_font_size_override("font_size", 24)
+	_mode.add_theme_font_size_override("font_size", 22)
 	_mode.add_theme_color_override("font_outline_color", Color.BLACK)
 	_mode.add_theme_constant_override("outline_size", 8)
 	_mode.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_mode.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mode.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_mode.position.y -= 130
+	_mode.position.y -= 52
 	_mode.visible = false
 	add_child(_mode)
 	_show_mode()
@@ -96,7 +96,7 @@ func _show_title() -> void:
 
 
 func _show_mode() -> void:
-	_mode.text = "◀  %s  ▶\n▲  %s  ▼" % ["CHAOS FOOTBALL" if Match.chaos else "CLASSIC FOOTBALL",
+	_mode.text = "◀  %s  ▶        ▲  %s  ▼" % ["CHAOS FOOTBALL" if Match.chaos else "CLASSIC FOOTBALL",
 		"1 PLAYER" if Match.players == 1 else "2 PLAYERS"]
 	_mode.add_theme_color_override("font_color", Color(1, 0.85, 0.2) if Match.chaos else Color.WHITE)
 
