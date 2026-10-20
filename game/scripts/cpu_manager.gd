@@ -4,7 +4,8 @@ extends RefCounted
 ## which of their players hurts it) and at stoppages, CM3's way, now and then takes a look: how
 ## hard to go at it (score, men on the pitch, territory, strength, the clock), which formation
 ## (that style, and the human's wing or middle play), who to bring on (tired or out of place
-## players), and who man-marks the human's danger man. Its decisions go up on the banner.
+## players), and who man-marks the human's danger man. (A keeper sent off is the match's
+## business, for both sides: Match._cover_goal.) Its decisions go up on the banner.
 ## The style sum follows CM3's computer manager (see the CM3 research notes); the numbers are ours.
 
 const CHECK_GAP := 5.0  # match minutes at least between two looks
@@ -67,13 +68,10 @@ func minute() -> float:
 ## banner (substitutions it asks for are announced with them).
 func at_stoppage() -> Array:
 	var now := minute()
-	var keeper_off := team.players[0].sent_off
-	if not keeper_off and (now - _last_look < CHECK_GAP or randi() % 50 + 10 >= now):
+	if now - _last_look < CHECK_GAP or randi() % 50 + 10 >= now:
 		return []
 	_last_look = now
 	var lines := []
-	if keeper_off:
-		_replace_keeper()
 	_choose_style(now)
 	var f := _formation()
 	if f[0] != team.formation:
@@ -167,26 +165,6 @@ func _pick_subs(now: float) -> void:
 		if _m.request_sub(team, o[1], o[2]):
 			made += 1
 			decisions.append("%d' sub %s for %s" % [int(now), o[2].name, team.players[o[1]].display_name])
-
-
-## Keeper sent off: an outfield player makes way for the keeper on the bench.
-func _replace_keeper() -> void:
-	var keeper = null
-	for e in team.bench:
-		if e.position == "GK":
-			keeper = e
-	if keeper == null or team.subs_left - team.pending.size() <= 0:
-		return
-	var weakest := -1
-	for i in range(1, 11):
-		var p: Footballer = team.players[i]
-		if not p.sent_off and (weakest < 0 or float(p.entry.get("overall", 0)) < float(team.players[weakest].entry.get("overall", 0))):
-			weakest = i
-	if weakest < 0:
-		return
-	_m.swap_slots(team, 0, weakest)  # he takes the keeper's slot, to go off from it
-	_m.request_sub(team, 0, keeper)
-	decisions.append("%d' keeper %s on" % [int(minute()), keeper.name])
 
 
 ## The human's most dangerous player gets the CPU's best defender on him.

@@ -152,19 +152,19 @@ func _refresh() -> void:
 	var left := t.subs_left - t.pending.size()
 	_label("%d LEFT   ·   THEY COME ON AT THE NEXT STOPPAGE" % left, 16, GREY, Vector2(0, 84), 1280,
 		HORIZONTAL_ALIGNMENT_CENTER)
-	var x := 250.0
+	var x := 210.0
 	var head := TOP - 26
 	for c in [["NO", 0, 30], ["NAME", 40, 0], ["POS", 280, 0], ["OVR", 330, 40], ["STA", 380, 40],
-			["CONDITION", 440, 0]]:
+			["CONDITION", 440, 0], ["RATING", 620, 60]]:
 		_label(c[0], 13, GREY, Vector2(x + c[1], head), c[2], HORIZONTAL_ALIGNMENT_CENTER if c[2] > 0 else HORIZONTAL_ALIGNMENT_LEFT)
 	for r in _rows():
 		var y := TOP + r * ROW + (8.0 if r >= 11 else 0.0)
 		if r == 11:
-			_rect(Vector2(x - 70, y - 5), Vector2(840, 1), Color(YELLOW, 0.5))
+			_rect(Vector2(x - 70, y - 5), Vector2(940, 1), Color(YELLOW, 0.5))
 		if r == _row:
-			_rect(Vector2(x - 70, y), Vector2(840, ROW), Color(YELLOW, 0.25))
+			_rect(Vector2(x - 70, y), Vector2(940, ROW), Color(YELLOW, 0.25))
 		if r == _picked:
-			_rect(Vector2(x - 70, y), Vector2(840, ROW), Color(0.3, 0.8, 1, 0.35))
+			_rect(Vector2(x - 70, y), Vector2(940, ROW), Color(0.3, 0.8, 1, 0.35))
 		if r < 11:
 			_pitch_row(t.players[r], r, x, y)
 		else:
@@ -187,11 +187,14 @@ func _pitch_row(p: Footballer, slot: int, x: float, y: float) -> void:
 	_rect(Vector2(x + 440, y + 7), Vector2(120, 8), Color(1, 1, 1, 0.12))
 	_rect(Vector2(x + 440, y + 7), Vector2(120 * c, 8), bar)
 	_label("%d%%" % roundi(c * 100.0), 14, bar, Vector2(x + 566, y), 44, HORIZONTAL_ALIGNMENT_RIGHT)
+	var r: float = _m.stats.rating(p)
+	_label("%.1f" % r, 14, Color(0.45, 1, 0.45) if r >= 7.0 else Color.WHITE if r >= 6.0 else Color(1, 0.45, 0.4),
+		Vector2(x + 620, y), 60, HORIZONTAL_ALIGNMENT_CENTER)
 	if p.yellow:
-		_rect(Vector2(x + 620, y + 4), Vector2(10, 14), Color(1, 0.9, 0.1))
+		_rect(Vector2(x + 690, y + 4), Vector2(10, 14), Color(1, 0.9, 0.1))
 	var s := _pending(slot)
 	if not s.is_empty():
-		_label("◀ %s ON" % s[1].name, 14, Color(0.4, 0.9, 1), Vector2(x + 640, y), 180)
+		_label("◀ %s ON" % s[1].name, 14, Color(0.4, 0.9, 1), Vector2(x + 710, y), 150)
 
 
 func _bench_row(e: Dictionary, x: float, y: float) -> void:

@@ -4,6 +4,7 @@ extends Node2D
 ## control switching, fouls, penalties, goals and kick-offs.
 
 signal event(kind: String, team: Team)  # goal, shot, save, foul, penalty, or a super's name
+signal player_event(kind: String, p: Footballer)  # who: "foul" (the fouler), "yellow card", "red card"
 
 enum State { KICKOFF, PLAY, GOAL, PENALTY, RESTART, HALF_TIME, FULL_TIME, SHOOTOUT }
 
@@ -337,11 +338,37 @@ func request_sub(t: Team, slot: int, entry: Dictionary) -> bool:
 
 ## A stoppage: the CPU manager's decisions, then the substitutions waiting for it. Banner text, or "".
 func _stoppage_news() -> String:
-	var lines: Array = cpu.at_stoppage() if cpu else []
+	var lines: Array = []
+	for t in [home, away]:
+		var text := _cover_goal(t)
+		if text != "":
+			lines.append(text)
+	if cpu:
+		lines.append_array(cpu.at_stoppage())
 	var subs := _make_subs()
 	if subs != "":
 		lines.append(subs)
 	return "\n".join(lines)
+
+
+## `t`'s keeper sent off: a forward (the weakest; else the weakest outfield player) makes way
+## for the keeper on the bench, or with no keeper or substitution left goes in goal himself.
+## Banner text, or "" (the substitution announces itself).
+func _cover_goal(t: Team) -> String:
+	if not t.players[0].sent_off:
+		return ""
+	var keep := func(p: Footballer) -> float: return float(p.entry.get("overall", 60)) - (100.0 if p.role == "F" else 0.0)
+	var weakest := -1
+	for i in range(1, t.players.size()):
+		if not t.players[i].sent_off and (weakest < 0 or keep.call(t.players[i]) < keep.call(t.players[weakest])):
+			weakest = i
+	if weakest < 0:
+		return ""
+	swap_slots(t, 0, weakest)
+	for e in t.bench:
+		if e.position == "GK" and request_sub(t, 0, e):
+			return ""
+	return "%s: %s GOES IN GOAL" % [t.short, t.players[0].display_name]
 
 
 ## `t` lines up in formation `f` from now on: the keeper stays in goal, the others take the slot
@@ -1097,6 +1124,7 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 		return
 	victim.team.gain(Supers.GAIN.fouled)
 	event.emit("foul", by.team)
+	player_event.emit("foul", by)
 	if in_penalty_area(victim.position, by.team):
 		award_penalty(victim.team)
 	else:
@@ -1123,6 +1151,7 @@ func book(p: Footballer, red: bool) -> void:
 	referee.perform("rcard")
 	flash("%s CARD\n%s" % ["RED" if red else "YELLOW", p.display_name], 2.0)
 	event.emit("red card" if red else "yellow card", p.team)
+	player_event.emit("red card" if red else "yellow card", p)
 	if not red:
 		return
 	p.sent_off = true
@@ -1640,7 +1669,8 @@ func _show_full_time(heading: String, result: String) -> void:
 		grid.add_child(_screen_label(r[2], 22, away.colour.lightened(0.4)))
 	var motm := stats.man_of_the_match()
 	if motm:
-		column.add_child(_screen_label("MAN OF THE MATCH: %s (%s)" % [motm.display_name, motm.team.short], 24, Color(1, 0.85, 0.2)))
+		column.add_child(_screen_label("MAN OF THE MATCH: %s (%s)  %.1f" % [motm.display_name, motm.team.short, stats.rating(motm)],
+			24, Color(1, 0.85, 0.2)))
 	column.add_child(_screen_label("SPACE: BACK TO THE TITLE", 16, Color(0.8, 0.8, 0.8)))
 	_full_time_panel.visible = true
 

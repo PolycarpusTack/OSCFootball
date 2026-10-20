@@ -2,7 +2,8 @@ extends SceneTree
 ## Condition and substitutions: running wears a player's condition down over the match (more
 ## with poor stamina) and his fatigue can't recover past it; the substitutions screen asks for
 ## a sub, who comes on at the next stoppage in his man's slot, fresh, while the man is parked
-## off the pitch; three per side, none for a sent-off player.
+## off the pitch; three per side, none for a sent-off player; a keeper sent off with no keeper
+## on the bench: an outfield player goes in goal.
 ## godot --headless --path game -s res://tests/subs_test.gd
 
 func _initialize() -> void:
@@ -63,6 +64,15 @@ func _initialize() -> void:
 			allowed += 1
 	print("sent-off man refused %s; %d more allowed with 2 left" % [refused, allowed])
 	ok = ok and refused and allowed == 2
+
+	# keeper sent off, no keeper left on the bench (he came on at right back): a forward goes in goal
+	t.pending.clear()
+	m.book(t.keeper(), true)
+	m._award_restart("throw-in", t, Vector2(400, 0))
+	var keeper = t.keeper()
+	var covered: bool = not keeper.sent_off and keeper.role == "G" and "GOES IN GOAL" in m._banner.text
+	print("keeper sent off: %s in goal %s (%s)" % [keeper.display_name, covered, m._banner.text.replace("\n", " / ")])
+	ok = ok and covered
 
 	print("SUBS TEST PASSED" if ok else "SUBS TEST FAILED")
 	quit(0 if ok else 1)
