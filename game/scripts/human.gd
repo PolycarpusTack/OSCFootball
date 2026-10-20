@@ -27,6 +27,8 @@ const PAD_STICK := {  # left stick: [axis, direction]
 	"move_up": [JOY_AXIS_LEFT_Y, -1.0], "move_down": [JOY_AXIS_LEFT_Y, 1.0],
 	"move_left": [JOY_AXIS_LEFT_X, -1.0], "move_right": [JOY_AXIS_LEFT_X, 1.0],
 }
+const PAD_NAMES := {JOY_BUTTON_A: "A", JOY_BUTTON_B: "B", JOY_BUTTON_X: "X", JOY_BUTTON_Y: "Y",
+	JOY_BUTTON_LEFT_SHOULDER: "LB", JOY_BUTTON_RIGHT_SHOULDER: "RB"}
 const MARKERS := [Footballer.MARKER, Color(0.3, 0.95, 1.0)]  # control ring: yellow, cyan
 
 var team: Team
@@ -58,6 +60,25 @@ func stick() -> Vector2:
 
 func marker() -> Color:
 	return MARKERS[index]
+
+
+## For on-screen prompts: the first key player `i` (0 or 1) has for `action`, or the gamepad
+## button when `pad`. "move" is the keys or the stick.
+static func button_name(i: int, action: String, pad: bool) -> String:
+	if action == "move":
+		return "stick" if pad else ["WASD", "arrows"][i]
+	if pad:
+		return PAD_NAMES.get(PAD_BUTTONS[action][0], "?")
+	var k: Key = KEYS[i][action][0]
+	return ("Right " if k in [KEY_SHIFT, KEY_CTRL] else "") + OS.get_keycode_string(k)
+
+
+## Whether `event` is one of this human's controls (keys or their gamepad).
+func owns(event: InputEvent) -> bool:
+	for a: String in ACTIONS:
+		if event.is_action(action(a)):
+			return true
+	return false
 
 
 ## (Re)bind both players' actions for `players` people (1 or 2). Alone, player 1 has

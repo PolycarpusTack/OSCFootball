@@ -149,6 +149,7 @@ var cpu: CpuManager  # the CPU side's manager; null when two people play
 var _full_time_panel := PanelContainer.new()
 var chaos_actions: ChaosActions
 var line_moves: LineMoves
+var control_hints: ControlHints  # the prompts along the bottom
 
 
 func _ready() -> void:
@@ -656,6 +657,8 @@ func _human_input(h: Human, p: Footballer) -> void:
 			if not fired and h.pending_combo != "":
 				fired = combo_move(p, h.pending_combo, target, aim)
 			if not fired:
+				if h.pending_combo != "":
+					control_hints.combo_short(h, p, h.pending_combo)
 				p.shoot(target, clampf(h.charge_time / 0.6, 0.0, 1.0))
 			h.combo.clear()
 	elif Input.is_action_just_pressed(h.action("pass")) and p.has_ball():
@@ -2064,19 +2067,8 @@ func _add_hud() -> void:
 			fill.size = Vector2(0, 4)
 			back.add_child(fill)
 			_discipline_bars.append(fill)
-	var help := Label.new()
-	if humans.size() == 1:
-		help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
-		if chaos:
-			help.text += "↓↘→ / ←→ then Space: line move / banana  Hold Space, full bar: THUNDER  "
-	else:
-		help.text = "P1: WASD, Space shoot, X pass   P2: arrows, Enter shoot, Right Shift pass   "
-		if chaos:
-			help.text += "↓↘→ / ←→ then shoot: line move / banana   "
-	help.text += "Pad: stick, B shoot, A pass   Esc / Start: pause and MOVES  F1: anims  F3: debug"
-	help.position = Vector2(12, 694)
-	help.add_theme_font_size_override("font_size", 14)
-	layer.add_child(help)
+	control_hints = ControlHints.new(self)
+	add_child(control_hints)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
