@@ -65,6 +65,7 @@ var _player_labels: Array[Label] = []  # each human's controlled player's name, 
 var _player_portraits: Array[TextureRect] = []  # and their pixel portrait above it
 var _energy_bars := {}  # Team -> ColorRect fill
 var _energy_labels := {}  # Team -> Label
+var _aim_arrows := Node2D.new()  # each human's shot arrow on the grass (see aim_arrow)
 
 
 func _ready() -> void:
@@ -121,6 +122,10 @@ func _ready() -> void:
 	ball.kicked.connect(func(speed): play_sfx("kick" if speed > 400.0 else "pass", linear_to_db(clampf(speed / 600.0, 0.3, 1.0))))
 	ball.bounced.connect(func(speed): play_sfx("bounce", linear_to_db(clampf(speed / 300.0, 0.15, 0.7))))
 	_add_hud()
+	_aim_arrows.top_level = true
+	_aim_arrows.z_index = -3000  # on the grass, under every player
+	_aim_arrows.draw.connect(_draw_aim_arrows)
+	add_child(_aim_arrows)
 	add_child(DebugOverlay.new(self))
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
@@ -244,6 +249,7 @@ func _process(delta: float) -> void:
 		for p in t.players:
 			p.place(stadium.to_screen(p.position))
 	ball.place(stadium.to_screen)
+	_aim_arrows.queue_redraw()
 	_update_energy_hud()
 
 
@@ -335,6 +341,40 @@ func _human_input(h: Human, p: Footballer) -> void:
 			p.kick_to(p.position + aim * 450.0, 520.0, 300.0, "kick")
 		else:
 			p.kick_to(p.position + aim * 250.0, 380.0, 20.0, "kick")
+
+
+## The shot arrow for `h`'s player while he has the ball: from him toward where a shot
+## would go, 50 px long untouched, up to 170 px at full power as shoot is held; ring
+## colour turning orange with power, the Thunder Strike colour once one is ready.
+## Empty when there's nothing to show.
+func aim_arrow(h: Human) -> Dictionary:
+	var p := h.controlled
+	if autoplay or state != State.PLAY or p == null or not p.has_ball():
+		return {}
+	var aim: Vector2 = Anims.FACING_VECTORS[p.facing] if p.wish == Vector2.ZERO else p.wish.normalized()
+	var colour := h.marker().lerp(Color(1.0, 0.35, 0.1), p.charge)
+	if p.charge >= 1.0:
+		colour = Supers.LIST.thunder.colour
+	return {"from": p.position, "dir": (_aim_shot(p, aim) - p.position).normalized(),
+		"length": lerpf(50.0, 170.0, p.charge), "width": lerpf(4.5, 8.0, p.charge), "colour": colour}
+
+
+## Drawn on the pitch plane: the arrow's outline in pitch pixels, each corner projected.
+func _draw_aim_arrows() -> void:
+	for h in humans:
+		var a := aim_arrow(h)
+		if a.is_empty():
+			continue
+		var d: Vector2 = a.dir
+		var side: Vector2 = d.orthogonal() * a.width
+		var from: Vector2 = a.from + d * 14.0  # clear of his feet
+		var tip: Vector2 = from + d * a.length
+		var neck := tip - d * 16.0
+		var screen := PackedVector2Array()
+		for q in [from + side, neck + side, neck + side * 2.6, tip, neck - side * 2.6, neck - side, from - side]:
+			var at := stadium.to_screen(q)
+			screen.append(Vector2(at.x, at.y))
+		_aim_arrows.draw_colored_polygon(screen, Color(a.colour, 0.75))
 
 
 func _mark_pass_target(h: Human, target: Footballer) -> void:

@@ -83,5 +83,22 @@ func _initialize() -> void:
 	Input.action_release("move_up")
 	print("throw-in, stick toward the line: anims %s, in hands %s, events %s" % [anims.keys(), held, events])
 	ok = ok and anims.has("throwin") and held and events.count("throw-in:AND") == 0
+
+	# aim arrow: with the ball, a short arrow toward the shot; holding shoot makes it longer
+	m.state = 1
+	var shooter = m.home.players[9]
+	shooter.position = Pitch.field_rect().get_center()
+	m.ball.stop_at(shooter.feet_front())
+	m.ball.take(shooter)
+	m.humans[0].switch_lock = 0.0
+	await physics_frame
+	await physics_frame
+	var idle: Dictionary = m.aim_arrow(m.humans[0])
+	Input.action_press("shoot")
+	await create_timer(0.4).timeout
+	var charged: Dictionary = m.aim_arrow(m.humans[0])
+	Input.action_release("shoot")
+	print("aim arrow: %.0f px idle, %.0f px holding shoot 0.4 s" % [idle.get("length", 0.0), charged.get("length", 0.0)])
+	ok = ok and not idle.is_empty() and not charged.is_empty() and charged.length > idle.length + 40.0
 	print("CONTROLS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)

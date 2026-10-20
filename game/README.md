@@ -43,6 +43,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | ← → then Space | **Banana Shot** (50): bends hard toward the far post |
 | hold Space 0.8 s, full bar | **Thunder Strike** (100): bicycle kick, slow-mo, lightning ball that nobody can hold |
 | Up/Down while taking a penalty | choose the corner |
+| (with the ball) | an arrow on the grass shows where a shot would go; holding Space stretches it and turns it orange with power, Thunder Strike light blue when one is ready |
 | X or K | pass to the best teammate in the direction you're pushing (the one a triangle marks over his head; a pass lane with an opponent in it counts against a teammate) |
 | Q | switch to the teammate nearest the ball (kept for a second before the automatic switching takes over again) |
 | Space / X as a ball in the air comes to you | head or volley it: Space at goal (aim with the stick), X to a teammate. Pressing nothing, your player does what the AI would (see Rules) |
