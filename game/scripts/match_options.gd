@@ -57,6 +57,7 @@ func _rows() -> Array:
 		["OFFSIDE", "ON" if Match.offside_on else "OFF"],
 		["FOULS", "ON" if Match.fouls_on else "OFF"],
 		["CARDS", "ON" if Match.cards_on else "OFF"],
+		["MATCH", "KNOCKOUT (EXTRA TIME, PENALTIES)" if Match.knockout else "FRIENDLY"],
 	]
 
 
@@ -78,6 +79,7 @@ func _change(step: int) -> void:
 		2: Match.offside_on = not Match.offside_on
 		3: Match.fouls_on = not Match.fouls_on
 		4: Match.cards_on = not Match.cards_on
+		5: Match.knockout = not Match.knockout
 	_refresh()
 
 

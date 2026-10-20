@@ -5,7 +5,7 @@ extends Node2D
 
 signal event(kind: String, team: Team)  # goal, save, foul, penalty, or a super's name
 
-enum State { KICKOFF, PLAY, GOAL, PENALTY, RESTART, HALF_TIME, FULL_TIME }
+enum State { KICKOFF, PLAY, GOAL, PENALTY, RESTART, HALF_TIME, FULL_TIME, SHOOTOUT }
 
 const GOAL_HALF_WIDTH := 7.32 / 2.0 * Pitch.PX_PER_M
 const CROSSBAR := 2.44 * Pitch.PX_PER_M
@@ -31,6 +31,8 @@ const CARD_ODDS := {"behind": [0.45, 0.1], "front": [0.12, 0.0]}
 const OFF_PITCH := Vector2(-500.0, -500.0)  # where a sent-off player waits out the match
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
+const SHOOTOUT_KICKS := 5  # each, before sudden death
+const SHOOTOUT_ORDER := [9, 10, 8, 7, 6, 5, 4, 3, 2, 1, 0]  # squad slots: strikers first, the keeper last
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
 const SQUADS := "res://data/squads.json"
 const PORTRAITS := "res://assets/portraits/"
@@ -54,6 +56,7 @@ static var half_minutes := 3  # real minutes per half; the clock shows 45 match 
 static var offside_on := true
 static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
 static var cards_on := true
+static var knockout := false  # level at full time: extra time (golden goal), then penalties
 
 var ball: Ball
 var home: Team
@@ -69,6 +72,9 @@ var autoplay := false  # AI plays both sides (demo / attract mode)
 var _state_left := 0.0
 var _conceded: Team  # kicks off after the goal (an own goal too)
 var _penalty_taker: Footballer
+var shootout := {}  # Team -> Array of bools, one per penalty taken in the shoot-out
+var _shootout_team: Team  # takes the next (or the current) shoot-out penalty
+var _shootout_live := false  # a shoot-out penalty is on its way: see _shootout
 var _restart_kind := ""  # "throw-in", "corner" or "goal kick" while state is RESTART
 var _restart_taker: Footballer
 var _restart_taken := false  # the taker has started the throw / kick; play on once it's left them
@@ -241,7 +247,10 @@ func _physics_process(delta: float) -> void:
 					if not p.busy():
 						p.wish = Vector2.ZERO
 			if _state_left <= 0.0:
-				kickoff(_conceded)
+				if half > 2:  # golden goal
+					_full_time("GOLDEN GOAL")
+				else:
+					kickoff(_conceded)
 		State.PENALTY:
 			_penalty(delta)
 		State.RESTART:
@@ -249,10 +258,12 @@ func _physics_process(delta: float) -> void:
 		State.HALF_TIME:
 			_state_left -= delta
 			if _state_left <= 0.0:
-				half = 2
+				half += 1
 				for t in [home, away]:
 					t.side = -t.side  # change ends
-				kickoff(home)  # the away side kicked off the first half
+				kickoff(home if half % 2 == 0 else away)  # the away side kicked off the first half
+		State.SHOOTOUT:
+			_shootout(delta)
 		State.FULL_TIME:
 			for t in [home, away]:
 				for p in t.players:
@@ -260,7 +271,7 @@ func _physics_process(delta: float) -> void:
 						p.wish = Vector2.ZERO
 		State.PLAY:
 			clock += delta
-			if clock >= half_seconds * half:
+			if clock >= half_end():
 				_end_half()
 				return
 			if not autoplay:
@@ -907,7 +918,7 @@ func in_penalty_area(pos: Vector2, defending: Team) -> bool:
 	return absf(pos.x - goal.x) < BOX_DEPTH and absf(pos.y - goal.y) < BOX_HALF_WIDTH
 
 
-func award_penalty(attacking: Team) -> void:
+func award_penalty(attacking: Team, taker: Footballer = null) -> void:
 	var defending := opponent(attacking)
 	var goal := attacking.goal_attacked()
 	var spot := goal - Vector2(attacking.side * PENALTY_SPOT, 0)
@@ -917,7 +928,7 @@ func award_penalty(attacking: Team) -> void:
 	flash("PENALTY!", 2.0)
 	play_sfx("long_whistle")
 	event.emit("penalty", attacking)
-	_penalty_taker = attacking.taker()
+	_penalty_taker = taker if taker else attacking.taker()
 	var box_edge := goal.x - attacking.side * (BOX_DEPTH + 30.0)
 	for t in [home, away]:
 		for p in t.players:
@@ -955,7 +966,17 @@ func _penalty(delta: float) -> void:
 	var guess := corner if randf() < 0.45 else -corner
 	get_tree().create_timer(Footballer.KICK_CONTACT, false).timeout.connect(
 		func(): keeper.dive(Vector2(0, guess), randf() < 0.5))
-	state = State.PLAY
+	if shootout.is_empty():
+		state = State.PLAY
+	else:
+		state = State.SHOOTOUT
+		_shootout_live = true
+		_state_left = 3.0  # the longest a kick can take to be decided
+
+
+## Clock time the current half ends: 45 match minutes a half, 15 in extra time.
+func half_end() -> float:
+	return half_seconds * half if half <= 2 else half_seconds * 2.0 + half_seconds / 3.0 * (half - 2)
 
 
 func _end_half() -> void:
@@ -964,22 +985,113 @@ func _end_half() -> void:
 	for t in [home, away]:
 		for p in t.players:
 			p.wish = Vector2.ZERO
-	if half == 1:
-		for t in [home, away]:
-			for p in t.players:
-				p.fatigue *= 0.5  # the break
+	var level := home.score == away.score
+	if half == 1 or (half == 2 and knockout and level) or half == 3:
+		if half == 1:
+			for t in [home, away]:
+				for p in t.players:
+					p.fatigue *= 0.5  # the break
 		state = State.HALF_TIME
 		_state_left = 4.0
-		flash("HALF TIME", 4.0)
-		event.emit("half time", home)
+		flash("HALF TIME" if half == 1 else "EXTRA TIME\nGOLDEN GOAL WINS" if half == 2 else "EXTRA TIME\nSECOND HALF", 4.0)
+		event.emit("half time" if half == 1 else "extra time", home)
+	elif half == 4:  # still level after extra time
+		_start_shootout()
 	else:
-		state = State.FULL_TIME
-		flash("FULL TIME\n%s %d - %d %s" % [home.short, home.score, away.score, away.short], 1e9)
-		event.emit("full time", home)
-		var winner: Team = home if home.score > away.score else away if away.score > home.score else null
-		if winner:
-			for p in winner.players:
+		_full_time("FULL TIME")
+
+
+## The match is over: `heading` over the score, the winners celebrate.
+func _full_time(heading: String) -> void:
+	state = State.FULL_TIME
+	var winner := match_winner()
+	var line := "%s %d - %d %s" % [home.short, home.score, away.score, away.short]
+	if not shootout.is_empty():
+		line += "\n%s WIN %d - %d ON PENALTIES" % [winner.short, shootout[winner].count(true), shootout[opponent(winner)].count(true)]
+	flash("%s\n%s" % [heading, line], 1e9)
+	event.emit("full time", home)
+	if winner:
+		for p in winner.players:
+			if not p.sent_off:
 				p.perform(CELEBRATIONS[randi() % CELEBRATIONS.size()])
+
+
+## Who won: more goals, else the shoot-out; null for a draw.
+func match_winner() -> Team:
+	if home.score != away.score:
+		return home if home.score > away.score else away
+	if shootout.is_empty():
+		return null
+	var h: int = shootout[home].count(true)
+	var a: int = shootout[away].count(true)
+	return null if h == a else home if h > a else away
+
+
+func _start_shootout() -> void:
+	shootout = {home: [], away: []}
+	_shootout_team = away  # the away side kicked off the match: home shoots first
+	state = State.SHOOTOUT
+	_shootout_live = false
+	_state_left = 3.0
+	flash("PENALTIES", 3.0)
+	event.emit("shoot-out", home)
+
+
+## Shoot-out: between kicks, wait and set up the next; while one is live, only the keeper
+## may touch it, and it's decided by the goal line, the keeper holding it, going out, or
+## stopping.
+func _shootout(delta: float) -> void:
+	_state_left -= delta
+	for t in [home, away]:
+		for p in t.players:
+			if not p.busy():
+				p.wish = Vector2.ZERO
+	if not _shootout_live:
+		if _state_left <= 0.0:
+			_shootout_team = opponent(_shootout_team)
+			award_penalty(_shootout_team, _shootout_taker(_shootout_team))
+		return
+	var keeper := opponent(_shootout_team).keeper()
+	for t in [home, away]:
+		for p in t.players:
+			if p != keeper:
+				p.touch_cooldown = maxf(p.touch_cooldown, 0.5)
+	_resolve_possession(delta)
+	_check_frame()
+	var scored := goal_crossed() == _shootout_team
+	var out := not Pitch.field_rect().has_point(ball.position)
+	var dead := ball.holder != null or out or _state_left <= 0.0 \
+		or (ball.velocity.length() < 20.0 and ball.z <= 0.0 and _state_left < 2.5)
+	if not scored and not dead:
+		return
+	_shootout_live = false
+	shootout[_shootout_team].append(scored)
+	if scored:
+		play_sfx("roar")
+	_state_left = 2.0
+	var h: Array = shootout[home]
+	var a: Array = shootout[away]
+	flash("%s\n%s %d - %d %s" % ["SCORED!" if scored else "SAVED!" if ball.holder == keeper else "MISSED!",
+		home.short, h.count(true), a.count(true), away.short], 2.0)
+	event.emit("shoot-out goal" if scored else "shoot-out miss", _shootout_team)
+	if _shootout_decided():
+		_full_time("FULL TIME")
+
+
+func _shootout_decided() -> bool:
+	var h: Array = shootout[home]
+	var a: Array = shootout[away]
+	var hg := h.count(true)
+	var ag := a.count(true)
+	if h.size() <= SHOOTOUT_KICKS and a.size() <= SHOOTOUT_KICKS:  # out of reach with the kicks left?
+		return hg + SHOOTOUT_KICKS - h.size() < ag or ag + SHOOTOUT_KICKS - a.size() < hg
+	return h.size() == a.size() and hg != ag  # sudden death
+
+
+## The next of `t`'s players in SHOOTOUT_ORDER who's still on, round again after all.
+func _shootout_taker(t: Team) -> Footballer:
+	var on := SHOOTOUT_ORDER.filter(func(i): return not t.players[i].sent_off)
+	return t.players[on[shootout[t].size() % on.size()]]
 
 
 func flash(text: String, seconds: float) -> void:
@@ -1168,21 +1280,30 @@ func _check_frame() -> void:
 		return
 
 
-func _check_goal() -> void:
+## The team the ball has just gone in for (over a goal line, between the posts, under the
+## bar), or null.
+func goal_crossed() -> Team:
 	var field := Pitch.field_rect()
 	var x := ball.position.x
 	if x > 0.0 and x < field.size.x:
+		return null
+	if absf(ball.position.y - field.size.y / 2.0) >= GOAL_HALF_WIDTH or ball.z >= CROSSBAR:
+		return null
+	return home if (x >= field.size.x) == (home.side > 0) else away
+
+
+func _check_goal() -> void:
+	var scorers := goal_crossed()
+	if scorers == null:
 		return
-	var in_mouth := absf(ball.position.y - field.size.y / 2.0) < GOAL_HALF_WIDTH and ball.z < CROSSBAR
-	if not in_mouth:
-		return
-	var scorers := home if (x >= field.size.x) == (home.side > 0) else away
+	var field := Pitch.field_rect()
+	var x := ball.position.x
 	scorers.score += 1
 	_conceded = opponent(scorers)
 	ball.stop_at(Vector2(clampf(x, -14.0, field.size.x + 14.0), ball.position.y))
 	state = State.GOAL
 	_state_left = 3.5
-	flash("GOAL!\n%s" % scorers.name, 3.5)
+	flash("%s\n%s" % ["GOLDEN GOAL!" if half > 2 else "GOAL!", scorers.name], 3.5)
 	opponent(scorers).gain(Supers.GAIN.conceded)
 	play_sfx("roar")
 	stadium.shake = 0.4

@@ -16,8 +16,9 @@ Gamepads work on the title screen too (d-pad to choose, A/B/Start to go on). The
 W/S picks player 1's club, ↑/↓ the opponent's, Space goes on, Esc goes back. Then the match
 options: ↑/↓ picks a row, ←/→ changes it, Space kicks off, Esc goes back. Mode (Chaos or
 Classic, the same setting as on the title screen), half length (2, 3, 5, 10, 20 or 45 real
-minutes; the clock always shows 45 match minutes a half), and offside, fouls and cards on or
-off. The choices are kept for the next match until the game is closed.
+minutes; the clock always shows 45 match minutes a half), offside, fouls and cards on or
+off, and Friendly or Knockout (extra time and penalties when level). The choices are kept for
+the next match until the game is closed.
 
 ## Run
 
@@ -35,6 +36,7 @@ godot --headless --path game -s res://tests/air_test.gd                         
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
+godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -208,7 +210,12 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 
 - Two halves of `half_seconds` (the match options' half length, 3 minutes of play by default;
   the clock shows match minutes). Ends change
-  at half time; at full time the winners celebrate.
+  at half time; at full time the winners celebrate. A friendly can end level.
+- Knockout (match options): level after 90 minutes, two halves of extra time (15 match minutes
+  each, ends changing), golden goal: the first goal ends the match. Still level, a penalty
+  shoot-out: five each, home first, strikers first and the keeper last, then sudden death; it
+  stops as soon as one side can't catch up. Each side shoots at the goal it attacked last
+  (the ends alternate), and the AI keeper guesses a side as for any penalty.
 - Ball over a touchline: throw-in to the other side, thrown from the hands (the ball
   stays hidden in them until the release) and always into the field. Over a goal line: corner if the
   defenders touched it last, otherwise a goal kick (taken by the keeper). Opponents stay
