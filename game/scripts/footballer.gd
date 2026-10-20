@@ -18,6 +18,8 @@ const MARKER := Color(1.0, 0.95, 0.3)
 const PRESSURE := 3.0 * Pitch.PX_PER_M  # an opponent closer than this unsettles a shot or pass
 const BODY_CHECK_TIME := 0.8  # the shoulder-barge part of the bodychk animation (it goes on to land)
 const BODY_CHECK_SPEED := 360.0
+# skill moves: seconds into the animation the foot plays the ball, and how long it ties him up
+const SKILL_MOVES := {"nutmeg": [0.4, 0.7], "rainbow": [0.45, 0.75], "bckheel": [0.4, 0.7]}
 
 var team: Team
 var opponents: Team  # the other side, for how pressed he is
@@ -102,7 +104,7 @@ func skill(stat: String, lo: float, hi: float) -> float:
 func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
-	if (_anim == "jump" or _anim == "bodychk") and busy():  # a dodge or body check: carries on at his speed
+	if _anim in ["jump", "bodychk", "nutmeg", "rainbow"] and busy():  # a dodge, body check or skill move: carries on at his speed
 		w = velocity / maxf(RUN_SPEED, velocity.length())
 	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14)
 	if has_ball():
@@ -216,6 +218,19 @@ func body_check() -> bool:
 
 func body_checking() -> bool:
 	return busy() and _anim == "bodychk"
+
+
+## A skill move (see Match.skill_move): `anim` plays without turning him, and at its
+## contact frame the ball leaves with `v` and `up`.
+func skill_touch(anim: String, v: Vector2, up: float, kind: String) -> void:
+	if busy():
+		return
+	var timing: Array = SKILL_MOVES[anim]
+	var played := await _wind_up(position + Anims.FACING_VECTORS[facing], anim, timing[0])
+	_action_left = minf(_action_left, timing[1] - timing[0])
+	if played:
+		ball.kick(v, up)
+		ball.kick_kind = kind
 
 
 ## In the safe part of a dodge: slides and tackles miss him.

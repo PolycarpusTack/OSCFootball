@@ -46,6 +46,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | (with the ball) | an arrow on the grass shows where a shot would go; holding Space stretches it and turns it orange with power, Thunder Strike light blue when one is ready |
 | X or K | pass to the best teammate in the direction you're pushing (the one a triangle marks over his head; a pass lane with an opponent in it counts against a teammate) |
 | Q with the ball | **dodge**: a hop that slides and tackles miss for its first 0.25-0.45 s (reactions). Time it as the tackle comes in; in Chaos a dodged slide flashes DODGE! and earns 10 energy |
+| **skill moves**: a motion, then Q, with the ball (directions relative to the goal you attack, as for the supers) | double-tap a direction: **nutmeg**, through the legs of the opponent in front and on (dribbling against his defensiveAwareness; fails: he has it). ↓↑ or ↑↓: **rainbow flick** over everyone's head to land 5 m on (nobody can touch it on the way up; ballControl, or it drops short). →←: **backheel** to the teammate behind. The ball goes where he faces; opponents beside him can still nick it before the touch. In Chaos, beating a man with a nutmeg or rainbow flashes and earns 10 energy |
 | double-tap a direction, then Space, without the ball | **Body Check** (Chaos, 20 energy): a shoulder charge along that direction; hit the dribbler and strength against his strength and balance decides who goes down (10-90%) |
 | Q | switch to the teammate nearest the ball (kept for a second before the automatic switching takes over again) |
 | Space / X as a ball in the air comes to you | head or volley it: Space at goal (aim with the stick), X to a teammate. Pressing nothing, your player does what the AI would (see Rules) |
@@ -152,6 +153,7 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | close control | dribbling | ball 16 px → 8 px ahead of the feet; top speed with the ball 0.9x → 1.0x |
 | turning and getting going | agility | acceleration 0.85x → 1.15x (on top of acceleration) |
 | shoulder to shoulder | strength | steal rate x0.8 → 1.2 (against the holder's); wins a header both go up for; Body Check odds |
+| skill moves | dribbling vs defensiveAwareness, ballControl | nutmeg through 21% → 90% (even: 50%); rainbow clean 50% → 100%; AI dribblers with a man right in front try one 5% → 30% of decisions |
 | staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
 
 The ranges are judgement calls, not FIFA 96's or EA's formulas. `tests/ratings_test.gd`

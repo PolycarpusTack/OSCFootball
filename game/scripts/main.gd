@@ -20,7 +20,9 @@ const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to
 const POST_HIT := 3.0  # pitch pixels from a post or the bar (ball plus post radius) that hit it
 const AIR_REQUEST := 0.4  # seconds a header / volley button press waits for the ball
 const DODGE_GAIN := 10.0  # energy for hopping over a slide (Chaos)
-const BODY_CHECK_COST := 20.0  # Chaos special: energy for a shoulder barge
+const BODY_CHECK_COST := 20.0
+const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
+const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
 const SQUADS := "res://data/squads.json"
 const PORTRAITS := "res://assets/portraits/"
@@ -310,8 +312,11 @@ func _human_input(h: Human, p: Footballer) -> void:
 			if Input.is_action_just_pressed(h.action(action)):
 				h.air_request = action
 				h.air_request_left = AIR_REQUEST
-	if p.has_ball() and Input.is_action_just_pressed(h.action("switch")):
-		p.dodge()  # switch does nothing with the ball: it's the dodge button then
+	if p.has_ball() and Input.is_action_just_pressed(h.action("switch")):  # with the ball: a skill move or a dodge
+		var move := h.combo.skill_move(now)
+		if move == "" or not skill_move(p, move):
+			p.dodge()
+		h.combo.clear()
 	if Input.is_action_just_pressed(h.action("shoot")):
 		if p.has_ball():
 			h.charging = true
@@ -436,7 +441,7 @@ func _resolve_possession(delta: float) -> void:
 				if not keeper and ball.kick_kind in ["pass", "cross"] and ball.last_touch and ball.last_touch.team != t:
 					reach *= p.skill("interceptions", 0.8, 1.6)  # cutting out the other side's pass
 				var in_air := not keeper and ball.z > 12.0
-				if in_air and (ball.z > p.head_reach() or p.busy()):
+				if in_air and (ball.z > p.head_reach() or p.busy() or (ball.kick_kind == "rainbow" and ball.vz > 0.0)):
 					continue
 				var d := minf(p.feet_front().distance_to(ball.position), p.position.distance_to(ball.position))
 				if d >= reach:
@@ -485,6 +490,60 @@ func _resolve_possession(delta: float) -> void:
 			if o.sliding() and randf() >= holder.skill("balance", 0.0, 0.5):  # good balance: stays up
 				holder.perform("fall")
 			return
+
+
+## A skill move by `p` with the ball (see Footballer.skill_touch). The nutmeg slips it
+## through the legs of the opponent in front and on 5 m (dribbling against his
+## defensiveAwareness; when it fails he has it). The rainbow flicks it over everyone's head
+## to land 5 m on (ballControl, or it drops short). The backheel plays it to a teammate
+## behind. In Chaos, beating an opponent with one flashes and earns energy.
+func skill_move(p: Footballer, kind: String) -> bool:
+	if not p.has_ball() or p.busy():
+		return false
+	var ahead: Vector2 = Anims.FACING_VECTORS[p.facing]
+	var o := opponent_ahead(p)
+	var beaten: Footballer = null
+	match kind:
+		"nutmeg":
+			p.skill_touch(kind, ahead * 200.0, 0.0, "dribble")
+			if o and randf() < nutmeg_odds(p, o):
+				beaten = o
+		"rainbow":
+			if randf() < p.skill("ballControl", 0.5, 1.0):
+				p.skill_touch(kind, ahead * 120.0, 370.0, "rainbow")  # up to 76 px: nobody touches it going up
+				beaten = o
+			else:
+				p.skill_touch(kind, ahead * 60.0, 150.0, "dribble")  # scuffed: drops at his feet
+		"bckheel":
+			var mate := AI.best_pass(p, self, -ahead)
+			var to := mate.position + mate.velocity * 0.4 if mate else p.position - ahead * 80.0
+			var err := p.skill("shortPassing", 40.0, 4.0) * p.pressure_factor()
+			to += Vector2(randf_range(-err, err), randf_range(-err, err))
+			p.skill_touch(kind, (to - p.position).normalized() * clampf(p.position.distance_to(to) * 1.6, 180.0, 420.0), 20.0, "pass")
+	event.emit(kind, p.team)
+	if beaten:
+		beaten.touch_cooldown = Footballer.SKILL_MOVES[kind][0] + 0.8  # left standing
+		if chaos:
+			flash("NUTMEG!" if kind == "nutmeg" else "RAINBOW!", 0.8)
+			p.team.gain(SKILL_GAIN)
+	return true
+
+
+## Chance a nutmeg by `p` gets through `o`'s legs: even between equals.
+func nutmeg_odds(p: Footballer, o: Footballer) -> float:
+	return clampf(0.5 * p.skill("dribbling", 0.6, 1.4) / o.skill("defensiveAwareness", 0.6, 1.4), 0.1, 0.9)
+
+
+## The nearest opponent right in front of `p` (within NUTMEG_RANGE, 45 degrees either side
+## of where he faces), or null.
+func opponent_ahead(p: Footballer) -> Footballer:
+	var best: Footballer = null
+	for o in opponent(p.team).players:
+		var off := o.position - p.position
+		if off.length() < NUTMEG_RANGE and off.normalized().dot(Anims.FACING_VECTORS[p.facing]) > 0.7 \
+				and (best == null or off.length() < best.position.distance_to(p.position)):
+			best = o
+	return best
 
 
 ## Chaos special: a shoulder barge (a dash, then shoot, without the ball). Costs energy.

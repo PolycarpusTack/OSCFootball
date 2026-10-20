@@ -11,6 +11,11 @@ const COMBOS := [
 	["fireball", [8, 9, 6]],  # mirrored for players on the other wing
 	["banana", [4, 6]],       # back, forward
 ]
+const SKILL_COMBOS := [  # with the switch button, with the ball
+	["rainbow", [2, 8]],  # down, up: a flash kick
+	["rainbow", [8, 2]],
+	["bckheel", [6, 4]],  # forward, back
+]
 
 var _history: Array = []  # [direction, time]
 
@@ -30,12 +35,12 @@ func feed(dir: int, now: float) -> void:
 
 
 ## The combo just completed (checked when the shoot button goes down), or "".
-func detect(now: float) -> String:
+func detect(now: float, combos := COMBOS) -> String:
 	var recent: Array[int] = []
 	for e in _history:
 		if e[1] >= now - WINDOW and e[0] != 5:
 			recent.append(e[0])
-	for c in COMBOS:
+	for c in combos:
 		var seq: Array = c[1]
 		if recent.size() >= seq.size() and recent.slice(recent.size() - seq.size()) == seq:
 			return c[0]
@@ -52,6 +57,12 @@ func double_tap(now: float) -> bool:
 		return false
 	var a: int = recent[-3][0]
 	return a != 5 and recent[-2][0] == 5 and recent[-1][0] == a
+
+
+## The skill move just entered (checked when switch goes down with the ball): a double
+## tap is a nutmeg, else one of SKILL_COMBOS; "" for none (a dodge).
+func skill_move(now: float) -> String:
+	return "nutmeg" if double_tap(now) else detect(now, SKILL_COMBOS)
 
 
 func clear() -> void:

@@ -153,6 +153,18 @@ func _initialize() -> void:
 	print("strong vs weak: steal rate %.2f/s vs %.2f/s; body check wins %.0f%% vs %.0f%%" % [steal_big, steal_small, odds_big * 100.0, odds_small * 100.0])
 	ok = ok and steal_big > steal_small * 1.8 and odds_big > 0.75 and odds_small < 0.3
 
+	# skill moves: a nutmeg is dribbling against the defender's defensiveAwareness
+	var trick = m.home.players[2]
+	var dfd = m.away.players[9]
+	trick.stats = {"dribbling": 95}
+	dfd.stats = {"defensiveAwareness": 40}
+	var nut_good: float = m.nutmeg_odds(trick, dfd)
+	trick.stats = {"dribbling": 40}
+	dfd.stats = {"defensiveAwareness": 95}
+	var nut_poor: float = m.nutmeg_odds(trick, dfd)
+	print("nutmeg gets through: dribbler 95 vs defender 40 %.0f%%, 40 vs 95 %.0f%%" % [nut_good * 100.0, nut_poor * 100.0])
+	ok = ok and nut_good > 0.8 and nut_poor < 0.25
+
 	print("RATINGS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
 

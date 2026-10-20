@@ -125,9 +125,15 @@ func _initialize() -> void:
 
 	# body check (Chaos): double-tap a direction, then shoot, without the ball: costs 20 energy
 	await create_timer(1.0).timeout
-	var barger = m.humans[0].controlled
 	var victim = m.away.players[9]
+	m.ball.stop_at(victim.feet_front())
+	m.ball.take(victim)
+	await physics_frame
+	var barger = m.humans[0].controlled  # after the switch to whoever chases him now
+	m.humans[0].switch_lock = 2.0
 	victim.position = barger.position + Vector2(40, 0)
+	barger.touch_cooldown = 0.3  # walking into him while tapping isn't a steal: the barge comes after
+	victim.think_timer = 3.0  # he keeps it: a pass in the air would make shoot a header
 	m.ball.stop_at(victim.feet_front())
 	m.ball.take(victim)
 	m.home.energy = 100.0
@@ -144,5 +150,69 @@ func _initialize() -> void:
 	await create_timer(0.1).timeout
 	print("body check: animation %s, energy %.0f, events %s" % [barger._anim, m.home.energy, checks])
 	ok = ok and barger._anim in ["bodychk", "stumble"] and m.home.energy <= 80.0 + 1.0 and checks.has("body check")
+
+	# skill moves: with the ball, a motion then switch. Double tap = nutmeg, down up = rainbow,
+	# forward back = backheel (Brugge attacks to the right)
+	var moves := []  # the human's: the AI makes skill moves too
+	var highest := 0.0
+	for motion in [["move_right", "move_right"], ["move_down", "move_up"], ["move_right", "move_left"]]:
+		await create_timer(1.2).timeout
+		var skiller = m.humans[0].controlled
+		skiller._action_left = 0.0
+		skiller.stats = {"ballControl": 95}  # a rainbow never scuffed
+		for o in m.away.players:
+			o.touch_cooldown = 2.0  # mapping the inputs here, not who wins it
+		m.ball.stop_at(skiller.feet_front())
+		m.ball.take(skiller)
+		await physics_frame
+		for dir in motion:
+			Input.action_press(dir)
+			await create_timer(0.08).timeout
+			Input.action_release(dir)
+			await create_timer(0.05).timeout
+		Input.action_press("switch")
+		await physics_frame
+		Input.action_release("switch")
+		await physics_frame
+		var anim: String = skiller._anim
+		moves.append(anim)
+		for i in 70:
+			await physics_frame
+			highest = maxf(highest, m.ball.z) if anim == "rainbow" else highest
+	print("skill moves: %s, rainbow up to %.0f px" % [moves, highest])
+	ok = ok and moves == ["nutmeg", "rainbow", "bckheel"] and highest > 60.0
+
+	# a nutmeg that gets through: the defender in front is left standing, the dribbler runs onto it
+	var through := false
+	var regained := false
+	for attempt in 4:  # 90% odds: one of these gets through
+		await create_timer(1.0).timeout
+		var nut = m.humans[0].controlled
+		var wall = m.away.players[6]
+		nut.stats = {"dribbling": 95}
+		wall.stats = {"defensiveAwareness": 40}
+		nut._action_left = 0.0
+		nut.facing = 2
+		nut.velocity = Vector2(120.0, 0.0)
+		wall.position = nut.position + Vector2(30.0, 0.0)
+		for o in m.away.players:
+			o.touch_cooldown = 0.0 if o == wall else 3.0  # just him and the nutmeg
+		m.ball.stop_at(nut.feet_front())
+		m.ball.take(nut)
+		m.skill_move(nut, "nutmeg")
+		if wall.touch_cooldown <= 0.0:
+			continue  # he read it
+		through = true
+		Input.action_press("move_right")  # run on after it
+		await create_timer(0.5).timeout  # the touch
+		var chase := 0.0
+		while chase < 2.0 and m.ball.holder != nut and m.ball.last_touch != wall:
+			await physics_frame
+			chase += 1.0 / 60.0
+		Input.action_release("move_right")
+		regained = m.ball.holder == nut
+		break
+	print("nutmeg through the defender: %s, dribbler collects it %s" % [through, regained])
+	ok = ok and through and regained
 	print("CONTROLS TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)

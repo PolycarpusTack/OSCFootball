@@ -108,6 +108,10 @@ static func _with_ball(p: Footballer, m: Match) -> void:
 			if not _try_super(p, m, target):
 				p.shoot(target)
 			return
+		if m.opponent_ahead(p) and randf() < p.skill("dribbling", 0.05, 0.3) \
+				and m.skill_move(p, "nutmeg" if randf() < 0.5 else "rainbow"):
+			p.ai_state = "skill move"
+			return
 		var down_the_line := _winger(p) and m.wide_within(p, Pitch.LENGTH_M / 2.0)
 		if m.nearest_opponent_distance(p) < PRESSURE and randf() < (0.3 if down_the_line else 0.6):
 			var mate := best_pass(p, m, Vector2.ZERO)
