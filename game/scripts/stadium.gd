@@ -10,6 +10,10 @@ const TEX := "res://assets/stadium/"
 const BOARD_DIST := 6.0  # advertising boards, metres outside the lines
 const STAND_DIST := 8.5  # foot of the stands
 const BOARD := Vector2(8.0, 1.0)  # one board texture (128x16) in metres
+# our own boards in place of the original ones that advertise the original game; the set is
+# used in the order 0 3 6 9 2 5 8 1 4 7, so the long and short ones alternate
+const OWN_BOARDS := {5: "res://brand/board_oscf_full.png", 8: "res://brand/board_oscf.png",
+	1: "res://brand/board_oscf_full.png", 7: "res://brand/board_oscf.png"}
 const CAM_OFFSET := Vector3(0.0, 15.0, 42.0)  # TV camera relative to what it looks at
 const CAM_FOV := 30.0
 const CAM_FOLLOW := 3.0  # how quickly the camera catches up, 1/s
@@ -102,7 +106,7 @@ func _bake_ground(vp: SubViewport, mat: StandardMaterial3D) -> void:
 func _build_boards() -> void:
 	var boards: Array[Texture2D] = []
 	for i in 10:
-		boards.append(load(TEX + "board%d.png" % i))
+		boards.append(load(OWN_BOARDS.get(i, TEX + "board%d.png" % i)))
 	var back := _material(null)
 	back.albedo_color = Color("202020")
 	var d := BOARD_DIST

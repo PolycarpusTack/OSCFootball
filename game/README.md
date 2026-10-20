@@ -6,7 +6,9 @@ audio and data belong to EA, so don't distribute it with them.
 Current state: the 18 clubs of the **Jupiler Pro League** (`data/league.json`): pick player 1's
 club and the opponent (AI, or player 2) on the team select screen. 11 a side, 4-4-2, two halves,
 in FIFA 96's 3D "Virtual Stadium" (original crowd, advertising boards, nets) seen from a
-side-on TV camera. Boots like the original: intro FMV (any key skips), title screen with
+side-on TV camera; the boards that advertised the original game show OSCF (Old Skool Crazy
+Football) instead. Boots with the PTE (Polycarpus Tack Experiments) intro video and its end
+card (any key skips), then the title screen with
 the title music, Space to kick off. Left/Right on the title screen picks **Chaos Football**
 (energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
 same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players.
@@ -54,7 +56,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 ```
 scripts/main.gd           Match: teams, possession, tackles, fouls, penalties, restarts, halves, control switching, goals, kick-offs, sound, HUD
 scripts/stadium.gd        3D pitch, boards, stands and goals from the original textures; TV camera; pitch-to-screen projection
-scripts/title.gd          boot sequence: intro FMV, title screen, title music
+scripts/title.gd          boot sequence: PTE intro video and end card, title screen, title music
 scripts/team_select.gd    pick both clubs from the league table
 scripts/ai.gd             AI decisions: hold formation (shifts with the ball), chase, dribble, pass, shoot, goalkeeping
 scripts/team.gd           Team: name, kits, 4-4-2 formation, pitch-side helpers; clubs from data/league.json, change kit on a clash
@@ -68,6 +70,7 @@ scripts/anim_library.gd   autoload "Anims": all player animations, frame lookup 
 scripts/pitch.gd          grass from the original texture, markings to real dimensions (18 px/m), baked into the 3D pitch's texture
 scripts/anim_viewer.gd    browse the 81 animations
 scripts/debug_overlay.gd  F3 overlay: AI decisions (Footballer.ai_state), ball ownership, match state, frame rate
+brand/                    our own art, in git: intro.ogv + intro_end.png (PTE intro), board_oscf*.png (pitch-side boards)
 data/league.json          the 18 Jupiler Pro League clubs: name, 3-letter code, standings, kit colours
 data/squads.json          squads and EA ratings, built by tools/build_ea_assets.py (see below)
 ```
@@ -141,6 +144,15 @@ checks each against an elite and a poor player.
 
 ```
 tools/.venv/bin/python -I tools/build_godot_assets.py extracted decoded game
+```
+
+`brand/` is made from the full-size originals (kept out of git) with ffmpeg:
+
+```
+ffmpeg -i pte-intro-three-mascots.mp4 -c:v libtheora -q:v 7 -c:a libvorbis -q:a 5 brand/intro.ogv
+ffmpeg -i pte-end-card-three-mascots.png -vf scale=1280:720:flags=lanczos brand/intro_end.png
+ffmpeg -i OSCF_full.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf_full.png
+ffmpeg -i OSCF_shor.jpeg -vf scale=512:64:flags=lanczos brand/board_oscf.png
 ```
 
 ## Rules as implemented

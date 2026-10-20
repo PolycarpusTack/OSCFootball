@@ -21,7 +21,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -144,13 +143,6 @@ def main(src, decoded, project):
                      ("CHN_GEN1.BNK", "assets/audio/crowd")):
         shutil.copytree(os.path.join(audio, sub), os.path.join(project, dst), dirs_exist_ok=True)
     shutil.copytree(os.path.join(decoded, "data"), os.path.join(project, "data"), dirs_exist_ok=True)
-    # intro FMV for the boot sequence; Godot plays Ogg Theora
-    intro = os.path.join(project, "assets/video/intro.ogv")
-    if not os.path.exists(intro):
-        os.makedirs(os.path.dirname(intro), exist_ok=True)
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(decoded, "video/VID_INTR.mp4"),
-                        "-vf", "scale=640:480", "-c:v", "libtheora", "-q:v", "8", "-c:a", "libvorbis", "-q:a", "5",
-                        intro], check=True)
     print("animations", len(index))
 
 

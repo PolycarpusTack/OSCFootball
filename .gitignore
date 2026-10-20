@@ -17,3 +17,6 @@ __pycache__/
 *.avi
 .DS_Store
 ._*
+# full-size originals of brand/ (see game/README.md)
+game/OSCF_*
+game/pte-end-card-*
