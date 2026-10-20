@@ -197,7 +197,7 @@ func _initialize() -> void:
 		await create_timer(1.0).timeout
 		var nut = m.humans[0].controlled
 		var wall = m.away.players[6]
-		nut.stats = {"dribbling": 95}
+		nut.stats = {"dribbling": 95, "ballControl": 95}  # no heavy first touch running onto it
 		wall.stats = {"defensiveAwareness": 40}
 		nut._action_left = 0.0
 		nut.facing = 2
