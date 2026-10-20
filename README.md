@@ -25,7 +25,12 @@ side, none for a man sent off). Players wear down over the match, more with poor
 only get some of it back at half time. The CPU side has a manager: at stoppages it now and then
 looks at the game (score, men on the pitch, territory, the clock) and at how you play (down the
 wings or through the middle, who hurts it most), then changes formation, brings on fresh legs
-and puts a man-marker on your danger man. Its decisions go up on the banner.
+and puts a man-marker on your danger man. Its decisions go up on the banner. Every player gets a match
+rating out of 10 (starting at 6: goals, assists, saves, passes that find a teammate and winning
+the ball lift it; losing it, fouls, cards and goals let in drop it), shown on the substitutions
+screen; the best of the match is Man of the Match at full time. If a keeper is sent off, the
+bench keeper comes on for a forward at the next stoppage, or with none left an outfield player
+goes in goal.
 
 ## Run
 

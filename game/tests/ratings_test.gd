@@ -393,10 +393,10 @@ func _unused_ratings(ai) -> bool:
 	print("pass button, mate 70 degrees off the aim: vision 95 %s, 40 %s; through ball to the striker %s, with a defender in the space %s" % [cone_good, cone_poor, through == striker, blocked])
 	ok = ok and cone_good and not cone_poor and through == striker and blocked == null
 
-	# curve: how far out the CPU shoots from, and a curler going for the far corner
+	# curve: how much it bends, and a curler going for the far corner (how far out he shoots
+	# from is longShots: AI.shooting_range)
 	var curler = m.home.players[9]
 	curler.stats = {"curve": 95}
-	var range_good: float = ai.shoot_range(curler) / Pitch.PX_PER_M
 	var bend_good: float = absf(curler.curl_bend())
 	var target_goal: Vector2 = m.home.goal_attacked()
 	curler.position = target_goal - Vector2(m.home.side * Pitch.m(22.0), 0)
@@ -404,11 +404,9 @@ func _unused_ratings(ai) -> bool:
 	keeper.position = target_goal + Vector2(-m.home.side * 18.0, -20.0)  # a little to one side
 	var aimed: Vector2 = ai._shot_target(curler, m)
 	curler.stats = {"curve": 40}
-	var range_poor: float = ai.shoot_range(curler) / Pitch.PX_PER_M
 	var bend_poor: float = absf(curler.curl_bend())
-	print("CPU shoots from: curve 95 %.1f m, 40 %.1f m; curl %.2f vs %.2f rad; a curler from 22 m aims %+.0f px (keeper at -20)" % [range_good, range_poor, bend_good, bend_poor, aimed.y - target_goal.y])
-	ok = ok and range_good > 24.0 and absf(range_poor - 330.0 / Pitch.PX_PER_M) < 0.1 and bend_good > 0.29 and bend_poor == 0.0 \
-		and aimed.y - target_goal.y > 40.0
+	print("curl %.2f vs %.2f rad; a curler from 22 m aims %+.0f px (keeper at -20)" % [bend_good, bend_poor, aimed.y - target_goal.y])
+	ok = ok and bend_good > 0.29 and bend_poor == 0.0 and aimed.y - target_goal.y > 40.0
 	return ok
 
 

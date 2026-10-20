@@ -1,6 +1,8 @@
 extends SceneTree
 ## Post-match stats: shots, saves, fouls, cards and possession are counted from the match's
-## events; the full-time screen shows them with the Man of the Match.
+## events; the full-time screen shows them with the Man of the Match. Match ratings: a pass
+## that finds a teammate and winning the ball lift a player's, losing it, fouls and cards drop
+## it, a scorer rates at least 6.5 and his goal costs the other keeper.
 ## godot --headless --path game -s res://tests/stats_test.gd
 
 var m: Node
@@ -48,9 +50,15 @@ func _initialize() -> void:
 	# a foul, a booking: counted for the fouling side
 	await _play()
 	var fouls: int = stats.counts[m.away]["fouls"]
+	var fouler_before: float = stats.points.get(m.away.players[4], 0.0)
 	m._foul(m.away.players[4], bru.players[9], false)
 	var yellows: int = stats.counts[m.away]["yellow cards"]
+	var booked_before: float = stats.points.get(m.away.players[5], 0.0)
 	m.book(m.away.players[5], false)
+	var fouler_drop: float = fouler_before - stats.points.get(m.away.players[4], 0.0)
+	var booked_drop: float = booked_before - stats.points.get(m.away.players[5], 0.0)
+	print("ratings: the fouler drops %.2f, the booked man %.2f" % [fouler_drop, booked_drop])
+	ok = ok and fouler_drop > 0.0 and is_equal_approx(booked_drop, 0.25)
 	print("a foul and a yellow for AND: fouls +%d, yellows +%d" % [stats.counts[m.away]["fouls"] - fouls, stats.counts[m.away]["yellow cards"] - yellows])
 	ok = ok and stats.counts[m.away]["fouls"] == fouls + 1 and stats.counts[m.away]["yellow cards"] == yellows + 1
 
@@ -59,6 +67,25 @@ func _initialize() -> void:
 	m.event.emit("save", m.away)
 	print("a save: AND saves %d, keeper's points %.0f" % [stats.counts[m.away]["saves"], stats.points.get(m.away.keeper(), 0.0)])
 	ok = ok and stats.counts[m.away]["saves"] == 1 and stats.points.get(m.away.keeper(), 0.0) > 0.0
+
+	# ratings: a pass that finds a teammate, then a ball lost (all in one frame: no play between)
+	var passer = bru.players[2]
+	var receiver = bru.players[3]
+	var thief = m.away.players[8]
+	var was := [stats.points.get(passer, 0.0), stats.points.get(receiver, 0.0), stats.points.get(thief, 0.0)]
+	m.ball.take(passer)
+	stats._possession()
+	m.ball.release()
+	m.ball.kick_kind = "pass"
+	stats._possession()
+	m.ball.take(receiver)
+	stats._possession()
+	m.ball.take(thief)
+	stats._possession()
+	var now := [stats.points.get(passer, 0.0), stats.points.get(receiver, 0.0), stats.points.get(thief, 0.0)]
+	print("ratings: pass found a teammate %+.2f, he lost it %+.2f, won it %+.2f" % [
+		now[0] - was[0], now[1] - was[1], now[2] - was[2]])
+	ok = ok and now[0] > was[0] and now[1] < was[1] and now[2] > was[2]
 
 	# possession: a second on the ball for Brugge counts for Brugge
 	var before: float = stats.possession[bru]
@@ -70,7 +97,11 @@ func _initialize() -> void:
 
 	# a goal for the striker: he's the Man of the Match, on the full-time screen
 	m.ball.last_touch = striker
+	var keeper_before: float = stats.points.get(m.away.keeper(), 0.0)
 	m.event.emit("goal", bru)
+	var conceded: float = stats.points.get(m.away.keeper(), 0.0) - keeper_before
+	print("ratings: scorer %.1f (at least 6.5), their keeper %+.2f for the goal" % [stats.rating(striker), conceded])
+	ok = ok and stats.rating(striker) >= 6.5 and conceded < 0.0
 	bru.score += 1
 	await _play()
 	m.half = 2

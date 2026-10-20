@@ -18,7 +18,23 @@ const MOVES := {
 	"dive": {"name": "DIVE", "cost": 10, "wind": 0.1, "active": 0.1, "recovery": 0.7, "anim": "fall", "hint": "an opponent right by you"},
 	"captain": {"name": "CAPTAIN", "cost": 30, "wind": 0.3, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "captain near an angry referee"},
 	"bribe": {"name": "BRIBE", "cost": 100, "wind": 0.4, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "full bar, right by the referee"},
+	# one signature move per line, in their own art (brand/sprites/line_actions)
+	"grapple": {"name": "GRAPPLE TACKLE", "cost": 35, "wind": 0.13, "active": 0.25, "recovery": 0.33, "anim": "grapple_tackle", "hint": "defender, a carrier right by you"},
+	"stepover": {"name": "STEPOVER STORM", "cost": 25, "wind": 0.12, "active": 0.3, "recovery": 0.2, "anim": "stepover_storm", "hint": "midfielder or striker, ball, a man in front"},
+	"whirlwind": {"name": "WHIRLWIND TURN", "cost": 30, "wind": 0.1, "active": 0.45, "recovery": 0.3, "anim": "whirlwind_turn", "hint": "midfielder with the ball"},
+	"fist": {"name": "RISING FIST", "cost": 30, "wind": 0.13, "active": 0.3, "recovery": 0.42, "anim": "rising_fist", "hint": "keeper, a high ball in his box"},
 }
+const PICKER_WINDOW := 3  # moves the HUD shows: the selected one and its neighbours
+const KEEPER_MOVES := ["rocket", "palm", "fist"]  # done by the team's keeper, whoever you control
+## The lines (roles) whose players can do each move; any outfielder otherwise.
+const LINES := {"rocket": "G", "palm": "G", "fist": "G", "captain": "GDMF",
+	"grapple": "D", "stepover": "MF", "whirlwind": "M"}
+const GRAPPLE_REACH := 34.0
+const STEPOVER_FREEZE := 1.0  # seconds the man in front stands frozen
+const WHIRLWIND_SHIELD := 32.0  # opponents this close can't get a foot in while he spins
+const WHIRLWIND_DRIFT := 140.0  # pitch pixels a second he turns away along the aim
+const FIST_REACH := 63.0  # a loose ball this close, ...
+const FIST_TOP := 100.0  # ... up to this high, is punched clear
 const COLOUR := Color("67f4ef")
 var match_game: Match
 var active: Array[Dictionary] = []
@@ -28,7 +44,7 @@ var cooldown: Dictionary = {}  # per-team: stops rapid swapping between players 
 var flight: Dictionary = {}
 var ai_left := 1.5
 var ai_enabled := true
-var labels: Array[Label] = []
+var labels: Array[RichTextLabel] = []
 
 func _init(m: Match) -> void:
 	match_game = m
@@ -41,21 +57,51 @@ func _ready() -> void:
 	if not Match.chaos:
 		return
 	for h in match_game.humans:
-		var label := Label.new()
-		label.position = Vector2(16 + h.index * 640, 108)
-		label.add_theme_font_size_override("font_size", 15)
+		var label := RichTextLabel.new()
+		label.bbcode_enabled = true
+		label.fit_content = true
+		label.scroll_active = false
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.position = Vector2(16 + h.index * 640, 104)
+		label.size = Vector2(600, 0)
+		label.add_theme_font_size_override("normal_font_size", 13)
+		label.add_theme_font_size_override("bold_font_size", 15)
 		label.add_theme_color_override("font_outline_color", Color.BLACK)
 		label.add_theme_constant_override("outline_size", 5)
 		layer.add_child(label)
 		labels.append(label)
 
+## The selected move: the one at h.special_index if it suits whoever would do it, else the
+## next one that does (control moves between lines, the selection follows).
 func chosen(h: Human) -> String:
-	return MOVES.keys()[h.special_index]
+	var ids: Array = MOVES.keys()
+	for step in ids.size():
+		var id: String = ids[(h.special_index + step) % ids.size()]
+		if suits(h, id):
+			return id
+	return ids[h.special_index]
+
+## The move after the current one that suits h's player (R / period / RB).
+func cycle(h: Human) -> void:
+	h.special_index = (MOVES.keys().find(chosen(h)) + 1) % MOVES.size()
+	h.special_index = MOVES.keys().find(chosen(h))
+
+## The moves h can pick now: those for the controlled player's line, plus the keeper's
+## and the captain's (they do them, whoever h controls).
+func choices(h: Human) -> Array:
+	return MOVES.keys().filter(func(id): return suits(h, id))
+
+func suits(h: Human, id: String) -> bool:
+	var p := actor(h, id)
+	return p != null and line_can(p, id)
+
+static func line_can(p: Footballer, id: String) -> bool:
+	return p.role in LINES.get(id, "DMF")
 
 func actor(h: Human, id: String) -> Footballer:
 	if id == "captain":
 		return match_game.captain(h.team)
-	return h.team.keeper() if id in ["rocket", "palm"] else h.controlled
+	return h.team.keeper() if id in KEEPER_MOVES else h.controlled
 
 func activate(h: Human, aim: Vector2) -> bool:
 	var id := chosen(h)
@@ -92,11 +138,7 @@ func unavailable(p: Footballer, id: String) -> String:
 		return "Need %d energy" % d.cost
 	var b := match_game.ball
 	var near := p.position.distance_to(b.position)
-	var valid := true
-	if id in ["rocket", "palm"]:
-		valid = p.role == "G"
-	else:
-		valid = p.role != "G"
+	var valid := line_can(p, id)
 	match id:
 		"ghost", "pinball", "boomerang", "rocket": valid = valid and p.has_ball()
 		"magnet": valid = valid and slow_loose() and near <= 27.0
@@ -105,6 +147,12 @@ func unavailable(p: Footballer, id: String) -> String:
 		"wall": valid = valid and not p.has_ball() and partner(p) != null
 		"spring", "cyclone": valid = valid and b.holder == null and b.power == "" and b.z > 12.0 and near <= 45.0
 		"palm": valid = valid and b.holder == null and match_game.in_penalty_area(p.position, p.team)
+		"grapple": valid = valid and b.holder != null and b.holder.team != p.team \
+			and p.position.distance_to(b.holder.position) <= GRAPPLE_REACH
+		"stepover": valid = valid and p.has_ball() and match_game.opponent_ahead(p) != null
+		"whirlwind": valid = valid and p.has_ball()
+		"fist": valid = valid and b.holder == null and b.power != "thunder" and b.z > 12.0 and near <= FIST_REACH \
+			and match_game.in_penalty_area(p.position, p.team)
 		"dive": valid = valid and match_game.nearest_opponent_distance(p) <= Match.DIVE_RANGE
 		"captain": valid = valid and match_game.ref_mood.get(p.team, 0.0) > 0.0 \
 			and p.position.distance_to(match_game.referee.position) <= Match.CAPTAIN_RANGE
@@ -112,7 +160,7 @@ func unavailable(p: Footballer, id: String) -> String:
 			and p.position.distance_to(match_game.referee.position) <= Match.BRIBE_RANGE
 	if id == "rocket":  # a keeper's throw waits for the box to clear, like any release
 		valid = valid and match_game.keeper_may_release(p)
-	if id in ["stego", "bass"] and b.holder != null and b.holder.role == "G" \
+	if id in ["stego", "bass", "grapple"] and b.holder != null and b.holder.role == "G" \
 			and match_game.in_penalty_area(b.holder.position, b.holder.team):  # nobody challenges a keeper with the ball in his hands
 		valid = false
 	return "" if valid else d.hint.capitalize()
@@ -280,7 +328,30 @@ func apply_move(a: Dictionary, dt: float) -> void:
 				p.team.gain(Supers.GAIN.save)
 				match_game.event.emit("save", p.team)
 		return
+	if a.id == "whirlwind":  # spins away from pressure with the ball, nobody can get a foot in
+		for o in match_game.opponent(p.team).players:
+			if o.position.distance_to(p.position) <= WHIRLWIND_SHIELD:
+				o.touch_cooldown = maxf(o.touch_cooldown, 0.25)
+		if p.has_ball():
+			p.position = (p.position + aim * WHIRLWIND_DRIFT * dt).clamp(Pitch.field_rect().position, Pitch.field_rect().end)
+		return
 	if a.done: return
+	if a.id == "fist":
+		if b.holder != null or b.power == "thunder" or b.z < 12.0 or b.z > FIST_TOP or not swept_near(p.position, 26.0): return
+		a.done = true
+		strike(p, LineMoves.upfield(p, aim), 520.0, 220.0, "save")
+		p.team.gain(Supers.GAIN.save)
+		match_game.event.emit("save", p.team)
+		return
+	if a.id == "grapple":  # grabs the carrier, spins once and comes away with the ball
+		var o := b.holder
+		if o == null or o.team == p.team or o.position.distance_to(p.position) > GRAPPLE_REACH: return
+		a.done = true
+		if stun(o, 0.6):
+			match_game.offence(p, o.position, "chaos")
+			b.release()
+			match_game._take(p)
+		return
 	if a.id in ["spring", "cyclone"]:
 		var reach := 82.0 if a.id == "spring" else 66.0
 		if b.holder != null or b.power != "" or b.z < 16.0 or b.z > reach or not swept_near(p.position, 22.0): return
@@ -302,6 +373,9 @@ func apply_move(a: Dictionary, dt: float) -> void:
 			strike(p, aim, 720.0 if a.id == "rocket" else 540.0, 430.0 if a.id == "boomerang" else 120.0 if a.id == "rocket" else 0.0, "cross" if a.id == "boomerang" else "pass")
 			if a.id != "rocket":
 				flight = {"id": a.id, "p": p, "revision": b.touch_revision, "time": 0.0, "turned": false, "origin": a.origin}
+		"stepover":  # the man in front is left frozen
+			var o := match_game.opponent_ahead(p)
+			if o: stun(o, STEPOVER_FREEZE)
 		"stego", "bass":
 			if p.position.distance_to(b.position) > 38.0: return
 			var hits := 0
@@ -357,16 +431,22 @@ func think_ai() -> void:
 		var b := match_game.ball
 		var p: Footballer = b.holder if b.holder != null and b.holder.team == t else match_game.chaser(t)
 		var ids: Array = []
-		if b.holder == t.keeper(): ids = ["rocket"]
+		if b.holder == t.keeper(): ids = ["rocket", "line"]  # in that order: a throw to a free mate, else a punt
 		elif b.holder == null and b.position.distance_to(t.keeper().position) < 110.0 and b.velocity.x * t.side < 0.0:
 			p = t.keeper()
-			ids = ["palm"]
-		elif p.has_ball(): ids = ["ghost", "pinball", "boomerang"]
+			ids = ["fist"] if b.z > 12.0 else ["palm"]
+		elif p.has_ball(): ids = ["ghost", "pinball", "boomerang", "stepover", "whirlwind", "line"]
 		elif b.holder == null and b.z > 12.0: ids = ["spring", "cyclone"]
-		else: ids = ["stego", "magnet", "bass", "wall"]
-		ids.shuffle()
+		else: ids = ["stego", "magnet", "bass", "wall", "grapple"]
+		if b.holder != t.keeper():
+			ids.shuffle()
 		for id: String in ids:
 			var aim: Vector2 = (t.goal_attacked() - p.position).normalized()
+			if id == "line":  # ↓↘→: a defender's Bulldozer, a midfielder's Laser Pass, the keeper's Cannon Punt
+				if p.role != "F" and match_game.line_moves.start(p, aim):
+					cooldown[t] = 2.0 + LineMoves.LIST[p.role].contact
+					break
+				continue
 			if id == "rocket":  # only to a teammate with a clear lane; otherwise he distributes it as usual
 				var mate := AI.best_pass(p, match_game, Vector2.ZERO)
 				if mate == null or AI._lane_blocked(p, mate, match_game):
@@ -374,14 +454,31 @@ func think_ai() -> void:
 				aim = (mate.position - p.position).normalized()
 			if start(p, id, aim): break
 
+## Each human's picker: a window of the moves his player can pick around the selected one
+## (yellow, pulsing when ready), the others white when ready, grey when not; then how to use it.
 func update_labels() -> void:
 	for i in labels.size():
 		var h := match_game.humans[i]
 		var id := chosen(h)
+		var all := choices(h)
+		var at := all.find(id)
+		var window := all if all.size() <= PICKER_WINDOW \
+			else range(-PICKER_WINDOW / 2, PICKER_WINDOW / 2 + 1).map(func(k): return all[(at + k + all.size()) % all.size()])
+		var strip := []
+		for c: String in window:
+			var ready := unavailable(actor(h, c), c) == ""
+			var text := "%s %d" % [MOVES[c].name, MOVES[c].cost]
+			if c == id:
+				text = "[b][color=#ffe34d]%s[/color][/b]" % ("[pulse freq=2.0 color=#ffffff60]%s[/pulse]" % text if ready else text)
+			else:
+				text = "[color=%s]%s[/color]" % ["#ffffff" if ready else "#8a8a8a", text]
+			strip.append(text)
 		var why := unavailable(actor(h, id), id)
-		labels[i].text = "%s / %d energy\n%s\n%s" % [MOVES[id].name, MOVES[id].cost,
-			"E use · R next / Pad Y · RB" if i == 0 else ", use · . next / Pad Y · RB",
-			"READY" if why == "" else why]
+		var text := "%s   [color=#bbbbbb]%d/%d[/color]\n[color=#bbbbbb]%s[/color]  %s" % ["  ·  ".join(strip), at + 1, all.size(),
+			"E use · R next · Pad Y / RB" if i == 0 else ", use · . next · Pad Y / RB",
+			"[color=#7dff7d]READY[/color]" if why == "" else "[color=#ff9d6b]%s[/color]" % why]
+		if labels[i].text != text:  # setting it restarts the pulse
+			labels[i].text = text
 		labels[i].visible = Match.chaos and not match_game.autoplay
 
 func screen(at: Vector2, height := 0.0) -> Vector2:
