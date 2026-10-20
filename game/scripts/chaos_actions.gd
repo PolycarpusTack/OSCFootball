@@ -100,6 +100,8 @@ func unavailable(p: Footballer, id: String) -> String:
 		"wall": valid = valid and not p.has_ball() and partner(p) != null
 		"spring", "cyclone": valid = valid and b.holder == null and b.power == "" and b.z > 12.0 and near <= 45.0
 		"palm": valid = valid and b.holder == null and match_game.in_penalty_area(p.position, p.team)
+	if id == "rocket":  # a keeper's throw waits for the box to clear, like any release
+		valid = valid and match_game.keeper_may_release(p)
 	return "" if valid else d.hint.capitalize()
 
 func lock(p: Footballer, anim: String) -> int:
