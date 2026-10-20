@@ -5,6 +5,7 @@
 - game/assets/clubs/<SHORT>.png: club crest; <SHORT>_board.png: a pitch-side board
 - game/assets/portraits/<id>.png: player photo pixelated to 40x40, 16 colours;
   unknown.png for players EA has no photo of
+- per player with a photo: skin and hair colour sampled from it, for the sprites
 
     tools/.venv/bin/python -I tools/build_ea_assets.py downloads/ea_fc27 game
 """
@@ -53,8 +54,8 @@ def best_xi(players: list[dict]) -> list[dict]:
     return [p for p in xi if p] + subs
 
 
-def entry(p: dict, number: int, has_portrait: bool) -> dict:
-    return {
+def entry(p: dict, number: int, photo: str | None) -> dict:
+    e = {
         "id": p["id"],
         "name": p.get("commonName") or p["lastName"],
         "full_name": f'{p["firstName"]} {p["lastName"]}',
@@ -64,9 +65,12 @@ def entry(p: dict, number: int, has_portrait: bool) -> dict:
         "preferred_foot": "right" if p.get("preferredFoot") == 1 else "left",
         "weak_foot": p.get("weakFootAbility"),
         "skill_moves": p.get("skillMoves"),
-        "portrait": has_portrait,
+        "portrait": photo is not None,
         "stats": {k: v["value"] for k, v in p["stats"].items()},
     }
+    if photo:
+        e["skin"], e["hair"] = skin_and_hair(photo)
+    return e
 
 
 def pixelate(src: str, dst: str) -> None:
@@ -82,6 +86,27 @@ def pixelate(src: str, dst: str) -> None:
     out = rgb.convert("RGBA")
     out.putalpha(alpha)
     out.save(dst)
+
+
+def _median(pixels: list[tuple]) -> tuple:
+    return tuple(sorted(p[c] for p in pixels)[len(pixels) // 2] for c in range(3))
+
+
+def skin_and_hair(src: str) -> tuple[str, str]:
+    """Median colour of the cheeks and of the top of the head in the photo (head and
+    shoulders on a transparent background). A bald head gives a skin-like hair colour."""
+    im = Image.open(src).convert("RGBA")
+    left, top, right, bottom = im.getchannel("A").point(lambda a: 255 if a > 16 else 0).getbbox()
+    w, h = right - left, bottom - top
+
+    def sample(x0, x1, y0, y1):
+        px = [im.getpixel((x, y)) for y in range(int(top + y0 * h), int(top + y1 * h))
+              for x in range(int(left + x0 * w), int(left + x1 * w))]
+        return _median([p for p in px if p[3] > 200] or [(128, 128, 128, 255)])
+
+    skin = sample(0.38, 0.62, 0.30, 0.40)  # cheeks and nose, below the eyes
+    hair = sample(0.40, 0.60, 0.00, 0.05)  # crown
+    return "%02x%02x%02x" % skin, "%02x%02x%02x" % hair
 
 
 def silhouette(dst: str) -> None:
@@ -134,7 +159,7 @@ def main(download: str, project: str) -> None:
             has = os.path.exists(photo)
             if has:
                 pixelate(photo, os.path.join(portraits_dir, f'{int(p["id"])}.png'))
-            rows.append(entry(p, i + 1, has))
+            rows.append(entry(p, i + 1, photo if has else None))
         squads[club["name"]] = rows
         crest_path = os.path.join(download, "crests", f'{int(club["ea_id"])}.png')
         crest = Image.open(crest_path).convert("RGBA") if os.path.exists(crest_path) else None

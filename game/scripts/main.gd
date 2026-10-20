@@ -101,6 +101,9 @@ func _ready() -> void:
 			p.display_name = names[i].name if i < names.size() else p.name
 			if i < names.size():
 				p.stats = names[i].get("stats", {})
+				if names[i].has("skin"):
+					p.skin = Color(names[i].skin)
+					p.hair = Color(names[i].hair)
 				p.portrait = _portrait(names[i])
 			p.speed_factor = 1.0 if human_for(t) else 0.94
 			t.players.append(p)

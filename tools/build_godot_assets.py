@@ -13,7 +13,8 @@ index (255 = transparent), so the game can recolour kits in a shader.
 palette.png (256x2) holds the colours (row 0) and, per index, the kit slot and
 shade (row 1: R = slot, G = shade 0-255). Kit slots were found by where each
 index appears on the body across the stand/walk/jog/run frames:
-  1 shirt, 2 shirt second colour (stripes, sleeves, trim), 3 shorts, 4 socks, 5 boots.
+  1 shirt, 2 shirt second colour (stripes, sleeves, trim), 3 shorts, 4 socks, 5 boots,
+  6 skin (face, arms, legs), 7 hair: so each player can get their own skin and hair colour.
 """
 import glob
 import json
@@ -30,7 +31,7 @@ from eahuff import EADecoders  # noqa: E402
 FRAME_NAME = re.compile(r"^[a-z](\d)(\d\d)$")
 TRANSPARENT = 255
 KIT_SLOTS = [(204, 214, 1), (78, 101, 2), (113, 129, 2), (137, 154, 2), (197, 203, 3),
-             (130, 136, 3), (102, 112, 4), (155, 168, 4), (228, 229, 5)]
+             (130, 136, 3), (102, 112, 4), (155, 168, 4), (228, 229, 5), (219, 227, 6), (215, 218, 7)]
 
 
 def build_palette(palette):

@@ -16,6 +16,8 @@ var number := 0
 var display_name := ""  # shown in the HUD (the node name stays unique: "BRU 7")
 var portrait: Texture2D  # pixel portrait for the HUD, or null
 var stats := {}  # EA SPORTS FC ratings by name (data/squads.json), empty without a squad
+var skin := Color.TRANSPARENT  # from the player's photo; transparent: FIFA 96's default
+var hair := Color.TRANSPARENT
 var home := Vector2.ZERO  # formation spot as a pitch fraction (see Team.FORMATION)
 var ball: Ball
 var controlled := false
@@ -40,7 +42,14 @@ var _marks := Node2D.new()  # shadow, control ring and charge meter, drawn under
 ## each frame with place(), through the stadium camera.
 func _ready() -> void:
 	_sprite.centered = false
-	_sprite.material = team.keeper_material if role == "G" else team.outfield_material
+	var kit: ShaderMaterial = (team.keeper_material if role == "G" else team.outfield_material).duplicate()
+	if skin.a > 0.0:
+		kit.set_shader_parameter("skin", Vector3(skin.r, skin.g, skin.b))
+		kit.set_shader_parameter("has_skin", true)
+	if hair.a > 0.0:
+		kit.set_shader_parameter("hair", Vector3(hair.r, hair.g, hair.b))
+		kit.set_shader_parameter("has_hair", true)
+	_sprite.material = kit
 	_sprite.top_level = true
 	_marks.top_level = true
 	_marks.draw.connect(_draw_marks)

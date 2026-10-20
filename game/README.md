@@ -110,7 +110,10 @@ slot. It also writes `assets/clubs/<SHORT>.png` (crest, on the scoreboard and te
 `<SHORT>_board.png` (a pitch-side board: every third board shows one of the two clubs) and
 `assets/portraits/<id>.png` (the photo pixelated to 40x40, 16 colours, shown above the
 controlled player's name). EA has no photo for about half the players, mostly squad
-players: they get `unknown.png`, a silhouette. The ratings are loaded into
+players: they get `unknown.png`, a silhouette. From each photo it also samples a skin
+colour (cheeks) and hair colour (crown) that `kit.gdshader` applies to the sprite's skin
+and hair palette ramps (indices 219-227 and 215-218); players without a photo keep FIFA
+96's own colours. A cap or headband in the photo gives the wrong hair colour. The ratings are loaded into
 `Footballer.stats` but don't change play yet.
 
 ## Rebuilding the assets
