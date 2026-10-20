@@ -13,6 +13,7 @@ func _initialize() -> void:
 	match_script.fouls_on = false
 	match_script.cards_on = false
 	m = load("res://scenes/main.tscn").instantiate()
+	m.referee_cone = false  # he sees every foul: this test isn't about him (referee_test is)
 	m.autoplay = true
 	root.add_child(m)
 	m.event.connect(func(kind, t): events.append("%s:%s" % [kind, t.short]))

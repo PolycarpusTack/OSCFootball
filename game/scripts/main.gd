@@ -31,6 +31,14 @@ const FOUL_MISS := 0.4  # a slide that misses the ball takes the man this often
 # chance of a yellow and of a straight red for a foul, before aggression (0.7 → 1.3x)
 const CARD_ODDS := {"behind": [0.45, 0.1], "front": [0.12, 0.0]}
 const OFF_PITCH := Vector2(-500.0, -500.0)  # where a sent-off player waits out the match
+# Chaos referee: a discipline meter per player, filled by what the referee sees (see offence)
+const DISCIPLINE := {"foul from behind": 45.0, "foul": 30.0, "body check": 20.0, "chaos": 20.0}
+const DISCIPLINE_FULL := 100.0  # a booking, and it starts again
+const DISCIPLINE_COOL := 1.5  # per second of play: he forgets, slowly
+const REF_VIEW_ANGLE := deg_to_rad(50.0)  # either side of where he looks
+const REF_VIEW_RANGE := 40.0 * Pitch.PX_PER_M
+const REF_NEAR := 6.0 * Pitch.PX_PER_M  # this close he sees it whichever way he looks
+const REF_TURN := 2.5  # radians a second his gaze turns toward the ball
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
 const SHOT_RANGE := 40.0 * Pitch.PX_PER_M  # a "shot" kick from farther out is a punt or a blind pass, not a shot
@@ -66,6 +74,8 @@ var home: Team
 var away: Team
 var humans: Array[Human] = []  # player 1 (home), player 2 (away) when two play
 var referee: Footballer  # follows play, points to free kicks and shows the cards; nobody's team
+var referee_gaze := Vector2.UP  # where he looks: toward the ball, turning at REF_TURN (Chaos view cone)
+var referee_cone := true  # false: he sees everything (tests that aren't about him)
 var state := State.KICKOFF
 var clock := 0.0  # seconds of play (stopped during goals, restarts, breaks)
 var half := 1
@@ -92,6 +102,7 @@ var _score_label := Label.new()  # "BRU  0 - 0  AND", between the two crests
 var _clock_label := Label.new()
 var _banner := Label.new()
 var _player_labels: Array[Label] = []  # each human's controlled player's name, as in FIFA 96
+var _discipline_bars: Array[ColorRect] = []  # Chaos: each human's player's discipline meter, under his portrait
 var _player_portraits: Array[TextureRect] = []  # and their pixel portrait above it
 var _energy_bars := {}  # Team -> ColorRect fill
 var _energy_labels := {}  # Team -> Label
@@ -283,6 +294,9 @@ func _physics_process(delta: float) -> void:
 						p.wish = Vector2.ZERO
 		State.PLAY:
 			clock += delta
+			for t in [home, away]:
+				for p in t.players:
+					p.discipline = maxf(0.0, p.discipline - DISCIPLINE_COOL * delta)
 			if clock >= half_end():
 				_end_half()
 				return
@@ -447,6 +461,15 @@ func aim_arrow(h: Human) -> Dictionary:
 
 ## Drawn on the pitch plane: the arrow's outline in pitch pixels, each corner projected.
 func _draw_aim_arrows() -> void:
+	if chaos and referee_cone:  # the referee's view cone, faint on the grass
+		var fan := PackedVector2Array()
+		var area := Pitch.field_rect().grow(Pitch.m(3.0))
+		for q in [referee.position] + range(9).map(func(i): return referee.position + referee_gaze.rotated(lerpf(-REF_VIEW_ANGLE, REF_VIEW_ANGLE, i / 8.0)) * REF_VIEW_RANGE):
+			var at := stadium.to_screen((q as Vector2).clamp(area.position, area.end))
+			fan.append(Vector2(at.x, at.y))
+		_aim_arrows.draw_colored_polygon(fan, Color(1.0, 1.0, 0.7, 0.13))
+		fan.append(fan[0])
+		_aim_arrows.draw_polyline(fan, Color(1.0, 1.0, 0.7, 0.3), 1.5)
 	for h in humans:
 		var a := aim_arrow(h)
 		if a.is_empty():
@@ -666,6 +689,7 @@ func _body_check_hits(o: Footballer, holder: Footballer) -> void:
 	o.touch_cooldown = 1.0
 	if holder.dodging():
 		return
+	offence(o, holder.position, "body check")
 	stadium.shake = maxf(stadium.shake, 0.2)
 	if randf() < body_check_odds(o, holder):
 		ball.release()
@@ -859,6 +883,10 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 	knock_down(victim, "fall")
 	victim.touch_cooldown = 0.0
 	by.touch_cooldown = 1.0  # one foul per slide: the slider is still on the ball for a moment
+	if not referee_sees(victim.position):  # Chaos: play on
+		flash("REF DIDN'T SEE IT!", 1.2)
+		event.emit("unseen foul", by.team)
+		return
 	victim.team.gain(Supers.GAIN.fouled)
 	event.emit("foul", by.team)
 	if in_penalty_area(victim.position, by.team):
@@ -871,6 +899,8 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 	var r := randf() / by.skill("aggression", 0.7, 1.3)
 	if r < odds[1]:
 		book(by, true)
+	elif chaos:  # yellows come from the discipline meter
+		offence(by, victim.position, "foul from behind" if from_behind else "foul")
 	elif r < odds[0] + odds[1]:
 		book(by, false)
 
@@ -963,10 +993,37 @@ func _caught_offside(p: Footballer) -> bool:
 func _referee_follows() -> void:
 	if referee.busy():
 		return
+	var to_ball := ball.position - referee.position
+	if to_ball.length() > 1.0:
+		var turn := REF_TURN * get_physics_process_delta_time()
+		referee_gaze = Vector2.from_angle(rotate_toward(referee_gaze.angle(), to_ball.angle(), turn))
 	var away_from := referee.position - ball.position
 	var target := ball.position + (away_from.normalized() if away_from.length() > 1.0 else Vector2.UP) * Pitch.m(12.0)
 	target = target.clamp(Vector2.ZERO, Pitch.field_rect().size)
 	referee.wish = ((target - referee.position) / 40.0).limit_length(1.0)
+
+
+## Chaos: whether the referee sees what happens at `pos` (in his view cone, or right by
+## him). In Classic he sees everything.
+func referee_sees(pos: Vector2) -> bool:
+	if not chaos or not referee_cone:
+		return true
+	var to := pos - referee.position
+	if to.length() < REF_NEAR:
+		return true
+	return to.length() < REF_VIEW_RANGE and absf(referee_gaze.angle_to(to)) < REF_VIEW_ANGLE
+
+
+## Chaos: `p` did something rough (`kind`, see DISCIPLINE) at `pos`. If the referee saw it,
+## p's discipline meter fills; full, he's booked (a second time: sent off) and it starts again.
+func offence(p: Footballer, pos: Vector2, kind: String) -> void:
+	if not chaos or p.sent_off or not referee_sees(pos):
+		return
+	p.discipline += DISCIPLINE[kind]
+	if p.discipline >= DISCIPLINE_FULL:
+		p.discipline = 0.0
+		if cards_on:
+			book(p, false)
 
 
 func in_penalty_area(pos: Vector2, defending: Team) -> bool:
@@ -1504,6 +1561,17 @@ func _add_hud() -> void:
 		face.position = Vector2(640.0 - 40.0 + (0.0 if humans.size() == 1 else (-300.0 if h.index == 0 else 300.0)), 720.0 - 160.0)
 		layer.add_child(face)
 		_player_portraits.append(face)
+		if chaos:
+			var back := ColorRect.new()
+			back.color = Color(0, 0, 0, 0.6)
+			back.position = face.position + Vector2(0, 84)
+			back.size = Vector2(80, 6)
+			layer.add_child(back)
+			var fill := ColorRect.new()  # in the back: shown and hidden with it
+			fill.position = Vector2(1, 1)
+			fill.size = Vector2(0, 4)
+			back.add_child(fill)
+			_discipline_bars.append(fill)
 	var help := Label.new()
 	if humans.size() == 1:
 		help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
@@ -1554,6 +1622,11 @@ func _update_hud() -> void:
 		var p := humans[i].controlled
 		_player_labels[i].text = p.display_name if p and not autoplay else ""
 		_player_portraits[i].texture = p.portrait if p and not autoplay else null
+		if i < _discipline_bars.size():
+			_discipline_bars[i].get_parent().visible = p != null and not autoplay
+			var d := p.discipline / DISCIPLINE_FULL if p and not autoplay else 0.0
+			_discipline_bars[i].size.x = 78.0 * d
+			_discipline_bars[i].color = Color(1.0, 0.85, 0.2).lerp(Color(1.0, 0.15, 0.1), d)
 
 
 func _update_energy_hud() -> void:

@@ -4,6 +4,7 @@ extends SceneTree
 
 func _initialize() -> void:
 	var m: Node = load("res://scenes/main.tscn").instantiate()
+	m.referee_cone = false  # he sees every foul: this test isn't about him (referee_test is)
 	root.add_child(m)
 	await create_timer(1.5).timeout  # kick-off pause
 	var ok := true

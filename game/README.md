@@ -51,6 +51,7 @@ godot --headless --path game -s res://tests/pause_test.gd                       
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
+godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -253,9 +254,10 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   from behind always does: a foul. A foul in the box gives a penalty (keeper guesses a side
   and dives); elsewhere a free kick where it happened. Within 30 m of goal the AI shoots it
   (freeKickAccuracy); you choose: Space shoots (aim with the stick), X passes.
-- Cards: a foul from behind is booked 45% of the time and is a straight red 10%; other fouls
-  12% yellow. Aggression scales both (0.7x → 1.3x). A second yellow is a red: the player
-  leaves the pitch for the rest of the match. A body check (Chaos) is never a foul.
+- Cards (Classic): a foul from behind is booked 45% of the time and is a straight red 10%;
+  other fouls 12% yellow. Aggression scales both (0.7x → 1.3x). A second yellow is a red: the
+  player leaves the pitch for the rest of the match. In Chaos the yellows come from the
+  discipline meter instead (see The Chaos referee); straight reds stay.
 - Offside: a player in the opponents' half, nearer their goal line than the ball and than the
   second-last defender when a teammate kicks it (a pass, a cross, a shot, a header), is
   offside if he plays that ball, also after it comes back off the woodwork: a free kick to
@@ -288,6 +290,19 @@ near 1, and the rest around 0.3.
 **Dizzy** (Chaos Football only): a player knocked down (slid, body checked, bowled over by a
 fireball, fouled) at 0.6 fatigue or more gets up seeing stars: DIZZY!, 2.5 s at half speed,
 and he can't touch the ball. Expect a few a match.
+
+## The Chaos referee (Chaos Football only)
+
+**View cone:** the referee looks toward the ball, turning to it at about 140° a second, and
+sees 50° either side of where he looks, up to 40 m (a faint wedge on the grass), and
+anything within 6 m of him. A foul he doesn't see goes unpunished: REF DIDN'T SEE IT!, the
+victim goes down, play on.
+
+**Discipline meter:** every player has one (your player's is the bar under his portrait).
+What the referee sees fills it: a foul from behind 45, another foul 30, a body check 20, a
+Chaos stun (Stego Sweep, Bass Drop) 20. Full, he's booked and it starts again: twice full is
+a red. It cools by 1.5 a second of play. A body check is never a foul, but the referee
+remembers it.
 
 ## Energy and super-shots (Chaos Football only)
 

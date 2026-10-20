@@ -291,6 +291,7 @@ func apply_move(a: Dictionary, dt: float) -> void:
 				if offset.length() > (32.0 if a.id == "stego" else 36.0) or o.position.distance_to(b.position) > 36.0: continue
 				if a.id == "stego" and (b.holder != o or offset.normalized().dot(aim) < 0.3): continue
 				if stun(o, 0.4 if a.id == "stego" else 0.45):
+					match_game.offence(p, o.position, "chaos")
 					if b.holder == o: strike(p, aim, 150.0, 45.0, "tackle")
 					hits += 1
 					if hits >= (1 if a.id == "stego" else 2): break

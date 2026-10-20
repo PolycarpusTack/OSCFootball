@@ -10,6 +10,7 @@ func _initialize() -> void:
 	var match_script: GDScript = load("res://scripts/main.gd")  # Match; the class can't be named here
 	match_script.half_minutes = 2
 	m = load("res://scenes/main.tscn").instantiate()
+	m.referee_cone = false  # he sees every foul: this test isn't about him (referee_test is)
 	m.autoplay = true
 	root.add_child(m)
 	await create_timer(1.6).timeout
