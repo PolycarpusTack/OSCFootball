@@ -34,15 +34,21 @@ func feed(dir: int, now: float) -> void:
 		_history.pop_front()
 
 
-## The combo just completed (checked when the shoot button goes down), or "".
-func detect(now: float, combos := COMBOS) -> String:
-	var recent: Array[int] = []
+## The directions entered within the last WINDOW seconds, neutral left out.
+func recent(now: float) -> Array[int]:
+	var dirs: Array[int] = []
 	for e in _history:
 		if e[1] >= now - WINDOW and e[0] != 5:
-			recent.append(e[0])
+			dirs.append(e[0])
+	return dirs
+
+
+## The combo just completed (checked when the shoot button goes down), or "".
+func detect(now: float, combos := COMBOS) -> String:
+	var dirs := recent(now)
 	for c in combos:
 		var seq: Array = c[1]
-		if recent.size() >= seq.size() and recent.slice(recent.size() - seq.size()) == seq:
+		if dirs.size() >= seq.size() and dirs.slice(dirs.size() - seq.size()) == seq:
 			return c[0]
 	return ""
 

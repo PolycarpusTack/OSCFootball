@@ -36,3 +36,8 @@ game/*.zip
 
 # standalone builds (contain the EA assets: personal use only)
 build/
+
+# other games kept next to the ISO for reference (EA data: never commit)
+*.7z
+jeu-*/
+FIFA 98/
