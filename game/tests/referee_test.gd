@@ -1,6 +1,7 @@
 extends SceneTree
-## Chaos referee: the view cone (unseen fouls go unpunished) and the discipline meter
-## (seen fouls and body checks fill it; full is a booking).
+## Chaos referee: the view cone (unseen fouls go unpunished), the discipline meter (seen
+## fouls and body checks fill it; full is a booking), his mood with each side (angry, he
+## books faster) and "Sorry, ref!" (special just after your foul: half of it taken back).
 ## godot --headless --path game -s res://tests/referee_test.gd
 
 var m: Node
@@ -54,6 +55,7 @@ func _initialize() -> void:
 
 	# a seen body check fills it too
 	await _play()
+	m.ref_mood.clear()  # calm: the meter fills at the plain rate
 	_look_at(c)
 	var barger = m.away.players[7]
 	var holder = m.home.players[9]
@@ -91,6 +93,55 @@ func _initialize() -> void:
 	print("cooling: 50 -> %.1f after 2 s of play" % cooler.discipline)
 	ok = ok and cooler.discipline < 48.5 and cooler.discipline > 45.0
 
+	# his mood: a seen foul makes him angrier with that side, and the next one counts for more
+	await _play()
+	m.ref_mood.clear()
+	var rough = m.away.players[3]
+	_look_at(c)
+	victim.position = c
+	m._foul(rough, victim, false)
+	var mood: float = m.ref_mood.get(m.away, 0.0)
+	await _play()
+	_look_at(c)
+	victim.position = c
+	var before_second: float = rough.discipline
+	m._foul(rough, victim, false)
+	print("mood with AND after a foul: %.0f; the next foul adds %.1f (30 when calm)" % [mood, rough.discipline - before_second])
+	ok = ok and is_equal_approx(mood, 15.0) and rough.discipline - before_second > 30.0
+
+	# "Sorry, ref!" in time: a booking he'd earned becomes a warning (Brugge is the human side)
+	m.autoplay = false
+	var sorry = m.home.players[6]
+	var foe = m.away.players[6]
+	await _play()
+	m.ref_mood.clear()
+	_look_at(c)
+	foe.position = c
+	sorry.discipline = 90.0
+	events.clear()
+	m._foul(sorry, foe, false)
+	await _press("special")
+	await create_timer(0.8).timeout
+	print("sorry in time: events %s, discipline %.0f, booked %s" % [events, sorry.discipline, sorry.yellow])
+	ok = ok and events.has("sorry ref:BRU") and not sorry.yellow and is_equal_approx(sorry.discipline, m.WARNING_AT)
+
+	# too slow: booked; and "sorry" at a stoppage with nothing to be sorry for is dissent
+	var late = m.home.players[7]
+	await _play()
+	m.ref_mood.clear()
+	_look_at(c)
+	foe.position = c
+	late.discipline = 90.0
+	events.clear()
+	m._foul(late, foe, false)
+	await create_timer(0.8).timeout
+	var calm: float = m.ref_mood.get(m.home, 0.0)
+	await _press("special")
+	print("no sorry: events %s; then sorry too late: mood with BRU %.0f -> %.0f" % [events, calm, m.ref_mood.get(m.home, 0.0)])
+	ok = ok and events.has("yellow card:BRU") and late.yellow and events.has("dissent:BRU") \
+		and is_equal_approx(m.ref_mood.get(m.home, 0.0), calm + m.DISSENT)
+	m.autoplay = true
+
 	print("REFEREE TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
 
@@ -105,4 +156,12 @@ func _look_at(pos: Vector2) -> void:
 func _play() -> void:
 	while m.state != 1:
 		await physics_frame
+	await physics_frame
+
+
+## Press and release one of player 1's buttons.
+func _press(action: String) -> void:
+	Input.action_press(action)
+	await physics_frame
+	Input.action_release(action)
 	await physics_frame

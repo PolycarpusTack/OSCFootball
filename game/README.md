@@ -52,7 +52,7 @@ godot --headless --path game -s res://tests/pause_test.gd                       
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
-godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter
+godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!"
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -322,6 +322,17 @@ What the referee sees fills it: a foul from behind 45, another foul 30, a body c
 Chaos stun (Stego Sweep, Bass Drop) 20. Full, he's booked and it starts again: twice full is
 a red. It cools by 1.5 a second of play. A body check is never a foul, but the referee
 remembers it.
+
+**His mood:** two bars over his head, one per side (home on top, in the sides' colours).
+Every offence he sees makes him angrier with that side (half of what it adds to the meter),
+and the angrier he is, the faster the meters of that side fill: up to double when furious.
+It cools by 1 a second of play.
+
+**"Sorry, ref!":** press special (E; player 2 comma; pad Y) just after a foul of yours has
+been called, while SORRY? shows over his head (half a second). He takes back half of what
+it added to the meter and to his mood, and a booking it earned becomes a warning (the meter
+left at 80). Pressed at a stoppage with nothing to be sorry for, it's dissent: +20 mood
+with your side. Only for fouls, which stop play; the AI never says sorry.
 
 ## Energy and super-shots (Chaos Football only)
 

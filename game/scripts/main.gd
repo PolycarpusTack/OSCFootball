@@ -35,6 +35,12 @@ const OFF_PITCH := Vector2(-500.0, -500.0)  # where a sent-off player waits out 
 const DISCIPLINE := {"foul from behind": 45.0, "foul": 30.0, "body check": 20.0, "chaos": 20.0}
 const DISCIPLINE_FULL := 100.0  # a booking, and it starts again
 const DISCIPLINE_COOL := 1.5  # per second of play: he forgets, slowly
+const MOOD_FULL := 100.0  # the referee's mood with a side: 0 calm .. MOOD_FULL furious
+const MOOD_GAIN := 0.5  # mood per point of discipline a seen offence adds
+const MOOD_COOL := 1.0  # per second of play
+const DISSENT := 20.0  # mood for "sorry" pressed when there's nothing to be sorry for
+const PARRY_WINDOW := 0.5  # seconds after a called foul in which "Sorry, ref!" (special) counts
+const WARNING_AT := 80.0  # a booking talked down to a warning leaves the meter here
 const REF_VIEW_ANGLE := deg_to_rad(50.0)  # either side of where he looks
 const REF_VIEW_RANGE := 40.0 * Pitch.PX_PER_M
 const REF_NEAR := 6.0 * Pitch.PX_PER_M  # this close he sees it whichever way he looks
@@ -76,6 +82,7 @@ var away: Team
 var humans: Array[Human] = []  # player 1 (home), player 2 (away) when two play
 var referee: Footballer  # follows play, points to free kicks and shows the cards; nobody's team
 var referee_gaze := Vector2.UP  # where he looks: toward the ball, turning at REF_TURN (Chaos view cone)
+var ref_mood := {}  # Team -> his mood with that side (Chaos); angry, he books faster
 var referee_cone := true  # false: he sees everything (tests that aren't about him)
 var state := State.KICKOFF
 var clock := 0.0  # seconds of play (stopped during goals, restarts, breaks)
@@ -108,6 +115,8 @@ var _player_portraits: Array[TextureRect] = []  # and their pixel portrait above
 var _energy_bars := {}  # Team -> ColorRect fill
 var _energy_labels := {}  # Team -> Label
 var _aim_arrows := Node2D.new()  # each human's shot arrow on the grass (see aim_arrow)
+var _mood_meter := Node2D.new()  # Chaos: his mood with each side, over his head
+var _parry := {}  # a human side's called foul still open to "Sorry, ref!": p, added, left
 var stats: MatchStats  # for the full-time screen
 var _full_time_panel := PanelContainer.new()
 var chaos_actions: ChaosActions
@@ -185,6 +194,10 @@ func _ready() -> void:
 	_aim_arrows.z_index = -3000  # on the grass, under every player
 	_aim_arrows.draw.connect(_draw_aim_arrows)
 	add_child(_aim_arrows)
+	_mood_meter.top_level = true
+	_mood_meter.z_index = 3000  # over the players
+	_mood_meter.draw.connect(_draw_mood_meter)
+	add_child(_mood_meter)
 	add_child(DebugOverlay.new(self))
 	add_child(PauseMenu.new())
 	stats = MatchStats.new(self)
@@ -256,6 +269,7 @@ func _physics_process(delta: float) -> void:
 	chaos_actions.tick(delta)
 	_update_hud()
 	_referee_follows()
+	_sorry_ref(delta)
 	if _banner_left > 0.0:
 		_banner_left -= delta
 		if _banner_left <= 0.0:
@@ -300,6 +314,7 @@ func _physics_process(delta: float) -> void:
 			for t in [home, away]:
 				for p in t.players:
 					p.discipline = maxf(0.0, p.discipline - DISCIPLINE_COOL * delta)
+				ref_mood[t] = maxf(0.0, ref_mood.get(t, 0.0) - MOOD_COOL * delta)
 			if clock >= half_end():
 				_end_half()
 				return
@@ -336,6 +351,7 @@ func _process(delta: float) -> void:
 	referee.place(stadium.to_screen(referee.position))
 	ball.place(stadium.to_screen)
 	_aim_arrows.queue_redraw()
+	_mood_meter.queue_redraw()
 	_update_energy_hud()
 
 
@@ -1018,15 +1034,79 @@ func referee_sees(pos: Vector2) -> bool:
 
 
 ## Chaos: `p` did something rough (`kind`, see DISCIPLINE) at `pos`. If the referee saw it,
-## p's discipline meter fills; full, he's booked (a second time: sent off) and it starts again.
+## p's discipline meter fills, faster the angrier he is with p's side, and so does his mood.
+## Full, p is booked (a second time: sent off) and it starts again. A human side's foul
+## (play has stopped) waits PARRY_WINDOW for "Sorry, ref!" first.
 func offence(p: Footballer, pos: Vector2, kind: String) -> void:
 	if not chaos or p.sent_off or not referee_sees(pos):
 		return
-	p.discipline += DISCIPLINE[kind]
+	var added: float = DISCIPLINE[kind] * (1.0 + ref_mood.get(p.team, 0.0) / MOOD_FULL)
+	p.discipline += added
+	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + added * MOOD_GAIN)
+	if state != State.PLAY and not autoplay and human_for(p.team) != null:
+		if not _parry.is_empty():  # the one before it is judged now
+			_judge(_parry.p)
+		_parry = {"p": p, "added": added, "left": PARRY_WINDOW}
+		return
+	_judge(p)
+
+
+## A full discipline meter: a booking, and it starts again.
+func _judge(p: Footballer) -> void:
 	if p.discipline >= DISCIPLINE_FULL:
 		p.discipline = 0.0
 		if cards_on:
 			book(p, false)
+
+
+## Chaos, "Sorry, ref!" (special, at a stoppage): just after your side's called foul, he
+## takes back half of it, and a booking it earned becomes a warning. Any other time it's
+## dissent and he gets angrier with your side. The open window is judged when it ends.
+func _sorry_ref(delta: float) -> void:
+	if not chaos or autoplay:
+		return
+	for h in humans:
+		if not Input.is_action_just_pressed(h.action("special")):
+			continue
+		if not _parry.is_empty() and _parry.p.team == h.team:
+			var p: Footballer = _parry.p
+			p.discipline -= _parry.added / 2.0
+			ref_mood[h.team] = maxf(0.0, ref_mood.get(h.team, 0.0) - _parry.added * MOOD_GAIN)
+			if p.discipline >= DISCIPLINE_FULL:
+				p.discipline = WARNING_AT
+				flash("SORRY, REF!\nWARNING: %s" % p.display_name, 1.5)
+			else:
+				flash("SORRY, REF!", 1.0)
+			event.emit("sorry ref", h.team)
+			_parry = {}
+		elif state in [State.RESTART, State.PENALTY]:
+			ref_mood[h.team] = minf(MOOD_FULL, ref_mood.get(h.team, 0.0) + DISSENT)
+			flash("DISSENT!", 1.0)
+			event.emit("dissent", h.team)
+	if not _parry.is_empty():
+		_parry.left -= delta
+		if _parry.left <= 0.0:
+			var p: Footballer = _parry.p
+			_parry = {}
+			_judge(p)
+
+
+## Over the referee's head: his mood with each side, a bar in each side's colour (home on
+## top), and "SORRY?" while a called foul is open to "Sorry, ref!".
+func _draw_mood_meter() -> void:
+	if not chaos or autoplay:
+		return
+	var at := stadium.to_screen(referee.position, Pitch.m(2.6))
+	var w := 48.0
+	for i in 2:
+		var t: Team = [home, away][i]
+		var bar := Rect2(at.x - w / 2.0, at.y - 16.0 + i * 8.0, w, 6.0)
+		_mood_meter.draw_rect(bar, Color(0.15, 0.15, 0.15, 0.7))
+		_mood_meter.draw_rect(Rect2(bar.position, Vector2(w * ref_mood.get(t, 0.0) / MOOD_FULL, bar.size.y)), t.colour)
+		_mood_meter.draw_rect(bar, Color(1, 1, 1, 0.6), false, 1.0)
+	if not _parry.is_empty():
+		_mood_meter.draw_string(ThemeDB.fallback_font, Vector2(at.x - w / 2.0, at.y - 22.0), "SORRY?",
+			HORIZONTAL_ALIGNMENT_CENTER, w, 14, Color(1.0, 0.9, 0.2))
 
 
 func in_penalty_area(pos: Vector2, defending: Team) -> bool:
