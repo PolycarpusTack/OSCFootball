@@ -7,6 +7,7 @@ extends Node2D
 const RUN_SPEED := 170.0
 const ACCEL := 900.0
 const REACH := 14.0
+const PRESS_BLOCK_M := 2.5  # an opponent this close when a pass is played may block it (see _past_the_press)
 const KICK_CONTACT := 0.15  # seconds into a kick animation the foot meets the ball
 const THROW_RELEASE := 0.67  # the throw-in animation's hands are empty from tick 21 (frame 4)
 const HEAD_HEIGHT := 36.0  # pitch pixels: where a throw-in leaves the hands
@@ -208,6 +209,16 @@ func kick_to(target: Vector2, speed: float, lift: float, anim := "shoot", kind :
 		return
 	ball.kick((target - ball.position).normalized() * speed, lift)
 	ball.kick_kind = kind
+	if kind in ["pass", "cross"]:
+		_past_the_press()
+
+
+## A pass or cross just played: an opponent right on top of him only sometimes gets a foot to
+## it (his interceptions); otherwise it's past him before he can react.
+func _past_the_press() -> void:
+	for o in opponents.players:
+		if o.position.distance_to(position) < Pitch.m(PRESS_BLOCK_M) and randf() > o.skill("interceptions", 0.15, 0.45):
+			o.touch_cooldown = maxf(o.touch_cooldown, 0.25)
 
 
 ## Shoot at `target`: finishing (longShots from beyond 20 m, or `stat`) decides how far
