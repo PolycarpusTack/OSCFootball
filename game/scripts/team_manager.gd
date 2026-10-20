@@ -1,3 +1,4 @@
+class_name TeamManager
 extends Control
 ## Team management, between team select and the match options: CM3's squad and tactics screens
 ## in OSCF's colours. Each human sets up their club (player 1, then player 2 when two play); the

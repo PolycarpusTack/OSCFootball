@@ -19,6 +19,14 @@ player and Space on another swaps them, ←/→ change the stats shown. Tab goes
 and Space pick the formation, B shows its shape with or without the ball. Enter is done, Esc
 goes back. Each club's sheet is saved (`user://lineups.json`).
 
+In the match, Esc → **Substitutions**: the eleven on the pitch with how fresh they are and the
+bench; Space on a player, then Space on a sub, and he comes on at the next stoppage (three per
+side, none for a man sent off). Players wear down over the match, more with poor stamina, and
+only get some of it back at half time. The CPU side has a manager: at stoppages it now and then
+looks at the game (score, men on the pitch, territory, the clock) and at how you play (down the
+wings or through the middle, who hurts it most), then changes formation, brings on fresh legs
+and puts a man-marker on your danger man. Its decisions go up on the banner.
+
 ## Run
 
 ```
@@ -32,6 +40,8 @@ godot --headless --path game -s res://tests/teams_test.gd                       
 godot --headless --path game -s res://tests/ratings_test.gd                      # ratings: pace, finishing, keepers, tackling
 godot --headless --path game -s res://tests/formations_test.gd                   # formations: shape with and without the ball
 godot --headless --path game -s res://tests/lineup_test.gd                       # team sheet: pick, swap, formation change
+godot --headless --path game -s res://tests/subs_test.gd                         # condition, substitutions
+godot --headless --path game -s res://tests/cpu_manager_test.gd                  # the CPU manager's decisions
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)

@@ -2,10 +2,10 @@ class_name PauseMenu
 extends CanvasLayer
 ## Esc (gamepad Start) pauses the match: the whole tree stops (clock, AI, ball, wind-ups)
 ## while this layer keeps running. Up / Down picks, Space / Enter (A) chooses, Esc / Start
-## (B) resumes.
+## (B) resumes. SUBSTITUTIONS opens the human sides' SubsMenu.
 
 const TITLE := "res://scenes/title.tscn"
-const ITEMS := ["RESUME", "RESTART MATCH", "QUIT TO TITLE"]
+const ITEMS := ["RESUME", "SUBSTITUTIONS", "RESTART MATCH", "QUIT TO TITLE"]
 
 var _pick := 0
 var _box := Control.new()  # the menu: shown and hidden as one
@@ -73,6 +73,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			set_paused(true)
 			get_viewport().set_input_as_handled()
 		return
+	if not _box.visible:  # the substitutions screen is open and takes the keys
+		return
 	get_viewport().set_input_as_handled()
 	if toggle or (button and event.button_index == JOY_BUTTON_B):
 		set_paused(false)
@@ -91,8 +93,13 @@ func _choose() -> void:
 		0:
 			set_paused(false)
 		1:
+			var menu := SubsMenu.new(get_parent(), get_parent().humans.map(func(h): return h.team))
+			menu.on_close = func(): _box.visible = true
+			_box.visible = false
+			add_sibling(menu)
+		2:
 			get_tree().paused = false
 			get_tree().reload_current_scene()
-		2:
+		3:
 			get_tree().paused = false
 			get_tree().change_scene_to_file(TITLE)

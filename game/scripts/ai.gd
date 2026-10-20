@@ -34,6 +34,11 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 			p.wish = ((chase_spot(m) - p.position) / 10.0).limit_length(1.0)
 			_maybe_body_check(p, m)
 			_maybe_slide(p, m)
+		elif _marking(p, m):
+			p.ai_state = "mark"
+			var mark := p.marking.position
+			var goal_side := mark + (p.team.goal_defended() - mark).normalized() * Pitch.m(1.5)
+			p.wish = ((goal_side - p.position) / 20.0).limit_length(1.0)
 		else:
 			p.ai_state = "defend"
 			_hold_position(p, m, false)
@@ -52,6 +57,14 @@ static func chase_spot(m: Match) -> Vector2:
 	if m.ball.z > 12.0 or m.ball.vz > 0.0:  # in the air: where it comes down
 		return m.ball_target()
 	return m.ball.position + m.ball.velocity * 0.25
+
+
+## Man-marking someone who is in our half?
+static func _marking(p: Footballer, m: Match) -> bool:
+	var mark := p.marking
+	if mark == null or mark.sent_off or not mark in mark.team.players:
+		return false
+	return mark.position.distance_to(p.team.goal_defended()) < Pitch.field_rect().size.x / 2.0
 
 
 ## Where `p` runs to meet a cross from a teammate out wide in the opponents' half: the forwards to the near

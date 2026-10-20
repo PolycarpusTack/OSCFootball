@@ -31,6 +31,7 @@ const FOUL_MISS := 0.4  # a slide that misses the ball takes the man this often
 # chance of a yellow and of a straight red for a foul, before aggression (0.7 → 1.3x)
 const CARD_ODDS := {"behind": [0.45, 0.1], "front": [0.12, 0.0]}
 const OFF_PITCH := Vector2(-500.0, -500.0)  # where a sent-off player waits out the match
+const SUB_BANNER := 2.5  # seconds the substitutions and the CPU manager's news stay up
 # Chaos referee: a discipline meter per player, filled by what the referee sees (see offence)
 const DISCIPLINE := {"foul from behind": 45.0, "foul": 30.0, "body check": 20.0, "chaos": 20.0}
 const DISCIPLINE_FULL := 100.0  # a booking, and it starts again
@@ -142,6 +143,7 @@ var _aim_arrows := Node2D.new()  # each human's shot arrow on the grass (see aim
 var _mood_meter := Node2D.new()  # Chaos: his mood with each side, over his head
 var _parry := {}  # a human side's called foul still open to "Sorry, ref!": p, added, left
 var stats: MatchStats  # for the full-time screen
+var cpu: CpuManager  # the CPU side's manager; null when two people play
 var _full_time_panel := PanelContainer.new()
 var chaos_actions: ChaosActions
 
@@ -175,31 +177,18 @@ func _ready() -> void:
 	add_child(stadium)
 	var squads := _load_squads()
 	for t in [home, away]:
-		var names: Array = squads.get(t.name, [])
+		var squad: Array = squads.get(t.name, [])
+		var names := squad
 		var formation := home_formation if t == home else away_formation
 		var sheet := home_sheet if t == home else away_sheet
-		if not sheet.is_empty() and names.size() >= 11:
-			names = Lineup.entries(names, Lineup.checked(names, formation, sheet).xi)
+		if squad.size() >= 11:
+			var picked := Lineup.checked(squad, formation, sheet) if not sheet.is_empty() else Lineup.auto_pick(squad, formation)
+			names = Lineup.entries(squad, picked.xi)
+			t.bench = Lineup.entries(squad, picked.bench)
+		t.formation = formation
 		var slots: Array = Team.FORMATIONS[formation]
 		for i in slots.size():
-			var p := Footballer.new()
-			p.team = t
-			p.role = slots[i].role
-			p.home = slots[i].spot
-			p.attack_spot = slots[i].attack
-			p.defend_spot = slots[i].defend
-			p.ball = ball
-			p.opponents = away if t == home else home
-			p.number = names[i].number if i < names.size() else i + 1
-			p.name = "%s %d" % [t.short, p.number]
-			p.display_name = names[i].name if i < names.size() else p.name
-			if i < names.size():
-				p.stats = names[i].get("stats", {})
-				if names[i].has("skin"):
-					p.skin = Color(names[i].skin)
-					p.hair = Color(names[i].hair)
-				p.portrait = _portrait(names[i])
-			p.speed_factor = 1.0 if human_for(t) else 0.94
+			var p := _new_player(t, slots[i], names[i] if i < names.size() else {"number": i + 1})
 			t.players.append(p)
 			world.add_child(p)
 
@@ -235,6 +224,8 @@ func _ready() -> void:
 	add_child(DebugOverlay.new(self))
 	add_child(PauseMenu.new())
 	stats = MatchStats.new(self)
+	if not human_for(away):
+		cpu = CpuManager.new(self, away)
 	chaos_actions = ChaosActions.new(self)
 	add_child(chaos_actions)
 	kickoff(away)
@@ -282,6 +273,7 @@ func nearest_opponent_distance(p: Footballer) -> float:
 func kickoff(kicking: Team) -> void:
 	state = State.KICKOFF
 	_state_left = 1.2
+	var news := _stoppage_news()
 	var centre := Pitch.field_rect().get_center()
 	ball.stop_at(centre)
 	referee.position = centre + Vector2(0.0, -Pitch.m(12.0))
@@ -299,6 +291,138 @@ func kickoff(kicking: Team) -> void:
 	taker.position = centre - Vector2(kicking.side * 12.0, 0)
 	ball.take(taker)
 	_banner.text = ""
+	if news != "":
+		flash(news, SUB_BANNER)
+
+
+## A player for `t` in formation slot `slot`, from his squad entry (data/squads.json; just a
+## "number" when the club has no squad).
+func _new_player(t: Team, slot: Dictionary, entry: Dictionary) -> Footballer:
+	var p := Footballer.new()
+	p.team = t
+	p.role = slot.role
+	p.home = slot.spot
+	p.attack_spot = slot.attack
+	p.defend_spot = slot.defend
+	p.ball = ball
+	p.opponents = opponent(t)
+	p.number = entry.number
+	p.name = "%s %d" % [t.short, p.number]
+	p.display_name = entry.get("name", p.name)
+	if entry.has("id"):
+		p.entry = entry
+		p.stats = entry.get("stats", {})
+		if entry.has("skin"):
+			p.skin = Color(entry.skin)
+			p.hair = Color(entry.hair)
+		p.portrait = _portrait(entry)
+	p.speed_factor = 1.0 if human_for(t) else 0.94
+	return p
+
+
+## Ask for `entry` (from `t`'s bench) to replace the player in `slot` at the next stoppage.
+## False when it isn't allowed: no substitutions left, he isn't on the bench, the man in
+## that slot was sent off or is already going off.
+func request_sub(t: Team, slot: int, entry: Dictionary) -> bool:
+	if t.subs_left - t.pending.size() <= 0 or not entry in t.bench or t.players[slot].sent_off:
+		return false
+	for s in t.pending:
+		if s[0] == slot or s[1] == entry:
+			return false
+	t.pending.append([slot, entry])
+	return true
+
+
+## A stoppage: the CPU manager's decisions, then the substitutions waiting for it. Banner text, or "".
+func _stoppage_news() -> String:
+	var lines: Array = cpu.at_stoppage() if cpu else []
+	var subs := _make_subs()
+	if subs != "":
+		lines.append(subs)
+	return "\n".join(lines)
+
+
+## `t` lines up in formation `f` from now on: the keeper stays in goal, the others take the slot
+## that suits them best one by one (a slot like the one he had first); men sent off fill the last.
+func change_formation(t: Team, f: String) -> void:
+	var slots: Array = Team.FORMATIONS[f]
+	var free: Array = t.players.slice(1).filter(func(p): return not p.sent_off)
+	var out: Array = t.players.slice(1).filter(func(p): return p.sent_off)
+	var order: Array = [t.players[0]]
+	for i in range(1, slots.size()):
+		var best: Footballer = null
+		var best_score := -INF
+		for p in free:
+			var score: float = float(p.entry.get("overall", 60)) * Lineup.fit(p.entry.get("position", ""), slots[i].pos) \
+				+ (5.0 if p.role == slots[i].role else 0.0)
+			if score > best_score:
+				best = p
+				best_score = score
+		if best:
+			free.erase(best)
+			order.append(best)
+		else:
+			order.append(out.pop_front())
+	for i in order.size():
+		var p: Footballer = order[i]
+		t.players[i] = p
+		p.role = slots[i].role
+		p.home = slots[i].spot
+		p.attack_spot = slots[i].attack
+		p.defend_spot = slots[i].defend
+	t.formation = f
+
+
+## The players in slots `a` and `b` of `t` trade places in the formation.
+func swap_slots(t: Team, a: int, b: int) -> void:
+	var p := t.players[a]
+	var q := t.players[b]
+	var spot := [p.role, p.home, p.attack_spot, p.defend_spot]
+	p.role = q.role
+	p.home = q.home
+	p.attack_spot = q.attack_spot
+	p.defend_spot = q.defend_spot
+	q.role = spot[0]
+	q.home = spot[1]
+	q.attack_spot = spot[2]
+	q.defend_spot = spot[3]
+	t.players[a] = q
+	t.players[b] = p
+
+
+## Substitutions waiting for the next stoppage made: each sub takes his man's place (slot,
+## position on the pitch), the man is parked off it for good. The banner text, or "".
+func _make_subs() -> String:
+	var lines := []
+	for t in [home, away]:
+		for s in t.pending:
+			var off: Footballer = t.players[s[0]]
+			if off.sent_off:
+				continue
+			var p := _new_player(t, {"role": off.role, "spot": off.home, "attack": off.attack_spot, "defend": off.defend_spot}, s[1])
+			p.position = off.position
+			p.facing = off.facing
+			t.players[s[0]] = p
+			off.add_sibling(p)
+			t.bench.erase(s[1])
+			t.subs_left -= 1
+			t.subbed_off.append(off)
+			if ball.holder == off:
+				ball.release()
+			for h in humans:
+				if h.controlled == off:
+					h.controlled = null
+					h.switch_lock = 0.0
+			off.controlled = false
+			off.visible = false
+			off.position = OFF_PITCH
+			off.velocity = Vector2.ZERO
+			off.wish = Vector2.ZERO
+			off.touch_cooldown = INF
+			event.emit("substitution", t)
+			lines.append("%s  ON  %s\n%s  OFF  %s" % [t.short, p.display_name, t.short, off.display_name])
+		t.pending.clear()
+	return "SUBSTITUTION\n" + "\n".join(lines) if lines else ""
 
 
 ## Leaving mid slow-mo (F1, the pause menu) mustn't leave the game running at Thunder Strike speed.
@@ -352,6 +476,11 @@ func _physics_process(delta: float) -> void:
 						p.wish = Vector2.ZERO
 		State.PLAY:
 			clock += delta
+			for t in [home, away]:
+				for p in t.players:
+					p.wear(delta / half_seconds * 45.0)
+			if cpu:
+				cpu.tick(delta)
 			if _referee_temper(delta):
 				return
 			for t in [home, away]:
@@ -1373,6 +1502,7 @@ func _end_half() -> void:
 			for t in [home, away]:
 				for p in t.players:
 					p.fatigue *= 0.5  # the break
+					p.condition = minf(1.0, p.condition + Footballer.HALF_TIME_REST)
 		state = State.HALF_TIME
 		_state_left = 4.0
 		flash("HALF TIME" if half == 1 else "EXTRA TIME\nGOLDEN GOAL WINS" if half == 2 else "EXTRA TIME\nSECOND HALF", 4.0)
@@ -1543,6 +1673,9 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 	_restart_kind = kind
 	play_sfx("whistle")
 	flash(kind.to_upper(), 1.2)
+	var news := _stoppage_news()
+	if news != "":
+		flash(news, SUB_BANNER)
 	event.emit(kind, team)
 	var taker := team.keeper()
 	if kind != "goal kick":

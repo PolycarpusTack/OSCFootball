@@ -73,7 +73,12 @@ var short: String
 var side := 1  # +1 attacks toward the right-hand goal, -1 toward the left
 var score := 0
 var energy := 0.0  # super-shot meter, 0..Supers.MAX_ENERGY
-var players: Array[Footballer] = []
+var players: Array[Footballer] = []  # by formation slot (see FORMATIONS)
+var formation := DEFAULT_FORMATION
+var bench: Array = []  # squad entries (data/squads.json) of the subs still to come on
+var subs_left := 3
+var pending: Array = []  # substitutions waiting for the next stoppage: [slot, squad entry]
+var subbed_off: Array[Footballer] = []  # parked off the pitch like a sent-off player
 var colour: Color  # main shirt colour, for the HUD
 var outfield_material: ShaderMaterial
 var keeper_material: ShaderMaterial

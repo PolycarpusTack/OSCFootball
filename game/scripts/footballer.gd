@@ -23,6 +23,10 @@ const BODY_CHECK_SPEED := 360.0
 # and goes off walking or standing; it costs top speed and acceleration
 const TIRING := [0.012, 0.0045]  # per second running: stamina 40 .. 95
 const RECOVERY := 0.004  # per second at walking pace or standing
+# condition (CM3's): worn down over the whole match, more with poor stamina, and fatigue never
+# recovers below what it has lost; a little comes back at half time, subs come on fresh
+const WEAR := [0.012, 0.0042]  # condition lost per match minute running (a quarter of it walking): stamina 40 .. 95
+const HALF_TIME_REST := 0.06
 const TIRED_SPEED := 0.15  # top speed lost when spent
 const TIRED_ACCEL := 0.2
 const DIZZY_SPEED := 0.5
@@ -35,6 +39,7 @@ var number := 0
 var display_name := ""  # shown in the HUD (the node name stays unique: "BRU 7")
 var portrait: Texture2D  # pixel portrait for the HUD, or null
 var stats := {}  # EA SPORTS FC ratings by name (data/squads.json), empty without a squad
+var entry := {}  # his squad entry (data/squads.json): position, overall, ...; empty without a squad
 var skin := Color.TRANSPARENT  # from the player's photo; transparent: FIFA 96's default
 var hair := Color.TRANSPARENT
 var pass_marker := Color.TRANSPARENT  # set while a human's pass would go to this player
@@ -53,6 +58,8 @@ var think_timer := 0.0  # AI: time until the next pass/shoot decision
 var ai_state := ""  # AI: what it last decided to do, for the debug overlay
 var charge := 0.0  # 0..1 while the shoot button is held; drawn as a ring
 var fatigue := 0.0  # 0 fresh .. 1 spent (see TIRING); the control ring empties with it
+var condition := 1.0  # 1 fresh .. 0 spent over the match (see WEAR): fatigue stays at least 1 - condition
+var marking: Footballer = null  # AI: the opponent he man-marks when defending (see CpuManager)
 var yellow := false  # booked: a second yellow is a red
 var sent_off := false  # red card: parked off the pitch for the rest of the match (see Match.book)
 var dizzy_left := 0.0  # Chaos: seeing stars after a knockdown when tired (see Match.knock_down)
@@ -128,6 +135,12 @@ func skill(stat: String, lo: float, hi: float) -> float:
 	return lerpf(lo, hi, clampf((v - 40.0) / 55.0, 0.0, 1.0))
 
 
+## `match_minutes` of play gone by: wear his condition down.
+func wear(match_minutes: float) -> void:
+	var rate := skill("stamina", WEAR[0], WEAR[1]) * (1.0 if velocity.length() > 120.0 else 0.25)
+	condition = maxf(0.0, condition - rate * match_minutes)
+
+
 func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
@@ -136,7 +149,7 @@ func _physics_process(delta: float) -> void:
 	if chaos_lock:
 		w = Vector2.ZERO
 	var running := velocity.length() > 120.0
-	fatigue = clampf(fatigue + (skill("stamina", TIRING[0], TIRING[1]) if running else -RECOVERY) * delta, 0.0, 1.0)
+	fatigue = clampf(fatigue + (skill("stamina", TIRING[0], TIRING[1]) if running else -RECOVERY) * delta, 1.0 - condition, 1.0)
 	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14) * (1.0 - TIRED_SPEED * fatigue)
 	if has_ball():
 		top *= skill("dribbling", 0.9, 1.0)
