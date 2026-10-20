@@ -37,6 +37,7 @@ godot --headless --path game -s res://tests/rules_test.gd                       
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
+godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -62,7 +63,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | X from out wide in the last third | to a teammate in (or running into) the box: a cross, at head height |
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick; a throw-in always goes into the field) |
 | Space / X at a free kick | Space: shoot (aim with the stick, freeKickAccuracy), X: pass |
-| Space at full time | back to the title screen |
+| Space at full time | back to the title screen (the full-time screen shows possession, goals, shots, saves, fouls, cards, offsides and corners for each side, and the Man of the Match) |
 | Esc (gamepad Start) | pause: the clock, the AI and the ball stop. ↑/↓ and Space/Enter pick Resume, Restart match or Quit to title; Esc again resumes |
 | F1 | animation viewer |
 | **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass, Right Ctrl switch. P1 switches with Q |
@@ -247,6 +248,11 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   free kick to the defenders where he is. Not judged on restarts.
 - With fouls off in the match options a slide never takes the man (no free kicks or penalties
   from fouls); with cards off fouls are never booked; with offside off nobody is offside.
+- Match stats (`match_stats.gd`) are counted from the match's events: a shot is a shot,
+  header or volley at goal or a super-shot from within 40 m (kicks marked as shots from
+  farther out are punts and blind passes). Possession is the time on the ball (or since the
+  last touch) in open play. Shoot-out kicks don't count. Man of the Match: 4 points a goal,
+  2 a save, 1 a shot; level, the winners' man.
 - The referee (in black) follows play about 12 m from the ball, points to free kicks and
   shows the cards.
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots

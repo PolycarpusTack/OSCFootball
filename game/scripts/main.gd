@@ -3,7 +3,7 @@ extends Node2D
 ## Player 1's club (home) vs the AI's or player 2's (away), 11 a side: rules, possession,
 ## control switching, fouls, penalties, goals and kick-offs.
 
-signal event(kind: String, team: Team)  # goal, save, foul, penalty, or a super's name
+signal event(kind: String, team: Team)  # goal, shot, save, foul, penalty, or a super's name
 
 enum State { KICKOFF, PLAY, GOAL, PENALTY, RESTART, HALF_TIME, FULL_TIME, SHOOTOUT }
 
@@ -31,6 +31,7 @@ const CARD_ODDS := {"behind": [0.45, 0.1], "front": [0.12, 0.0]}
 const OFF_PITCH := Vector2(-500.0, -500.0)  # where a sent-off player waits out the match
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
+const SHOT_RANGE := 40.0 * Pitch.PX_PER_M  # a "shot" kick from farther out is a punt or a blind pass, not a shot
 const SHOOTOUT_KICKS := 5  # each, before sudden death
 const SHOOTOUT_ORDER := [9, 10, 8, 7, 6, 5, 4, 3, 2, 1, 0]  # squad slots: strikers first, the keeper last
 const CELEBRATIONS := ["aeropla", "celdnce", "celdnc2", "celdpnc", "vctflip", "victrun", "duckflp"]
@@ -92,6 +93,8 @@ var _player_portraits: Array[TextureRect] = []  # and their pixel portrait above
 var _energy_bars := {}  # Team -> ColorRect fill
 var _energy_labels := {}  # Team -> Label
 var _aim_arrows := Node2D.new()  # each human's shot arrow on the grass (see aim_arrow)
+var stats: MatchStats  # for the full-time screen
+var _full_time_panel := PanelContainer.new()
 
 
 func _ready() -> void:
@@ -157,6 +160,7 @@ func _ready() -> void:
 		add_child(_sfx_players[i])
 	ball.kicked.connect(func(speed): play_sfx("kick" if speed > 400.0 else "pass", linear_to_db(clampf(speed / 600.0, 0.3, 1.0))))
 	ball.kicked.connect(func(_speed): _note_offside())
+	ball.kicked.connect(func(_speed): _note_shot.call_deferred())  # deferred: the kicker sets kick_kind after the kick
 	ball.bounced.connect(func(speed): play_sfx("bounce", linear_to_db(clampf(speed / 300.0, 0.15, 0.7))))
 	_add_hud()
 	_aim_arrows.top_level = true
@@ -165,6 +169,7 @@ func _ready() -> void:
 	add_child(_aim_arrows)
 	add_child(DebugOverlay.new(self))
 	add_child(PauseMenu.new())
+	stats = MatchStats.new(self)
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
 
@@ -285,6 +290,7 @@ func _physics_process(delta: float) -> void:
 						AI.think(p, self, delta)
 			_clear_keepers_box()
 			_resolve_possession(delta)
+			stats.tick(delta)
 			if ball.holder and ball.holder.role != "G":
 				ball.holder.team.gain(Supers.GAIN.dribble * delta)
 			_check_frame()
@@ -883,6 +889,16 @@ func offside_players(passer: Footballer) -> Array[Footballer]:
 	return out
 
 
+## A kick at goal: a shot, header or volley at it, or a super-shot, from within SHOT_RANGE.
+func _note_shot() -> void:
+	var p := ball.last_touch
+	if p == null or not (ball.kick_kind == "shot" or Supers.LIST.has(ball.kick_kind)):
+		return
+	var goal := p.team.goal_attacked()
+	if p.position.distance_to(goal) < SHOT_RANGE and ball.velocity.dot(goal - p.position) > 0.0:
+		event.emit("shot", p.team)
+
+
 ## On every kick in open play: who's offside for it (see _caught_offside).
 func _note_offside() -> void:
 	_offside.clear()
@@ -1008,8 +1024,8 @@ func _full_time(heading: String) -> void:
 	var line := "%s %d - %d %s" % [home.short, home.score, away.score, away.short]
 	if not shootout.is_empty():
 		line += "\n%s WIN %d - %d ON PENALTIES" % [winner.short, shootout[winner].count(true), shootout[opponent(winner)].count(true)]
-	flash("%s\n%s" % [heading, line], 1e9)
 	event.emit("full time", home)
+	_show_full_time(heading, line)
 	if winner:
 		for p in winner.players:
 			if not p.sent_off:
@@ -1092,6 +1108,45 @@ func _shootout_decided() -> bool:
 func _shootout_taker(t: Team) -> Footballer:
 	var on := SHOOTOUT_ORDER.filter(func(i): return not t.players[i].sent_off)
 	return t.players[on[shootout[t].size() % on.size()]]
+
+
+## The full-time screen: result, the stats side by side, Man of the Match.
+func _show_full_time(heading: String, result: String) -> void:
+	_banner.text = ""
+	for c in _full_time_panel.get_children():
+		c.queue_free()
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 6)
+	_full_time_panel.add_child(column)
+	column.add_child(_screen_label(heading, 44, Color(1, 0.85, 0.2)))
+	column.add_child(_screen_label(result, 30, Color.WHITE))
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 40)
+	column.add_child(grid)
+	var rows := [["POSSESSION", "%d%%" % stats.possession_percent(home), "%d%%" % stats.possession_percent(away)]]
+	for stat in MatchStats.ROWS:
+		rows.append([stat.to_upper(), str(stats.counts[home][stat]), str(stats.counts[away][stat])])
+	for r in rows:
+		grid.add_child(_screen_label(r[1], 22, home.colour.lightened(0.4)))
+		grid.add_child(_screen_label(r[0], 20, Color(0.85, 0.85, 0.85)))
+		grid.add_child(_screen_label(r[2], 22, away.colour.lightened(0.4)))
+	var motm := stats.man_of_the_match()
+	if motm:
+		column.add_child(_screen_label("MAN OF THE MATCH: %s (%s)" % [motm.display_name, motm.team.short], 24, Color(1, 0.85, 0.2)))
+	column.add_child(_screen_label("SPACE: BACK TO THE TITLE", 16, Color(0.8, 0.8, 0.8)))
+	_full_time_panel.visible = true
+
+
+func _screen_label(text: String, font_size: int, colour: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", colour)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 6)
+	return l
 
 
 func flash(text: String, seconds: float) -> void:
@@ -1430,6 +1485,15 @@ func _add_hud() -> void:
 	_banner.add_theme_color_override("font_outline_color", Color.BLACK)
 	_banner.add_theme_constant_override("outline_size", 12)
 	layer.add_child(_banner)
+	_full_time_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_full_time_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_full_time_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0.02, 0.03, 0.06, 0.88)
+	box.set_content_margin_all(24.0)
+	_full_time_panel.add_theme_stylebox_override("panel", box)
+	_full_time_panel.visible = false
+	layer.add_child(_full_time_panel)
 
 
 func _crest(t: Team) -> TextureRect:
