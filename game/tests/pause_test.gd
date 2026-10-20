@@ -1,5 +1,7 @@
 extends SceneTree
 ## The pause menu: Esc stops the clock, the AI and the ball; Esc or "Resume" goes on.
+## "Substitutions" opens its screen and Esc comes back from it, and the move list still opens
+## after it.
 ## godot --headless --path game -s res://tests/pause_test.gd
 
 var m: Node
@@ -34,6 +36,31 @@ func _initialize() -> void:
 	print("Esc, Enter on Resume: paused then %s, now %s" % [was_paused, paused])
 	ok = ok and was_paused and not paused
 
+	# down twice to SUBSTITUTIONS: its screen, still paused; Esc back to the menu; up to MOVES
+	_press(KEY_ESCAPE)
+	await physics_frame
+	_press(KEY_DOWN)
+	_press(KEY_DOWN)
+	_press(KEY_ENTER)
+	await process_frame
+	var subs := _subs_menu()
+	print("Substitutions: its screen open %s, paused %s" % [subs != null, paused])
+	ok = ok and subs != null and paused
+	_press(KEY_ESCAPE)
+	await process_frame
+	var menu = m.get_children().filter(func(c): return _is(c, "pause_menu.gd"))[0]
+	print("Esc: screen closed %s, menu back %s, paused %s" % [_subs_menu() == null, menu._box.visible, paused])
+	ok = ok and _subs_menu() == null and menu._box.visible and paused
+	_press(KEY_UP)
+	_press(KEY_ENTER)
+	await process_frame
+	print("then MOVES: the move list opens %s" % menu._moves.visible)
+	ok = ok and menu._moves.visible
+	_press(KEY_ESCAPE)
+	_press(KEY_ESCAPE)
+	await physics_frame
+	ok = ok and not paused
+
 	print("PAUSE TEST ", "PASSED" if ok else "FAILED")
 	quit(0 if ok else 1)
 
@@ -46,6 +73,17 @@ func _press(key: Key) -> void:
 		e.pressed = down
 		Input.parse_input_event(e)
 	Input.flush_buffered_events()
+
+
+func _subs_menu() -> Node:
+	for c in m.get_children():
+		if _is(c, "subs_menu.gd") and not c.is_queued_for_deletion():
+			return c
+	return null
+
+
+func _is(node: Node, script_file: String) -> bool:  # the classes can't be named here (see formations_test)
+	return node.get_script() != null and node.get_script().resource_path.ends_with(script_file)
 
 
 func _positions() -> Array:

@@ -2,14 +2,17 @@ class_name PauseMenu
 extends CanvasLayer
 ## Esc (gamepad Start) pauses the match: the whole tree stops (clock, AI, ball, wind-ups)
 ## while this layer keeps running. Up / Down picks, Space / Enter (A) chooses, Esc / Start
-## (B) resumes. SUBSTITUTIONS opens the human sides' SubsMenu.
+## (B) resumes. MOVES shows the command list (MoveList), SUBSTITUTIONS the human sides' SubsMenu.
 
 const TITLE := "res://scenes/title.tscn"
-const ITEMS := ["RESUME", "SUBSTITUTIONS", "RESTART MATCH", "QUIT TO TITLE"]
+const ITEMS := ["RESUME", "MOVES", "SUBSTITUTIONS", "RESTART MATCH", "QUIT TO TITLE"]
 
 var _pick := 0
 var _box := Control.new()  # the menu: shown and hidden as one
 var _rows: Array[Label] = []
+var _moves := MoveList.new()  # the command list, over the menu while it's open
+var _pad := false  # the last menu input came from a gamepad
+var _subs_open := false  # the substitutions screen (its own layer, its own input) is up
 
 
 func _ready() -> void:
@@ -35,6 +38,7 @@ func _ready() -> void:
 	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_box.visible = false
 	add_child(_box)
+	add_child(_moves)
 	_refresh()
 
 
@@ -58,6 +62,7 @@ func _refresh() -> void:
 func set_paused(on: bool) -> void:
 	get_tree().paused = on
 	_box.visible = on
+	_moves.visible = false
 	_pick = 0
 	_refresh()
 
@@ -73,10 +78,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			set_paused(true)
 			get_viewport().set_input_as_handled()
 		return
-	if not _box.visible:  # the substitutions screen is open and takes the keys
+	if _subs_open:  # the substitutions screen takes the keys
 		return
 	get_viewport().set_input_as_handled()
-	if toggle or (button and event.button_index == JOY_BUTTON_B):
+	_pad = button
+	var back: bool = toggle or (button and event.button_index == JOY_BUTTON_B)
+	if _moves.visible:
+		if back:
+			_moves.visible = false
+			_box.visible = true
+		else:
+			_moves.handle(event)
+		return
+	if back:
 		set_paused(false)
 	elif (key and event.physical_keycode in [KEY_UP, KEY_W]) or (button and event.button_index == JOY_BUTTON_DPAD_UP):
 		_pick = (_pick + ITEMS.size() - 1) % ITEMS.size()
@@ -89,17 +103,31 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _choose() -> void:
-	match _pick:
-		0:
+	match ITEMS[_pick]:
+		"RESUME":
 			set_paused(false)
-		1:
+		"MOVES":
+			_box.visible = false
+			_open_moves()
+		"SUBSTITUTIONS":
 			var menu := SubsMenu.new(get_parent(), get_parent().humans.map(func(h): return h.team))
-			menu.on_close = func(): _box.visible = true
+			menu.on_close = func():
+				_subs_open = false
+				_box.visible = true
+			_subs_open = true
 			_box.visible = false
 			add_sibling(menu)
-		2:
+		"RESTART MATCH":
 			get_tree().paused = false
 			get_tree().reload_current_scene()
-		3:
+		"QUIT TO TITLE":
 			get_tree().paused = false
 			get_tree().change_scene_to_file(TITLE)
+
+
+## The move list for player 1's controlled player (all lines in autoplay), in his kit.
+func _open_moves() -> void:
+	var m := get_parent() as Match
+	var h: Human = m.humans[0] if m and not m.humans.is_empty() and not m.autoplay else null
+	var p := h.controlled if h else null
+	_moves.open(p.role if p else "", h.team if h else (m.home if m else null), _pad)
