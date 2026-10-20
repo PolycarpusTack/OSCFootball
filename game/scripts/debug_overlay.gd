@@ -42,7 +42,7 @@ func _draw_overlay() -> void:
 		for p: Footballer in t.players:
 			var s := m.stadium.to_screen(p.position)
 			var head := Vector2(s.x, s.y - 44.0 * s.z)
-			var text := "%d %s" % [p.number, "HUMAN" if p == m.controlled else p.ai_state]
+			var text := "%d %s" % [p.number, "HUMAN" if p.controlled else p.ai_state]
 			if p.busy():
 				text += " BUSY"
 			if p.touch_cooldown > 0.0:

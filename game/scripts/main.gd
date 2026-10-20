@@ -1,6 +1,6 @@
 class_name Match
 extends Node2D
-## Club Brugge (human) vs Anderlecht (AI), 11 a side: rules, possession,
+## Club Brugge (player 1) vs Anderlecht (AI or player 2), 11 a side: rules, possession,
 ## control switching, fouls, penalties, goals and kick-offs.
 
 signal event(kind: String, team: Team)  # goal, save, foul, penalty, or a super's name
@@ -29,12 +29,12 @@ const THUNDER_HOLD := 0.8  # seconds to hold shoot for a Thunder Strike (needs a
 ## Chaos Football: energy bars and super-shots. Classic Football: plain FIFA 96 rules,
 ## same players, ball and AI. Chosen on the title screen; kept between matches.
 static var chaos := true
+static var players := 1  # people playing: 1 (vs the AI) or 2 (Brugge vs Anderlecht); title screen
 
 var ball: Ball
 var home: Team
 var away: Team
-var human: Team
-var controlled: Footballer
+var humans: Array[Human] = []  # player 1 (Brugge), player 2 (Anderlecht) when two play
 var state := State.KICKOFF
 var clock := 0.0  # seconds of play (stopped during goals, restarts, breaks)
 var half := 1
@@ -51,17 +51,15 @@ var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_next := 0
 var _score_label := Label.new()
 var _banner := Label.new()
-var _player_label := Label.new()  # the controlled player's name, as in FIFA 96
+var _player_labels: Array[Label] = []  # each human's controlled player's name, as in FIFA 96
 var _energy_bars := {}  # Team -> ColorRect fill
 var _energy_labels := {}  # Team -> Label
-var _combo := ComboInput.new()
-var _charging := false
-var _charge_time := 0.0
-var _pending_combo := ""
 
 
 func _ready() -> void:
 	_bind_inputs()
+	Human.bind_inputs(players)
+	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	add_child(stadium)
 	var world := Node2D.new()  # simulation in pitch pixels; visuals are placed through the stadium camera
 	add_child(world)
@@ -74,7 +72,9 @@ func _ready() -> void:
 	away = Team.anderlecht()
 	home.side = 1
 	away.side = -1
-	human = home
+	humans.append(Human.new(home, 0))
+	if players == 2:
+		humans.append(Human.new(away, 1))
 	var squads := _load_squads()
 	for t in [home, away]:
 		var names: Array = squads.get(t.name, [])
@@ -86,7 +86,7 @@ func _ready() -> void:
 			p.ball = ball
 			p.number = names[i].number if i < names.size() else i + 1
 			p.name = names[i].name if i < names.size() else "%s %d" % [t.short, p.number]
-			p.speed_factor = 1.0 if t == human else 0.94
+			p.speed_factor = 1.0 if human_for(t) else 0.94
 			t.players.append(p)
 			world.add_child(p)
 
@@ -100,6 +100,11 @@ func _ready() -> void:
 	add_child(DebugOverlay.new(self))
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
+
+
+## A gamepad was plugged in or out: hand the pads out again.
+func _on_joy_connection_changed(_device: int, _connected: bool) -> void:
+	Human.bind_inputs(players)
 
 
 func opponent(t: Team) -> Team:
@@ -185,9 +190,10 @@ func _physics_process(delta: float) -> void:
 			if not autoplay:
 				_switch_control()
 			for t in [home, away]:
+				var h := human_for(t)
 				for p in t.players:
-					if p == controlled:
-						_human_input(p)
+					if h and p == h.controlled:
+						_human_input(h, p)
 					else:
 						AI.think(p, self, delta)
 			_resolve_possession(delta)
@@ -199,8 +205,8 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	var focus := ball.position
-	if controlled:
-		focus = focus.lerp(controlled.position, 0.25)
+	if humans.size() == 1 and humans[0].controlled:  # two players: just follow the ball
+		focus = focus.lerp(humans[0].controlled.position, 0.25)
 	stadium.follow(focus, delta)
 	for t in [home, away]:
 		for p in t.players:
@@ -209,55 +215,66 @@ func _process(delta: float) -> void:
 	_update_energy_hud()
 
 
+## The human (player 1 or 2) playing `t`, or null for an AI side.
+func human_for(t: Team) -> Human:
+	for h in humans:
+		if h.team == t:
+			return h
+	return null
+
+
 func _switch_control() -> void:
-	var best: Footballer
-	if ball.holder and ball.holder.team == human:
-		best = ball.holder
-	else:
-		best = chaser(human)
-		if controlled and controlled.role != "G" and not ball.holder == controlled \
-				and controlled.position.distance_to(ball.position) < best.position.distance_to(ball.position) + 30.0:
-			best = controlled
-	if best != controlled:
-		if controlled:
-			controlled.controlled = false
-		controlled = best
-		controlled.controlled = true
+	for h in humans:
+		var current := h.controlled
+		var best: Footballer
+		if ball.holder and ball.holder.team == h.team:
+			best = ball.holder
+		else:
+			best = chaser(h.team)
+			if current and current.role != "G" and not ball.holder == current \
+					and current.position.distance_to(ball.position) < best.position.distance_to(ball.position) + 30.0:
+				best = current
+		if best != current:
+			if current:
+				current.controlled = false
+			h.controlled = best
+			best.controlled = true
+			best.marker = h.marker()
 
 
 ## Shoot fires on release: tap = normal shot, hold = more power, hold THUNDER_HOLD with
 ## a full bar = Thunder Strike. A combo entered just before pressing (see ComboInput)
 ## turns the shot into that super if the bar allows.
-func _human_input(p: Footballer) -> void:
-	p.wish = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+func _human_input(h: Human, p: Footballer) -> void:
+	p.wish = h.stick()
 	var now := clock
-	_combo.feed(ComboInput.direction(p.wish, p.team.side), now)
+	h.combo.feed(ComboInput.direction(p.wish, p.team.side), now)
 	var aim: Vector2 = Anims.FACING_VECTORS[p.facing] if p.wish == Vector2.ZERO else p.wish.normalized()
-	if _charging and not p.has_ball():
-		_charging = false
+	if h.charging and not p.has_ball():
+		h.charging = false
 		p.charge = 0.0
-	if Input.is_action_just_pressed("shoot"):
+	if Input.is_action_just_pressed(h.action("shoot")):
 		if p.has_ball():
-			_charging = true
-			_charge_time = 0.0
-			_pending_combo = _combo.detect(now)
+			h.charging = true
+			h.charge_time = 0.0
+			h.pending_combo = h.combo.detect(now)
 		else:
 			p.slide()
-	elif _charging:
-		_charge_time += get_physics_process_delta_time()
+	elif h.charging:
+		h.charge_time += get_physics_process_delta_time()
 		var full := p.team.energy >= Supers.cost("thunder")
-		p.charge = minf(_charge_time / THUNDER_HOLD, 1.0) if full else minf(_charge_time / 0.6, 0.99)
-		if not Input.is_action_pressed("shoot") or _charge_time > 1.5:
-			_charging = false
+		p.charge = minf(h.charge_time / THUNDER_HOLD, 1.0) if full else minf(h.charge_time / 0.6, 0.99)
+		if not Input.is_action_pressed(h.action("shoot")) or h.charge_time > 1.5:
+			h.charging = false
 			p.charge = 0.0
 			var target := _aim_shot(p, aim)
-			var fired := _charge_time >= THUNDER_HOLD and try_super(p, "thunder", _aim_shot(p, (p.team.goal_attacked() - p.position).normalized()))
-			if not fired and _pending_combo != "":
-				fired = try_super(p, _pending_combo, target)
+			var fired := h.charge_time >= THUNDER_HOLD and try_super(p, "thunder", _aim_shot(p, (p.team.goal_attacked() - p.position).normalized()))
+			if not fired and h.pending_combo != "":
+				fired = try_super(p, h.pending_combo, target)
 			if not fired:
-				p.shoot(target, clampf(_charge_time / 0.6, 0.0, 1.0))
-			_combo.clear()
-	elif Input.is_action_just_pressed("pass") and p.has_ball():
+				p.shoot(target, clampf(h.charge_time / 0.6, 0.0, 1.0))
+			h.combo.clear()
+	elif Input.is_action_just_pressed(h.action("pass")) and p.has_ball():
 		var mate := AI.best_pass(p, self, aim)
 		if mate:
 			p.pass_to(mate)
@@ -428,8 +445,9 @@ func _penalty(delta: float) -> void:
 	taker.wish = Vector2.ZERO
 	var goal := taker.team.goal_attacked()
 	var corner := -1.0 if randf() < 0.5 else 1.0
-	if taker.team == human and not autoplay:
-		var lean := Input.get_axis("move_up", "move_down")
+	var h := human_for(taker.team)
+	if h and not autoplay:
+		var lean := Input.get_axis(h.action("move_up"), h.action("move_down"))
 		if lean != 0.0:
 			corner = signf(lean)
 	taker.shoot(goal + Vector2(0, corner * GOAL_HALF_WIDTH * 0.75))
@@ -545,13 +563,13 @@ func _restart(delta: float) -> void:
 	taker.wish = Vector2.ZERO
 	if _state_left > 0.0:
 		return
-	var human_taker := taker.team == human and not autoplay
+	var h := human_for(taker.team)
 	var aim := Vector2.ZERO
-	if human_taker:
-		aim = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	if h and not autoplay:
+		aim = h.stick()
 		if aim != Vector2.ZERO:
 			taker.facing = Anims.facing_from(aim)
-		var go := Input.is_action_just_pressed("pass") or Input.is_action_just_pressed("shoot")
+		var go := Input.is_action_just_pressed(h.action("pass")) or Input.is_action_just_pressed(h.action("shoot"))
 		if not go and _state_left > -6.0:
 			return
 	var mate := AI.best_pass(taker, self, aim.normalized())
@@ -658,20 +676,30 @@ func _add_hud() -> void:
 		layer.add_child(label)
 		_energy_bars[t] = fill
 		_energy_labels[t] = label
-	_player_label.add_theme_font_size_override("font_size", 22)
-	_player_label.add_theme_color_override("font_color", Footballer.MARKER)
-	_player_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	_player_label.add_theme_constant_override("outline_size", 6)
-	_player_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	_player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_player_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_player_label.position.y -= 40
-	layer.add_child(_player_label)
+	for h in humans:  # alone: centred; two players: player 1 left, player 2 right
+		var label := Label.new()
+		label.add_theme_font_size_override("font_size", 22)
+		label.add_theme_color_override("font_color", h.marker())
+		label.add_theme_color_override("font_outline_color", Color.BLACK)
+		label.add_theme_constant_override("outline_size", 6)
+		label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		label.position.y -= 40
+		if humans.size() == 2:
+			label.position.x += -300.0 if h.index == 0 else 300.0
+		layer.add_child(label)
+		_player_labels.append(label)
 	var help := Label.new()
-	help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
-	if chaos:
-		help.text += "Combos then Space: ↓↘→ FIREBALL, ←→ BANANA (50)  Hold Space, full bar: THUNDER  "
-	help.text += "F1: anims  F3: debug"
+	if humans.size() == 1:
+		help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
+		if chaos:
+			help.text += "Combos then Space: ↓↘→ FIREBALL, ←→ BANANA (50)  Hold Space, full bar: THUNDER  "
+	else:
+		help.text = "P1: WASD, Space shoot, X pass   P2: arrows, Enter shoot, Right Shift pass   "
+		if chaos:
+			help.text += "↓↘→ / ←→ then shoot: supers   "
+	help.text += "Pad: stick, B shoot, A pass   F1: anims  F3: debug"
 	help.position = Vector2(12, 690)
 	layer.add_child(help)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
@@ -688,7 +716,9 @@ func _update_hud() -> void:
 	var minutes := clock / HALF_SECONDS * 45.0  # match time: 45 minutes a half
 	_score_label.text = " %s  %d - %d  %s     %02d:%02d " % [home.short, home.score, away.score, away.short,
 		int(minutes), int(fmod(minutes, 1.0) * 60.0)]
-	_player_label.text = controlled.name if controlled and not autoplay else ""
+	for i in humans.size():
+		var p := humans[i].controlled
+		_player_labels[i].text = p.name if p and not autoplay else ""
 
 
 func _update_energy_hud() -> void:
@@ -703,18 +733,14 @@ func _update_energy_hud() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if state == State.FULL_TIME and event.is_action_pressed("shoot"):
+	if state == State.FULL_TIME and (event.is_action_pressed("shoot") or event.is_action_pressed("p2_shoot")):
 		get_tree().change_scene_to_file("res://scenes/title.tscn")
 	if event.is_action_pressed("anim_viewer"):
 		get_tree().change_scene_to_file("res://scenes/anim_viewer.tscn")
 
 
 static func _bind_inputs() -> void:
-	var keys := {
-		"move_up": [KEY_W, KEY_UP], "move_down": [KEY_S, KEY_DOWN],
-		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
-		"shoot": [KEY_SPACE], "pass": [KEY_X, KEY_K], "anim_viewer": [KEY_F1], "debug_overlay": [KEY_F3],
-	}
+	var keys := {"anim_viewer": [KEY_F1], "debug_overlay": [KEY_F3]}  # players' controls: Human.bind_inputs
 	for action in keys:
 		if InputMap.has_action(action):
 			continue

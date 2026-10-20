@@ -16,6 +16,7 @@ var number := 0
 var home := Vector2.ZERO  # formation spot as a pitch fraction (see Team.FORMATION)
 var ball: Ball
 var controlled := false
+var marker := MARKER  # control ring colour: which human controls this player
 var speed_factor := 1.0
 var wish := Vector2.ZERO
 var velocity := Vector2.ZERO
@@ -101,7 +102,7 @@ func _draw_marks() -> void:
 	_marks.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.4))
 	_marks.draw_circle(Vector2.ZERO, 9.0, Color(0, 0, 0, 0.3))
 	if controlled:
-		_marks.draw_arc(Vector2.ZERO, 12.0, 0.0, TAU, 24, MARKER, 2.0)
+		_marks.draw_arc(Vector2.ZERO, 12.0, 0.0, TAU, 24, marker, 2.0)
 
 
 ## Kick the ball toward `target` (pitch position) with the given speed and lift.

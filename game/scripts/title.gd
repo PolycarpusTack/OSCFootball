@@ -1,7 +1,8 @@
 extends Control
 ## Boot sequence as in FIFA 96: the intro FMV (any key skips), then the title screen
-## with the title music until Space / Enter kicks off. Left / Right picks Chaos or
-## Classic Football (Match.chaos).
+## with the title music until Space / Enter (gamepad A, B or Start) kicks off.
+## Left / Right picks Chaos or Classic Football (Match.chaos), Up / Down one or two
+## players (Match.players).
 
 const INTRO := "res://assets/video/intro.ogv"
 const TITLE := "res://assets/ui/title/000_0000.png"
@@ -48,7 +49,7 @@ func _ready() -> void:
 	_mode.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_mode.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mode.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_mode.position.y -= 90
+	_mode.position.y -= 130
 	_mode.visible = false
 	add_child(_mode)
 	_show_mode()
@@ -79,17 +80,26 @@ func _show_title() -> void:
 
 
 func _show_mode() -> void:
-	_mode.text = "◀  %s  ▶" % ("CHAOS FOOTBALL" if Match.chaos else "CLASSIC FOOTBALL")
+	_mode.text = "◀  %s  ▶\n▲  %s  ▼" % ["CHAOS FOOTBALL" if Match.chaos else "CLASSIC FOOTBALL",
+		"1 PLAYER" if Match.players == 1 else "2 PLAYERS"]
 	_mode.add_theme_color_override("font_color", Color(1, 0.85, 0.2) if Match.chaos else Color.WHITE)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not (event is InputEventKey and event.pressed and not event.echo) and not (event is InputEventMouseButton and event.pressed):
+	var key: bool = event is InputEventKey and event.pressed and not event.echo
+	var button: bool = event is InputEventJoypadButton and event.pressed
+	if not key and not button and not (event is InputEventMouseButton and event.pressed):
 		return
 	if _video.visible:
 		_show_title()
-	elif event is InputEventKey and event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]:
+	elif (key and event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]) \
+			or (button and event.button_index in [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]):
 		Match.chaos = not Match.chaos
 		_show_mode()
-	elif event is InputEventMouseButton or event.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]:
+	elif (key and event.keycode in [KEY_UP, KEY_DOWN, KEY_W, KEY_S]) \
+			or (button and event.button_index in [JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN]):
+		Match.players = 3 - Match.players
+		_show_mode()
+	elif event is InputEventMouseButton or (key and event.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]) \
+			or (button and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START]):
 		get_tree().change_scene_to_file(MATCH)

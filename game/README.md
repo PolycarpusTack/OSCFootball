@@ -3,12 +3,13 @@
 A new football game built on the original FIFA 96 assets. Personal project: the art,
 audio and data belong to EA, so don't distribute it with them.
 
-Current state: **Club Brugge (you) vs Anderlecht (AI)**, 11 a side, 4-4-2, two halves,
+Current state: **Club Brugge (player 1) vs Anderlecht (AI, or player 2)**, 11 a side, 4-4-2, two halves,
 in FIFA 96's 3D "Virtual Stadium" (original crowd, advertising boards, nets) seen from a
 side-on TV camera. Boots like the original: intro FMV (any key skips), title screen with
 the title music, Space to kick off. Left/Right on the title screen picks **Chaos Football**
 (energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
-same players, ball and AI, no energy, combos are just shots).
+same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players.
+Gamepads work on the title screen too (d-pad to choose, A/B/Start to kick off).
 
 ## Run
 
@@ -18,6 +19,7 @@ godot --path game res://scenes/main.tscn   # straight to the match
 godot --editor --path game     # open in the Godot editor
 godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test (Chaos)
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
+godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 ```
@@ -25,6 +27,7 @@ godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed
 | Key | Action |
 |---|---|
 | Left / Right on the title screen | Chaos or Classic Football |
+| Up / Down on the title screen | 1 player (vs the AI) or 2 players (Brugge vs Anderlecht) |
 | WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow) |
 | Space | with the ball: shoot on release, hold for power (aims at goal when you face it). Without: slide tackle |
 | ↓ ↘ → then Space | **Fireball** (50 energy): flat rocket, bowls over anyone in the way |
@@ -35,6 +38,8 @@ godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick) |
 | Space at full time | back to the title screen |
 | F1 | animation viewer |
+| **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass |
+| **Gamepad** | left stick or d-pad: move, B: shoot (hold for power) / slide, A: pass. Alone: any pad is player 1's. Two players: one pad goes to player 2 (player 1 keeps the keyboard), two pads are player 1's and player 2's in connection order. Plugging in or out rebinds |
 | F3 | debug overlay: each player's AI decision (chase, defend, support, dribble, pass, shoot, keeper states), BUSY while an animation locks them, touch cooldown; ball holder and last touch; frame rate, match state, clock, ball height/speed, energy |
 
 ## Layout
@@ -49,6 +54,7 @@ scripts/footballer.gd     a player's body: movement, animation, carrying the bal
 scripts/ball.gd           ball with height, bounce, friction, holder (dribbler); super-shot flight and trails
 scripts/supers.gd         super-shot table (cost, animation, speed, colour) and energy rewards
 scripts/combo_input.gd    fighting-game input buffer; directions relative to the goal you attack
+scripts/human.gd          one person at the controls: team, controlled player, shot/combo state; keyboard and gamepad bindings
 scripts/kit.gdshader      recolours kit parts of the original palette-indexed sprites
 scripts/anim_library.gd   autoload "Anims": all player animations, frame lookup by facing (8 dirs)
 scripts/pitch.gd          grass from the original texture, markings to real dimensions (18 px/m), baked into the 3D pitch's texture
