@@ -248,6 +248,8 @@ static func _maybe_slide(p: Footballer, m: Match) -> void:
 	if randf() < p.skill("aggression", 0.002, 0.012):
 		p.facing = Anims.facing_from(m.ball.position - p.position)
 		p.slide()
+		if p.sliding():
+			m.effects.play("dust_puff", p.position)
 
 
 static func _hold_position(p: Footballer, m: Match, attacking: bool) -> void:

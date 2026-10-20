@@ -102,6 +102,15 @@ static func make_material(kit: Dictionary) -> ShaderMaterial:
 	return m
 
 
+## `kit` for our own RGBA art (Anims.own_art): the kit shader recolours the OSCF kit it's
+## drawn in. The keeper's art keeps its white, his gloves.
+static func own_art_material(kit: ShaderMaterial, keeper: bool) -> ShaderMaterial:
+	var m := kit.duplicate() as ShaderMaterial
+	m.set_shader_parameter("own_art", true)
+	m.set_shader_parameter("white_is_kit", not keeper)
+	return m
+
+
 ## Pitch position (pixels) for a formation spot, seen from this team's end.
 func to_pitch(spot: Vector2) -> Vector2:
 	var field := Pitch.field_rect()

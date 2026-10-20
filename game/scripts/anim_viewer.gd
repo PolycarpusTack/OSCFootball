@@ -9,12 +9,14 @@ var _speed := 1.0
 var _sprites: Array[Sprite2D] = []
 var _label := Label.new()
 var _kit: ShaderMaterial
+var _own_kit: ShaderMaterial
 
 
 func _ready() -> void:
 	_names = Anims.names()
 	_names.sort()
 	_kit = Team.from_league("Club Brugge").outfield_material
+	_own_kit = Team.own_art_material(_kit, false)
 	for facing in 8:
 		var s := Sprite2D.new()
 		s.centered = false
@@ -32,7 +34,8 @@ func _process(delta: float) -> void:
 	var anim: String = _names[_index]
 	for facing in 8:
 		var f := Anims.frame_at(anim, facing, _time)
-		_sprites[facing].material = null if Anims.own_art(anim) else _kit  # the referee's art is RGBA
+		var own: Material = null if anim.begins_with("ref_") else _own_kit  # the referee's art isn't recoloured
+		_sprites[facing].material = own if Anims.own_art(anim) else _kit
 		_sprites[facing].texture = f.tex
 		_sprites[facing].offset = f.offset
 		_sprites[facing].flip_h = f.flip

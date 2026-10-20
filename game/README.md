@@ -35,7 +35,8 @@ Rocket Throw, **Palm Barrage** (rapid keeper parries) and **Cyclone Scissor**
 striker's **Fireball**, a defender's **Bulldozer Clear** (charges, flattening whoever's in the
 way, then hoofs it upfield; 40 energy), a midfielder's **Laser Pass** (flat, fast, straight to
 the man; 30) and the keeper's **Cannon Punt** (from the hands, far upfield, once the box is
-clear; 30). The role moves play our own art (`brand/sprites/line_actions`).
+clear; 30). The role moves play our own art (`brand/sprites/line_actions`), recoloured to
+each team's kit.
 
 **P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
 R cycles only the moves your player's line can do (plus the keeper's and the captain's).
@@ -332,7 +333,9 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
 - The referee (in black) follows play about 12 m from the ball, points to free kicks,
   shows the cards and blows the whistle. He is our own art (`assets/sprites/oscf_roles`,
   packed by `tools/pack_oscf_referee.gd`), not FIFA 96's; the card is keyed green in the
-  sheets and drawn yellow or red by `scripts/referee_card.gdshader`.
+  sheets and drawn yellow or red by `scripts/referee_card.gdshader`. A booking also spins the
+  card over the player, and his whistle sends out a ring (`scripts/effects.gd`, from the
+  same folder's effects sheet; the tool packs that too).
 - Keepers catch shots within reach and dive (original low/high dive animations) for shots
   heading past them. A keeper holding the ball in his box (AI or human) can't play it until
   opponents are 9.15 m away, which they walk to, or after six seconds.

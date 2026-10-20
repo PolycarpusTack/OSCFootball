@@ -348,6 +348,7 @@ func apply_move(a: Dictionary, dt: float) -> void:
 		if o == null or o.team == p.team or o.position.distance_to(p.position) > GRAPPLE_REACH: return
 		a.done = true
 		if stun(o, 0.6):
+			match_game.effects.play("impact_burst", o.position, Pitch.m(1.0))
 			match_game.offence(p, o.position, "chaos")
 			b.release()
 			match_game._take(p)
@@ -378,6 +379,8 @@ func apply_move(a: Dictionary, dt: float) -> void:
 			if o: stun(o, STEPOVER_FREEZE)
 		"stego", "bass":
 			if p.position.distance_to(b.position) > 38.0: return
+			match_game.effects.play("whistle_ring", p.position, 0.0, 1.5, Color("f8ae49"))  # the stomp's shock wave
+			match_game.effects.play("dust_puff", p.position)
 			var hits := 0
 			for o in match_game.opponent(p.team).players:
 				var offset := o.position - p.position
@@ -491,7 +494,6 @@ func _draw() -> void:
 		var p: Footballer = a.p
 		var d: Dictionary = MOVES[a.id]
 		var at := screen(p.position)
-		var phase: float = clampf((a.time - d.wind) / d.active, 0.0, 1.0)
 		var c := Color(COLOUR, 0.45 if a.time < d.wind else 0.85)
 		draw_arc(at, 20.0, 0, TAU * minf(a.time / d.wind, 1.0), 28, c, 2.0)
 		match a.id:
@@ -503,9 +505,6 @@ func _draw() -> void:
 				draw_line(screen(p.feet_front()), screen(match_game.ball.position, match_game.ball.z), c, 2.0)
 			"wall":
 				draw_line(screen(p.position, 18), screen(a.q.position, 18), Color("eac76a"), 6.0)
-			"bass", "stego":
-				for i in 2:
-					draw_arc(at, 12 + phase * 40 + i * 7, -PI if a.id == "stego" else 0.0, PI, 32, Color("f8ae49"), 2.0)
 			"palm":
 				for i in 6:
 					var angle := -PI + i * PI / 5.0 + sin(a.time * 40 + i) * 0.12

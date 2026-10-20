@@ -71,8 +71,8 @@ with wind-up, active and recovery windows, and counters. Details in `game/docs/c
 | C.3 | Eleven Chaos actions on E / R (Ghost Step … Cyclone Scissor), with AI use | Done |
 | C.4 | Chaos referee, parts 1–4: view cone, discipline, mood, "Sorry, ref!", Dive, Captain, whistle stun, Bribe | Done |
 | C.5 | Role moves: ↓↘→ per line (Fireball / Bulldozer Clear / Laser Pass / Cannon Punt) and one signature special per line (Grapple Tackle, Stepover Storm, Whirlwind Turn, Rising Fist), in own art | Done (`role_moves_test`) |
-| C.6 | Role-move art in team colours: the line-action sheets are drawn in the OSCF kit; recolour them per team, or redraw them flat for a recolour shader | Open (S–M) |
-| C.7 | Effects sheet in play: impact burst, dust puff, spinning cards, whistle ring (`oscf_roles`), in place of the drawn-in-code effects | Open (S) |
+| C.6 | Role-move art in team colours: the kit shader recolours the OSCF kit the line-action art is drawn in (socks follow the shirt). Still one right-facing view, mirrored | Done (`role_moves_test`) |
+| C.7 | Effects sheet in play: impact burst, dust puff, spinning cards, whistle ring (`oscf_roles`); the stomps' drawn arcs replaced | Done (`effects_test`) |
 | C.8 | Own art for the Chaos actions that borrow FIFA 96 animations (Magnet Sole, Phalanx Wall, Captain and Bribe use `mark`; Bass Drop `gpound`; and the rest) | Open (art first, then M) |
 | C.9 | Balance pass: costs, windows and AI frequency, from playtests | Open (M) |
 | C.10 | Move list in the pause menu (inputs in the device's buttons, costs, animation preview); special picker filtered by line | Done (`move_list_test`) |

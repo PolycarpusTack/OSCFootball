@@ -68,6 +68,7 @@ func _connect(p: Footballer, move: Dictionary, aim: Vector2) -> void:
 	p.team.energy = maxf(0.0, p.team.energy - move.cost)
 	match_game.flash(move.title, 1.2)
 	match_game.event.emit(move.id, p.team)
+	match_game.effects.play("impact_burst", match_game.ball.position, match_game.ball.z, 0.7 if move.id == "laser" else 1.0)
 	if move.id != "laser":
 		match_game.stadium.shake = maxf(match_game.stadium.shake, 0.25)
 
@@ -89,5 +90,6 @@ func tick() -> void:
 			flattened.append(o)
 			o.touch_cooldown = maxf(o.touch_cooldown, 0.8)
 			match_game.knock_down(o, "fall")
+			match_game.effects.play("impact_burst", o.position, Pitch.m(1.0))
 			match_game.offence(p, o.position, "chaos")
 			match_game.stadium.shake = maxf(match_game.stadium.shake, 0.2)
