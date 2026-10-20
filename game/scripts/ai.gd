@@ -182,7 +182,7 @@ static func _try_super(p: Footballer, m: Match, target: Vector2) -> bool:
 	if e >= Supers.cost("thunder") and randf() < 0.5:
 		kind = "thunder"
 	elif e >= Supers.cost("fireball") and randf() < 0.4:
-		kind = ["fireball", "banana"][randi() % 2]
+		kind = "fireball" if p.role == "F" and randf() < 0.5 else "banana"  # ↓↘→ is a Fireball for strikers only
 	if kind == "" or not m.try_super(p, kind, target):
 		return false
 	p.ai_state = kind

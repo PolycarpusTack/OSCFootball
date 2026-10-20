@@ -69,6 +69,7 @@ var _anim_time := 0.0
 var _action_left := 0.0  # while > 0 a one-shot animation plays and movement is ignored
 var _actions := 0  # counts one-shot animations started: a wind-up knows if it was cut short
 var _sprite := Sprite2D.new()
+var _kit: Material  # the kit shader, for the palette-indexed FIFA 96 frames only
 var _marks := Node2D.new()  # shadow, control ring and charge meter, drawn under the sprite
 
 
@@ -83,6 +84,7 @@ func _ready() -> void:
 	if hair.a > 0.0:
 		kit.set_shader_parameter("hair", Vector3(hair.r, hair.g, hair.b))
 		kit.set_shader_parameter("has_hair", true)
+	_kit = kit
 	_sprite.material = art_material if art_material else kit
 	_sprite.top_level = true
 	_marks.top_level = true
@@ -129,7 +131,7 @@ func skill(stat: String, lo: float, hi: float) -> float:
 func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
-	if _anim in ["jump", "bodychk", "nutmeg", "rainbow"] and busy():  # a dodge, body check or skill move: carries on at his speed
+	if _anim in ["jump", "bodychk", "nutmeg", "rainbow", "bulldozer_clear"] and busy():  # a dodge, body check, skill move or charge: carries on at his speed
 		w = velocity / maxf(RUN_SPEED, velocity.length())
 	if chaos_lock:
 		w = Vector2.ZERO
@@ -163,6 +165,8 @@ func _physics_process(delta: float) -> void:
 	_sprite.texture = f.tex
 	_sprite.offset = f.offset
 	_sprite.flip_h = f.flip
+	if not art_material:  # own art is drawn already coloured, without the kit shader
+		_sprite.material = null if Anims.own_art(_anim) else _kit
 
 
 func _draw_marks() -> void:
@@ -319,6 +323,16 @@ func super_shot(kind: String, target: Vector2) -> bool:
 	if kind == "banana":
 		dir = dir.rotated(0.75 if randf() < 0.5 else -0.75)
 	ball.launch_super(kind, dir * s.speed, s.lift, target)
+	ball.kick_kind = kind
+	return true
+
+
+## A Chaos line move's kick (see LineMoves): `anim` plays facing `target`, and at
+## `contact` seconds the ball leaves toward it with `speed` and `up`.
+func move_kick(anim: String, contact: float, target: Vector2, speed: float, up: float, kind: String) -> bool:
+	if not await _wind_up(target, anim, contact):
+		return false
+	ball.kick((target - ball.position).normalized() * speed, up)
 	ball.kick_kind = kind
 	return true
 

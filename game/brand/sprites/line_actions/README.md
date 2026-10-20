@@ -68,6 +68,13 @@ godot --headless --path . -s res://tools/pack_oscf_line_actions.gd
 godot --headless --path . --editor --quit
 ```
 
+## In the match
+
+All eight now play in Chaos matches: see "Line moves" and the signature specials in
+`docs/chaos-actions.md`. `Anims` loads the `_192.png` strips from `manifest.json` (feet at the
+origin, frame durations from the weights). The rest of this section describes the art as
+delivered.
+
 ## Integration boundary
 
 This delivery is **animation art and a Godot preview**, not a change to live match

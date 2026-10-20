@@ -32,7 +32,7 @@ func _process(delta: float) -> void:
 	var anim: String = _names[_index]
 	for facing in 8:
 		var f := Anims.frame_at(anim, facing, _time)
-		_sprites[facing].material = null if anim.begins_with("ref_") else _kit  # the referee's art is RGBA
+		_sprites[facing].material = null if Anims.own_art(anim) else _kit  # the referee's art is RGBA
 		_sprites[facing].texture = f.tex
 		_sprites[facing].offset = f.offset
 		_sprites[facing].flip_h = f.flip

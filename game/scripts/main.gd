@@ -140,6 +140,7 @@ var _parry := {}  # a human side's called foul still open to "Sorry, ref!": p, a
 var stats: MatchStats  # for the full-time screen
 var _full_time_panel := PanelContainer.new()
 var chaos_actions: ChaosActions
+var line_moves: LineMoves
 
 
 func _ready() -> void:
@@ -226,6 +227,7 @@ func _ready() -> void:
 	stats = MatchStats.new(self)
 	chaos_actions = ChaosActions.new(self)
 	add_child(chaos_actions)
+	line_moves = LineMoves.new(self)
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
 
@@ -290,6 +292,7 @@ func _exit_tree() -> void:
 
 func _physics_process(delta: float) -> void:
 	chaos_actions.tick(delta)
+	line_moves.tick()
 	_update_hud()
 	_referee_follows()
 	_sorry_ref(delta)
@@ -468,7 +471,7 @@ func _human_input(h: Human, p: Footballer) -> void:
 			var target := _aim_shot(p, aim)
 			var fired := h.charge_time >= THUNDER_HOLD and try_super(p, "thunder", _aim_shot(p, (p.team.goal_attacked() - p.position).normalized()))
 			if not fired and h.pending_combo != "":
-				fired = try_super(p, h.pending_combo, target)
+				fired = combo_move(p, h.pending_combo, target, aim)
 			if not fired:
 				p.shoot(target, clampf(h.charge_time / 0.6, 0.0, 1.0))
 			h.combo.clear()
@@ -560,6 +563,14 @@ func _super_connects(p: Footballer, kind: String, target: Vector2) -> void:
 		Engine.time_scale = 0.3
 		stadium.shake = 0.8
 		get_tree().create_timer(0.7, false, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
+
+
+## The move a combo entered before shoot makes: ↓↘→ is the player's line move (LineMoves),
+## the Fireball for a striker; anything else the super of that name.
+func combo_move(p: Footballer, kind: String, target: Vector2, aim: Vector2) -> bool:
+	if kind == "fireball" and not LineMoves.for_line(p).is_empty():
+		return chaos and line_moves.start(p, aim)
+	return try_super(p, kind, target)
 
 
 ## Aim assist: when roughly facing the goal, shoot at it, biased to the side you lean.
@@ -1827,11 +1838,11 @@ func _add_hud() -> void:
 	if humans.size() == 1:
 		help.text = "WASD: move  Space: shoot (hold = power) / slide  X: pass  "
 		if chaos:
-			help.text += "↓↘→ / ←→ then Space: supers  Hold Space, full bar: THUNDER  "
+			help.text += "↓↘→ / ←→ then Space: line move / banana  Hold Space, full bar: THUNDER  "
 	else:
 		help.text = "P1: WASD, Space shoot, X pass   P2: arrows, Enter shoot, Right Shift pass   "
 		if chaos:
-			help.text += "↓↘→ / ←→ then shoot: supers   "
+			help.text += "↓↘→ / ←→ then shoot: line move / banana   "
 	help.text += "Pad: stick, B shoot, A pass   Esc / Start: pause  F1: anims  F3: debug"
 	help.position = Vector2(12, 694)
 	help.add_theme_font_size_override("font_size", 14)

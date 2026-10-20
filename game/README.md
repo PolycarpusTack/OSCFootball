@@ -27,7 +27,15 @@ Chaos now includes eleven additional playable action prototypes: Ghost Step, Mag
 Pinball Pass, Stego Sweep, Bass Drop, Phalanx Wall, Spring Header, Boomerang Cross,
 Rocket Throw, **Palm Barrage** (rapid keeper parries) and **Cyclone Scissor**
 (an inverted spinning aerial kick). Three more deal with the referee: **Dive**, **Captain** and
-**Bribe** (see The Chaos referee).
+**Bribe** (see The Chaos referee). Each line has a signature special too: **Grapple Tackle**
+(defender), **Stepover Storm** (midfielder or striker), **Whirlwind Turn** (midfielder) and
+**Rising Fist** (keeper).
+
+**Line moves:** ↓↘→ then shoot, with the ball, does a different move on each line: a
+striker's **Fireball**, a defender's **Bulldozer Clear** (charges, flattening whoever's in the
+way, then hoofs it upfield; 40 energy), a midfielder's **Laser Pass** (flat, fast, straight to
+the man; 30) and the keeper's **Cannon Punt** (from the hands, far upfield, once the box is
+clear; 30). The role moves play our own art (`brand/sprites/line_actions`).
 
 **P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
 The HUD shows the selected action and requirements. Keeper moves command your keeper
@@ -42,6 +50,7 @@ godot --path game res://scenes/main.tscn   # straight to the match
 godot --editor --path game     # open in the Godot editor
 godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test (Chaos)
 godot --headless --path game -s res://tests/chaos_actions_test.gd                # 11 actions, counters, input and Classic isolation
+godot --headless --path game -s res://tests/role_moves_test.gd                   # line moves (↓↘→ per line) and the four signature specials
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash
@@ -66,7 +75,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | Up / Down on the title screen | 1 player (vs the AI) or 2 players (Brugge vs Anderlecht) |
 | WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow; the ring empties as he tires) |
 | Space | with the ball: shoot on release, hold for power (aims at goal when you face it). Without: slide tackle |
-| ↓ ↘ → then Space | **Fireball** (50 energy): flat rocket, bowls over anyone in the way |
+| ↓ ↘ → then Space | the line move: a striker's **Fireball** (50 energy): flat rocket, bowls over anyone in the way. Defender: Bulldozer Clear, midfielder: Laser Pass, keeper: Cannon Punt (see Chaos special actions) |
 | ← → then Space | **Banana Shot** (50): bends hard toward the far post |
 | hold Space 0.8 s, full bar | **Thunder Strike** (100): bicycle kick, slow-mo, lightning ball that nobody can hold |
 | Up/Down while taking a penalty | choose the corner |
@@ -99,6 +108,7 @@ scripts/team.gd           Team: name, kits, 4-4-2 formation, pitch-side helpers;
 scripts/footballer.gd     a player's body: movement, animation, carrying the ball, kick/pass/shoot/slide
 scripts/ball.gd           ball with height, bounce, friction, holder (dribbler); super-shot flight and trails
 scripts/supers.gd         super-shot table (cost, animation, speed, colour) and energy rewards
+scripts/line_moves.gd     Chaos line moves: ↓↘→ per line (Bulldozer Clear, Laser Pass, Cannon Punt)
 scripts/combo_input.gd    fighting-game input buffer; directions relative to the goal you attack
 scripts/human.gd          one person at the controls: team, controlled player, shot/combo state; keyboard and gamepad bindings
 scripts/kit.gdshader      recolours kit parts of the original palette-indexed sprites

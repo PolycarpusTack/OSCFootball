@@ -18,7 +18,19 @@ const MOVES := {
 	"dive": {"name": "DIVE", "cost": 10, "wind": 0.1, "active": 0.1, "recovery": 0.7, "anim": "fall", "hint": "an opponent right by you"},
 	"captain": {"name": "CAPTAIN", "cost": 30, "wind": 0.3, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "captain near an angry referee"},
 	"bribe": {"name": "BRIBE", "cost": 100, "wind": 0.4, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "full bar, right by the referee"},
+	# one signature move per line, in their own art (brand/sprites/line_actions)
+	"grapple": {"name": "GRAPPLE TACKLE", "cost": 35, "wind": 0.13, "active": 0.25, "recovery": 0.33, "anim": "grapple_tackle", "hint": "defender, a carrier right by you"},
+	"stepover": {"name": "STEPOVER STORM", "cost": 25, "wind": 0.12, "active": 0.3, "recovery": 0.2, "anim": "stepover_storm", "hint": "midfielder or striker, ball, a man in front"},
+	"whirlwind": {"name": "WHIRLWIND TURN", "cost": 30, "wind": 0.1, "active": 0.45, "recovery": 0.3, "anim": "whirlwind_turn", "hint": "midfielder with the ball"},
+	"fist": {"name": "RISING FIST", "cost": 30, "wind": 0.13, "active": 0.3, "recovery": 0.42, "anim": "rising_fist", "hint": "keeper, a high ball in his box"},
 }
+const KEEPER_MOVES := ["rocket", "palm", "fist"]  # done by the team's keeper, whoever you control
+const GRAPPLE_REACH := 34.0
+const STEPOVER_FREEZE := 1.0  # seconds the man in front stands frozen
+const WHIRLWIND_SHIELD := 32.0  # opponents this close can't get a foot in while he spins
+const WHIRLWIND_DRIFT := 140.0  # pitch pixels a second he turns away along the aim
+const FIST_REACH := 63.0  # a loose ball this close, ...
+const FIST_TOP := 100.0  # ... up to this high, is punched clear
 const COLOUR := Color("67f4ef")
 var match_game: Match
 var active: Array[Dictionary] = []
@@ -55,7 +67,7 @@ func chosen(h: Human) -> String:
 func actor(h: Human, id: String) -> Footballer:
 	if id == "captain":
 		return match_game.captain(h.team)
-	return h.team.keeper() if id in ["rocket", "palm"] else h.controlled
+	return h.team.keeper() if id in KEEPER_MOVES else h.controlled
 
 func activate(h: Human, aim: Vector2) -> bool:
 	var id := chosen(h)
@@ -93,7 +105,7 @@ func unavailable(p: Footballer, id: String) -> String:
 	var b := match_game.ball
 	var near := p.position.distance_to(b.position)
 	var valid := true
-	if id in ["rocket", "palm"]:
+	if id in KEEPER_MOVES:
 		valid = p.role == "G"
 	else:
 		valid = p.role != "G"
@@ -105,6 +117,12 @@ func unavailable(p: Footballer, id: String) -> String:
 		"wall": valid = valid and not p.has_ball() and partner(p) != null
 		"spring", "cyclone": valid = valid and b.holder == null and b.power == "" and b.z > 12.0 and near <= 45.0
 		"palm": valid = valid and b.holder == null and match_game.in_penalty_area(p.position, p.team)
+		"grapple": valid = valid and p.role == "D" and b.holder != null and b.holder.team != p.team \
+			and p.position.distance_to(b.holder.position) <= GRAPPLE_REACH
+		"stepover": valid = valid and p.role in ["M", "F"] and p.has_ball() and match_game.opponent_ahead(p) != null
+		"whirlwind": valid = valid and p.role == "M" and p.has_ball()
+		"fist": valid = valid and b.holder == null and b.power != "thunder" and b.z > 12.0 and near <= FIST_REACH \
+			and match_game.in_penalty_area(p.position, p.team)
 		"dive": valid = valid and match_game.nearest_opponent_distance(p) <= Match.DIVE_RANGE
 		"captain": valid = valid and match_game.ref_mood.get(p.team, 0.0) > 0.0 \
 			and p.position.distance_to(match_game.referee.position) <= Match.CAPTAIN_RANGE
@@ -112,7 +130,7 @@ func unavailable(p: Footballer, id: String) -> String:
 			and p.position.distance_to(match_game.referee.position) <= Match.BRIBE_RANGE
 	if id == "rocket":  # a keeper's throw waits for the box to clear, like any release
 		valid = valid and match_game.keeper_may_release(p)
-	if id in ["stego", "bass"] and b.holder != null and b.holder.role == "G" \
+	if id in ["stego", "bass", "grapple"] and b.holder != null and b.holder.role == "G" \
 			and match_game.in_penalty_area(b.holder.position, b.holder.team):  # nobody challenges a keeper with the ball in his hands
 		valid = false
 	return "" if valid else d.hint.capitalize()
@@ -280,7 +298,30 @@ func apply_move(a: Dictionary, dt: float) -> void:
 				p.team.gain(Supers.GAIN.save)
 				match_game.event.emit("save", p.team)
 		return
+	if a.id == "whirlwind":  # spins away from pressure with the ball, nobody can get a foot in
+		for o in match_game.opponent(p.team).players:
+			if o.position.distance_to(p.position) <= WHIRLWIND_SHIELD:
+				o.touch_cooldown = maxf(o.touch_cooldown, 0.25)
+		if p.has_ball():
+			p.position = (p.position + aim * WHIRLWIND_DRIFT * dt).clamp(Pitch.field_rect().position, Pitch.field_rect().end)
+		return
 	if a.done: return
+	if a.id == "fist":
+		if b.holder != null or b.power == "thunder" or b.z < 12.0 or b.z > FIST_TOP or not swept_near(p.position, 26.0): return
+		a.done = true
+		strike(p, LineMoves.upfield(p, aim), 520.0, 220.0, "save")
+		p.team.gain(Supers.GAIN.save)
+		match_game.event.emit("save", p.team)
+		return
+	if a.id == "grapple":  # grabs the carrier, spins once and comes away with the ball
+		var o := b.holder
+		if o == null or o.team == p.team or o.position.distance_to(p.position) > GRAPPLE_REACH: return
+		a.done = true
+		if stun(o, 0.6):
+			match_game.offence(p, o.position, "chaos")
+			b.release()
+			match_game._take(p)
+		return
 	if a.id in ["spring", "cyclone"]:
 		var reach := 82.0 if a.id == "spring" else 66.0
 		if b.holder != null or b.power != "" or b.z < 16.0 or b.z > reach or not swept_near(p.position, 22.0): return
@@ -302,6 +343,9 @@ func apply_move(a: Dictionary, dt: float) -> void:
 			strike(p, aim, 720.0 if a.id == "rocket" else 540.0, 430.0 if a.id == "boomerang" else 120.0 if a.id == "rocket" else 0.0, "cross" if a.id == "boomerang" else "pass")
 			if a.id != "rocket":
 				flight = {"id": a.id, "p": p, "revision": b.touch_revision, "time": 0.0, "turned": false, "origin": a.origin}
+		"stepover":  # the man in front is left frozen
+			var o := match_game.opponent_ahead(p)
+			if o: stun(o, STEPOVER_FREEZE)
 		"stego", "bass":
 			if p.position.distance_to(b.position) > 38.0: return
 			var hits := 0
@@ -357,16 +401,22 @@ func think_ai() -> void:
 		var b := match_game.ball
 		var p: Footballer = b.holder if b.holder != null and b.holder.team == t else match_game.chaser(t)
 		var ids: Array = []
-		if b.holder == t.keeper(): ids = ["rocket"]
+		if b.holder == t.keeper(): ids = ["rocket", "line"]  # in that order: a throw to a free mate, else a punt
 		elif b.holder == null and b.position.distance_to(t.keeper().position) < 110.0 and b.velocity.x * t.side < 0.0:
 			p = t.keeper()
-			ids = ["palm"]
-		elif p.has_ball(): ids = ["ghost", "pinball", "boomerang"]
+			ids = ["fist"] if b.z > 12.0 else ["palm"]
+		elif p.has_ball(): ids = ["ghost", "pinball", "boomerang", "stepover", "whirlwind", "line"]
 		elif b.holder == null and b.z > 12.0: ids = ["spring", "cyclone"]
-		else: ids = ["stego", "magnet", "bass", "wall"]
-		ids.shuffle()
+		else: ids = ["stego", "magnet", "bass", "wall", "grapple"]
+		if b.holder != t.keeper():
+			ids.shuffle()
 		for id: String in ids:
 			var aim: Vector2 = (t.goal_attacked() - p.position).normalized()
+			if id == "line":  # ↓↘→: a defender's Bulldozer, a midfielder's Laser Pass, the keeper's Cannon Punt
+				if p.role != "F" and match_game.line_moves.start(p, aim):
+					cooldown[t] = 2.0 + LineMoves.LIST[p.role].contact
+					break
+				continue
 			if id == "rocket":  # only to a teammate with a clear lane; otherwise he distributes it as usual
 				var mate := AI.best_pass(p, match_game, Vector2.ZERO)
 				if mate == null or AI._lane_blocked(p, mate, match_game):

@@ -7,7 +7,7 @@ const MAX_ENERGY := 100.0
 
 const LIST := {
 	"fireball": {
-		"title": "FIREBALL!", "cost": 50.0, "anim": "shoot", "contact": 0.15,
+		"title": "FIREBALL!", "cost": 50.0, "anim": "power_strike", "contact": 0.35,  # the striker's line move
 		"speed": 900.0, "lift": 0.0, "colour": Color(1.0, 0.55, 0.1),
 	},
 	"banana": {
