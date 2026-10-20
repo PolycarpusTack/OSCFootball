@@ -102,3 +102,15 @@ row, or leave it out; tell me which.
 
 Put the files in `game/assets/sprites/oscf_roles/` (sources + prompts). I'll pack them
 (64 px cells like `oscf_starter`, wider where needed) and wire them up.
+
+## Delivered referee/effects sources
+
+Items 9–16 are now in `assets/sprites/oscf_roles/`; see that folder's `README.md`.
+The six ready-to-pack sheets contain all requested counts and direction columns,
+with 256-pixel rows, measured rectangles and referee event markers in
+`source_regions.json`. The held-card face uses #00FF00 for recolouring.
+
+Player move contacts for the existing six-frame versions are recorded in
+`brand/sprites/line_actions/CONTACT_FRAMES.md` and `manifest.json`. Those existing
+player sheets still use the accepted side view; their poses and frame counts are
+not a claim that every earlier concept detail has been redrawn to this full brief.

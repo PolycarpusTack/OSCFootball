@@ -95,6 +95,7 @@ var _energy_labels := {}  # Team -> Label
 var _aim_arrows := Node2D.new()  # each human's shot arrow on the grass (see aim_arrow)
 var stats: MatchStats  # for the full-time screen
 var _full_time_panel := PanelContainer.new()
+var chaos_actions: ChaosActions
 
 
 func _ready() -> void:
@@ -170,6 +171,8 @@ func _ready() -> void:
 	add_child(DebugOverlay.new(self))
 	add_child(PauseMenu.new())
 	stats = MatchStats.new(self)
+	chaos_actions = ChaosActions.new(self)
+	add_child(chaos_actions)
 	kickoff(away)
 	stadium.follow(ball.position, 0.0)
 
@@ -233,6 +236,7 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	chaos_actions.tick(delta)
 	_update_hud()
 	_referee_follows()
 	if _banner_left > 0.0:
@@ -284,6 +288,9 @@ func _physics_process(delta: float) -> void:
 			for t in [home, away]:
 				var h := human_for(t)
 				for p in t.players:
+					if p.chaos_lock:
+						p.wish = Vector2.ZERO
+						continue
 					if h and p == h.controlled:
 						_human_input(h, p)
 					else:
@@ -356,6 +363,14 @@ func _human_input(h: Human, p: Footballer) -> void:
 	var now := clock
 	h.combo.feed(ComboInput.direction(p.wish, p.team.side), now)
 	var aim: Vector2 = Anims.FACING_VECTORS[p.facing] if p.wish == Vector2.ZERO else p.wish.normalized()
+	if chaos:
+		if Input.is_action_just_pressed(h.action("cycle_special")):
+			h.special_index = (h.special_index + 1) % ChaosActions.MOVES.size()
+		if Input.is_action_just_pressed(h.action("special")):
+			if chaos_actions.activate(h, aim):
+				h.charging = false
+				p.charge = 0.0
+				return
 	_mark_pass_target(h, AI.best_pass(p, self, aim) if p.has_ball() else null)
 	if h.charging and not p.has_ball():
 		h.charging = false
@@ -521,6 +536,8 @@ func _resolve_possession(delta: float) -> void:
 	if holder.role == "G":
 		return
 	for o in opponent(holder.team).players:
+		if o.chaos_lock:
+			continue
 		if o.body_checking() and o.touch_cooldown <= 0.0 and o.position.distance_to(holder.position) < Footballer.REACH + 8.0:
 			_body_check_hits(o, holder)
 			return

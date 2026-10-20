@@ -20,6 +20,18 @@ minutes; the clock always shows 45 match minutes a half), offside, fouls and car
 off, and Friendly or Knockout (extra time and penalties when level). The choices are kept for
 the next match until the game is closed.
 
+## Chaos special actions
+
+Chaos now includes eleven additional playable action prototypes: Ghost Step, Magnet Sole,
+Pinball Pass, Stego Sweep, Bass Drop, Phalanx Wall, Spring Header, Boomerang Cross,
+Rocket Throw, **Palm Barrage** (rapid keeper parries) and **Cyclone Scissor**
+(an inverted spinning aerial kick).
+
+**P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
+The HUD shows the selected action and requirements. Keeper moves command your keeper
+while you control an outfielder. Classic mode has none of these powers.
+See [controls, counters, costs and art](docs/chaos-actions.md) for details.
+
 ## Run
 
 ```
@@ -27,6 +39,7 @@ godot --path game              # play (intro, title, match)
 godot --path game res://scenes/main.tscn   # straight to the match
 godot --editor --path game     # open in the Godot editor
 godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test (Chaos)
+godot --headless --path game -s res://tests/chaos_actions_test.gd                # 11 actions, counters, input and Classic isolation
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
 godot --headless --path game -s res://tests/teams_test.gd                        # league clubs load, kit clash

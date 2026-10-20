@@ -54,6 +54,9 @@ var fatigue := 0.0  # 0 fresh .. 1 spent (see TIRING); the control ring empties 
 var yellow := false  # booked: a second yellow is a red
 var sent_off := false  # red card: parked off the pitch for the rest of the match (see Match.book)
 var dizzy_left := 0.0  # Chaos: seeing stars after a knockdown when tired (see Match.knock_down)
+var chaos_lock := false  # controlled by ChaosActions through wind-up, active and recovery
+var chaos_lift := 0.0  # cosmetic only; ball contacts use explicit action height windows
+var chaos_rotation := 0.0
 
 var _anim := "xstandd"
 var _anim_time := 0.0
@@ -87,6 +90,10 @@ func place(screen: Vector3) -> void:
 	var at := Vector2(screen.x, screen.y)
 	_sprite.position = at
 	_sprite.scale = Vector2.ONE * screen.z
+	_sprite.rotation = chaos_rotation
+	if chaos_rotation != 0.0 or chaos_lift != 0.0:
+		var pivot := Vector2(0, -24)
+		_sprite.position += (pivot - pivot.rotated(chaos_rotation) - Vector2(0, chaos_lift)) * screen.z
 	_sprite.z_index = clampi(int(at.y), -2000, 2000)
 	_marks.position = at
 	_marks.scale = _sprite.scale
@@ -99,7 +106,7 @@ func has_ball() -> bool:
 
 
 func busy() -> bool:
-	return _action_left > 0.0
+	return _action_left > 0.0 or chaos_lock
 
 
 func feet_front() -> Vector2:
@@ -118,6 +125,8 @@ func _physics_process(delta: float) -> void:
 	var w := Vector2.ZERO if busy() else wish.limit_length(1.0)
 	if _anim in ["jump", "bodychk", "nutmeg", "rainbow"] and busy():  # a dodge, body check or skill move: carries on at his speed
 		w = velocity / maxf(RUN_SPEED, velocity.length())
+	if chaos_lock:
+		w = Vector2.ZERO
 	var running := velocity.length() > 120.0
 	fatigue = clampf(fatigue + (skill("stamina", TIRING[0], TIRING[1]) if running else -RECOVERY) * delta, 0.0, 1.0)
 	var top := RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14) * (1.0 - TIRED_SPEED * fatigue)

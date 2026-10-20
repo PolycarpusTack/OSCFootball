@@ -1,0 +1,1223 @@
+{
+  "referee_idle": {
+    "kind": "referee",
+    "rows": 2,
+    "cols": 5,
+    "directions": [
+      "n",
+      "ne",
+      "e",
+      "se",
+      "s"
+    ],
+    "animations": {
+      "referee_idle": {
+        "frames": 2,
+        "loop": true,
+        "fps": 2
+      }
+    },
+    "poses": [
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          167,
+          6,
+          155,
+          354
+        ],
+        "row": 0,
+        "col": 0,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          602,
+          7,
+          144,
+          354
+        ],
+        "row": 0,
+        "col": 1,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          1042,
+          6,
+          74,
+          356
+        ],
+        "row": 0,
+        "col": 2,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          1430,
+          6,
+          149,
+          356
+        ],
+        "row": 0,
+        "col": 3,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          1841,
+          4,
+          164,
+          357
+        ],
+        "row": 0,
+        "col": 4,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          166,
+          368,
+          156,
+          353
+        ],
+        "row": 1,
+        "col": 0,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          598,
+          368,
+          148,
+          353
+        ],
+        "row": 1,
+        "col": 1,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          1041,
+          368,
+          76,
+          355
+        ],
+        "row": 1,
+        "col": 2,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          1426,
+          368,
+          152,
+          355
+        ],
+        "row": 1,
+        "col": 3,
+        "scale": 0.5070422535211268
+      },
+      {
+        "source": "raw/referee_idle.png",
+        "rect": [
+          1840,
+          368,
+          166,
+          355
+        ],
+        "row": 1,
+        "col": 4,
+        "scale": 0.5070422535211268
+      }
+    ]
+  },
+  "referee_run": {
+    "kind": "referee",
+    "rows": 5,
+    "cols": 5,
+    "directions": [
+      "n",
+      "ne",
+      "e",
+      "se",
+      "s"
+    ],
+    "animations": {
+      "referee_run": {
+        "frames": 5,
+        "loop": true,
+        "fps": 10
+      }
+    },
+    "poses": [
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          108,
+          7,
+          133,
+          238
+        ],
+        "row": 0,
+        "col": 0,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          371,
+          7,
+          144,
+          238
+        ],
+        "row": 0,
+        "col": 1,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          602,
+          8,
+          143,
+          241
+        ],
+        "row": 0,
+        "col": 2,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          860,
+          8,
+          152,
+          241
+        ],
+        "row": 0,
+        "col": 3,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          1134,
+          7,
+          130,
+          242
+        ],
+        "row": 0,
+        "col": 4,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          108,
+          253,
+          122,
+          236
+        ],
+        "row": 1,
+        "col": 0,
+        "scale": 0.7659574468085106
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          380,
+          253,
+          126,
+          235
+        ],
+        "row": 1,
+        "col": 1,
+        "scale": 0.7659574468085106
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          616,
+          254,
+          117,
+          235
+        ],
+        "row": 1,
+        "col": 2,
+        "scale": 0.7659574468085106
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          869,
+          254,
+          136,
+          235
+        ],
+        "row": 1,
+        "col": 3,
+        "scale": 0.7659574468085106
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          1148,
+          254,
+          118,
+          236
+        ],
+        "row": 1,
+        "col": 4,
+        "scale": 0.7659574468085106
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          128,
+          494,
+          109,
+          236
+        ],
+        "row": 2,
+        "col": 0,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          393,
+          494,
+          111,
+          234
+        ],
+        "row": 2,
+        "col": 1,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          626,
+          495,
+          103,
+          237
+        ],
+        "row": 2,
+        "col": 2,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          874,
+          495,
+          122,
+          236
+        ],
+        "row": 2,
+        "col": 3,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          1151,
+          495,
+          112,
+          236
+        ],
+        "row": 2,
+        "col": 4,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          113,
+          734,
+          130,
+          234
+        ],
+        "row": 3,
+        "col": 0,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          372,
+          734,
+          156,
+          233
+        ],
+        "row": 3,
+        "col": 1,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          595,
+          735,
+          158,
+          234
+        ],
+        "row": 3,
+        "col": 2,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          859,
+          735,
+          154,
+          235
+        ],
+        "row": 3,
+        "col": 3,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run.png",
+        "rect": [
+          1147,
+          735,
+          120,
+          234
+        ],
+        "row": 3,
+        "col": 4,
+        "scale": 0.75
+      },
+      {
+        "source": "raw/referee_run_phase5.png",
+        "rect": [
+          123,
+          131,
+          258,
+          463
+        ],
+        "row": 4,
+        "col": 0,
+        "scale": 0.379746835443038
+      },
+      {
+        "source": "raw/referee_run_phase5.png",
+        "rect": [
+          537,
+          131,
+          305,
+          459
+        ],
+        "row": 4,
+        "col": 1,
+        "scale": 0.379746835443038
+      },
+      {
+        "source": "raw/referee_run_phase5.png",
+        "rect": [
+          925,
+          135,
+          301,
+          467
+        ],
+        "row": 4,
+        "col": 2,
+        "scale": 0.379746835443038
+      },
+      {
+        "source": "raw/referee_run_phase5.png",
+        "rect": [
+          1353,
+          134,
+          318,
+          468
+        ],
+        "row": 4,
+        "col": 3,
+        "scale": 0.379746835443038
+      },
+      {
+        "source": "raw/referee_run_phase5.png",
+        "rect": [
+          1786,
+          132,
+          257,
+          474
+        ],
+        "row": 4,
+        "col": 4,
+        "scale": 0.379746835443038
+      }
+    ]
+  },
+  "referee_whistle": {
+    "kind": "referee",
+    "rows": 4,
+    "cols": 3,
+    "directions": [
+      "ne",
+      "e",
+      "se"
+    ],
+    "animations": {
+      "referee_whistle": {
+        "frames": 4,
+        "loop": false,
+        "fps": 10,
+        "event_frame": 2,
+        "event": "whistle"
+      }
+    },
+    "poses": [
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          416,
+          8,
+          109,
+          263
+        ],
+        "row": 0,
+        "col": 0,
+        "scale": 0.6923076923076923
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          736,
+          9,
+          75,
+          263
+        ],
+        "row": 0,
+        "col": 1,
+        "scale": 0.6923076923076923
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          1015,
+          7,
+          109,
+          265
+        ],
+        "row": 0,
+        "col": 2,
+        "scale": 0.6923076923076923
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          419,
+          278,
+          159,
+          256
+        ],
+        "row": 1,
+        "col": 0,
+        "scale": 0.7058823529411765
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          738,
+          279,
+          120,
+          258
+        ],
+        "row": 1,
+        "col": 1,
+        "scale": 0.7058823529411765
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          1011,
+          278,
+          161,
+          257
+        ],
+        "row": 1,
+        "col": 2,
+        "scale": 0.7058823529411765
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          418,
+          514,
+          152,
+          285
+        ],
+        "row": 2,
+        "col": 0,
+        "scale": 0.7258064516129032
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          739,
+          517,
+          120,
+          282
+        ],
+        "row": 2,
+        "col": 1,
+        "scale": 0.7258064516129032
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          1011,
+          517,
+          162,
+          282
+        ],
+        "row": 2,
+        "col": 2,
+        "scale": 0.7258064516129032
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          420,
+          793,
+          157,
+          231
+        ],
+        "row": 3,
+        "col": 0,
+        "scale": 0.8372093023255814
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          739,
+          804,
+          121,
+          219
+        ],
+        "row": 3,
+        "col": 1,
+        "scale": 0.8372093023255814
+      },
+      {
+        "source": "raw/referee_whistle.png",
+        "rect": [
+          1016,
+          800,
+          159,
+          224
+        ],
+        "row": 3,
+        "col": 2,
+        "scale": 0.8372093023255814
+      }
+    ]
+  },
+  "referee_card": {
+    "kind": "referee",
+    "rows": 4,
+    "cols": 3,
+    "directions": [
+      "ne",
+      "e",
+      "se"
+    ],
+    "animations": {
+      "referee_card": {
+        "frames": 4,
+        "loop": false,
+        "fps": 10,
+        "event_frame": 3,
+        "event": "show_card",
+        "card_key": "#00FF00"
+      }
+    },
+    "poses": [
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          226,
+          46,
+          130,
+          259
+        ],
+        "row": 0,
+        "col": 0,
+        "scale": 0.6976744186046512
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          651,
+          47,
+          71,
+          259
+        ],
+        "row": 0,
+        "col": 1,
+        "scale": 0.6976744186046512
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          1027,
+          47,
+          118,
+          260
+        ],
+        "row": 0,
+        "col": 2,
+        "scale": 0.6976744186046512
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          226,
+          333,
+          135,
+          255
+        ],
+        "row": 1,
+        "col": 0,
+        "scale": 0.7058823529411765
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          649,
+          332,
+          94,
+          257
+        ],
+        "row": 1,
+        "col": 1,
+        "scale": 0.7058823529411765
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          1027,
+          332,
+          119,
+          257
+        ],
+        "row": 1,
+        "col": 2,
+        "scale": 0.7058823529411765
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          224,
+          591,
+          157,
+          277
+        ],
+        "row": 2,
+        "col": 0,
+        "scale": 0.72
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          650,
+          591,
+          124,
+          278
+        ],
+        "row": 2,
+        "col": 1,
+        "scale": 0.72
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          1027,
+          589,
+          171,
+          281
+        ],
+        "row": 2,
+        "col": 2,
+        "scale": 0.72
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          240,
+          875,
+          106,
+          248
+        ],
+        "row": 3,
+        "col": 0,
+        "scale": 0.9230769230769231
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          659,
+          874,
+          66,
+          250
+        ],
+        "row": 3,
+        "col": 1,
+        "scale": 0.9230769230769231
+      },
+      {
+        "source": "raw/referee_card.png",
+        "rect": [
+          1047,
+          875,
+          100,
+          250
+        ],
+        "row": 3,
+        "col": 2,
+        "scale": 0.9230769230769231
+      }
+    ]
+  },
+  "referee_point": {
+    "kind": "referee",
+    "rows": 3,
+    "cols": 3,
+    "directions": [
+      "ne",
+      "e",
+      "se"
+    ],
+    "animations": {
+      "referee_point": {
+        "frames": 3,
+        "loop": false,
+        "fps": 10,
+        "event_frame": 2,
+        "event": "point"
+      }
+    },
+    "poses": [
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          308,
+          13,
+          183,
+          340
+        ],
+        "row": 0,
+        "col": 0,
+        "scale": 0.5341246290801187
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          706,
+          13,
+          145,
+          341
+        ],
+        "row": 0,
+        "col": 1,
+        "scale": 0.5341246290801187
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          1079,
+          13,
+          182,
+          340
+        ],
+        "row": 0,
+        "col": 2,
+        "scale": 0.5341246290801187
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          308,
+          355,
+          228,
+          336
+        ],
+        "row": 1,
+        "col": 0,
+        "scale": 0.5405405405405406
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          705,
+          355,
+          201,
+          336
+        ],
+        "row": 1,
+        "col": 1,
+        "scale": 0.5405405405405406
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          1078,
+          354,
+          254,
+          337
+        ],
+        "row": 1,
+        "col": 2,
+        "scale": 0.5405405405405406
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          308,
+          693,
+          257,
+          329
+        ],
+        "row": 2,
+        "col": 0,
+        "scale": 0.5555555555555556
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          706,
+          694,
+          221,
+          328
+        ],
+        "row": 2,
+        "col": 1,
+        "scale": 0.5555555555555556
+      },
+      {
+        "source": "raw/referee_point.png",
+        "rect": [
+          1079,
+          692,
+          266,
+          331
+        ],
+        "row": 2,
+        "col": 2,
+        "scale": 0.5555555555555556
+      }
+    ]
+  },
+  "effects": {
+    "kind": "effects",
+    "rows": 5,
+    "cols": 4,
+    "animations": {
+      "impact_burst": {
+        "row": 0,
+        "frames": 4,
+        "loop": false,
+        "fps": 12
+      },
+      "dust_puff": {
+        "row": 1,
+        "frames": 4,
+        "loop": false,
+        "fps": 12
+      },
+      "yellow_card_spin": {
+        "row": 2,
+        "frames": 4,
+        "loop": false,
+        "fps": 10
+      },
+      "red_card_spin": {
+        "row": 3,
+        "frames": 4,
+        "loop": false,
+        "fps": 10
+      },
+      "whistle_ring": {
+        "row": 4,
+        "frames": 4,
+        "loop": false,
+        "fps": 10
+      }
+    },
+    "poses": [
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          131,
+          112,
+          112,
+          104
+        ],
+        "row": 0,
+        "col": 0,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          428,
+          72,
+          179,
+          176
+        ],
+        "row": 0,
+        "col": 1,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          725,
+          45,
+          271,
+          230
+        ],
+        "row": 0,
+        "col": 2,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          1082,
+          80,
+          196,
+          175
+        ],
+        "row": 0,
+        "col": 3,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          109,
+          381,
+          135,
+          71
+        ],
+        "row": 1,
+        "col": 0,
+        "scale": 0.7,
+        "grounded": true
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          396,
+          344,
+          223,
+          112
+        ],
+        "row": 1,
+        "col": 1,
+        "scale": 0.7,
+        "grounded": true
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          718,
+          353,
+          279,
+          105
+        ],
+        "row": 1,
+        "col": 2,
+        "scale": 0.7,
+        "grounded": true
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          1073,
+          376,
+          245,
+          78
+        ],
+        "row": 1,
+        "col": 3,
+        "scale": 0.7,
+        "grounded": true
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          143,
+          545,
+          86,
+          129
+        ],
+        "row": 2,
+        "col": 0,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          469,
+          543,
+          82,
+          135
+        ],
+        "row": 2,
+        "col": 1,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          845,
+          547,
+          28,
+          127
+        ],
+        "row": 2,
+        "col": 2,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          1160,
+          547,
+          80,
+          132
+        ],
+        "row": 2,
+        "col": 3,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          143,
+          764,
+          86,
+          129
+        ],
+        "row": 3,
+        "col": 0,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          469,
+          762,
+          82,
+          134
+        ],
+        "row": 3,
+        "col": 1,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          846,
+          766,
+          27,
+          126
+        ],
+        "row": 3,
+        "col": 2,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          1159,
+          766,
+          80,
+          132
+        ],
+        "row": 3,
+        "col": 3,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          128,
+          1006,
+          115,
+          42
+        ],
+        "row": 4,
+        "col": 0,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          417,
+          990,
+          196,
+          75
+        ],
+        "row": 4,
+        "col": 1,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          706,
+          977,
+          302,
+          99
+        ],
+        "row": 4,
+        "col": 2,
+        "scale": 0.7,
+        "grounded": false
+      },
+      {
+        "source": "raw/effects.png",
+        "rect": [
+          1039,
+          966,
+          300,
+          120
+        ],
+        "row": 4,
+        "col": 3,
+        "scale": 0.7,
+        "grounded": false
+      }
+    ]
+  }
+}

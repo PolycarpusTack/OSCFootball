@@ -26,6 +26,7 @@ var power := ""  # active super ("fireball", "banana", "thunder") while it's in 
 var power_target := Vector2.ZERO
 var prev_position := Vector2.ZERO  # before this frame's step: the match checks the goal frame against it
 var prev_z := 0.0
+var touch_revision := 0  # cancels Chaos flight effects on any kick, catch or reset
 
 var _frames: Array[Texture2D] = []
 var _roll := 0.0
@@ -82,6 +83,7 @@ func launch_super(kind: String, v: Vector2, up: float, target: Vector2) -> void:
 
 
 func end_power() -> void:
+	touch_revision += 1
 	power = ""
 	_trail.clear()
 	_sprite.modulate = Color.WHITE

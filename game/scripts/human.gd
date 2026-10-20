@@ -4,21 +4,24 @@ extends RefCounted
 ## for player 1, the same with "p2_" for player 2), the footballer they control and
 ## their shot / combo state. Controls are bound by bind_inputs().
 
-const ACTIONS := ["move_up", "move_down", "move_left", "move_right", "shoot", "pass", "switch"]
+const ACTIONS := ["move_up", "move_down", "move_left", "move_right", "shoot", "pass", "switch", "special", "cycle_special"]
 const KEYS := [
 	{  # player 1; arrows too when playing alone
 		"move_up": [KEY_W], "move_down": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
 		"shoot": [KEY_SPACE], "pass": [KEY_X, KEY_K], "switch": [KEY_Q],
+		"special": [KEY_E], "cycle_special": [KEY_R],
 	},
 	{  # player 2: arrows, Enter, Right Shift
 		"move_up": [KEY_UP], "move_down": [KEY_DOWN], "move_left": [KEY_LEFT], "move_right": [KEY_RIGHT],
 		"shoot": [KEY_ENTER, KEY_KP_ENTER], "pass": [KEY_SHIFT], "switch": [KEY_CTRL],  # the right-hand Shift and Ctrl
+		"special": [KEY_COMMA], "cycle_special": [KEY_PERIOD],
 	},
 ]
 const PAD_BUTTONS := {
 	"move_up": [JOY_BUTTON_DPAD_UP], "move_down": [JOY_BUTTON_DPAD_DOWN],
 	"move_left": [JOY_BUTTON_DPAD_LEFT], "move_right": [JOY_BUTTON_DPAD_RIGHT],
 	"shoot": [JOY_BUTTON_B], "pass": [JOY_BUTTON_A], "switch": [JOY_BUTTON_X, JOY_BUTTON_LEFT_SHOULDER],
+	"special": [JOY_BUTTON_Y], "cycle_special": [JOY_BUTTON_RIGHT_SHOULDER],
 }
 const PAD_STICK := {  # left stick: [axis, direction]
 	"move_up": [JOY_AXIS_LEFT_Y, -1.0], "move_down": [JOY_AXIS_LEFT_Y, 1.0],
@@ -37,6 +40,7 @@ var switch_lock := 0.0  # seconds the automatic switching leaves a manual choice
 var pass_target: Footballer  # who a pass would go to now (marked on the pitch)
 var air_request := ""  # "shoot" or "pass" pressed just before a ball in the air arrives
 var air_request_left := 0.0  # seconds it still counts
+var special_index := 0
 
 
 func _init(t: Team, i: int) -> void:
