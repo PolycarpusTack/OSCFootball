@@ -191,9 +191,23 @@ checks each against an elite and a poor player.
 
 ## Rebuilding the assets
 
+From the repository root, with `FIFA96.ISO` there. Needs Python 3.12, `7z` and `ffmpeg`.
+
 ```
-tools/.venv/bin/python -I tools/build_godot_assets.py extracted decoded game
+python3 -m venv tools/.venv && tools/.venv/bin/pip install -r tools/requirements.txt
+7z x FIFA96.ISO -oextracted                                                 # the CD's files
+tools/.venv/bin/python -I tools/extract_all.py extracted decoded             # everything to PNG/WAV/MP4/TSV/CSV, ~10 min
+tools/.venv/bin/python -I tools/build_godot_assets.py extracted decoded game # what the game loads, into game/assets
 ```
+
+Then the squads (see "Squads, ratings, crests and portraits"): `fetch_ea_ratings.py`, then `build_ea_assets.py`. Each
+step exits non-zero if anything failed or is missing (`decoded/errors.txt` lists extraction
+errors). `build_ea_assets.py` draws the club boards with DejaVu Sans Bold; set `OSCF_FONT` to
+another bold TTF where that isn't installed.
+
+Older builds also copied the FIFA 96 music cues and the 1995 database into the project. Nothing
+loads them, and Godot imported the CSVs as translations that shipped in every build. If they
+are still there: `rm -r game/assets/audio/music game/data/*.csv* game/data/*.translation`.
 
 `brand/` is made from the full-size originals (kept out of git) with ffmpeg:
 

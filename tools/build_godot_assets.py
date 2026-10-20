@@ -124,10 +124,15 @@ def main(src, decoded, project):
     }
     from PIL import Image
     boards = sorted(glob.glob(os.path.join(decoded, "images/ART/GAMESTD1.PVI/STABcovr.fsh/*.png")))
-    for i, src in enumerate(b for b in boards if Image.open(b).width == 128):
+    def width(path):
+        with Image.open(path) as im:
+            return im.width
+
+    for i, board_png in enumerate(b for b in boards if width(b) == 128):
         os.makedirs(os.path.join(project, "assets/stadium"), exist_ok=True)
-        shutil.copy(src, os.path.join(project, "assets/stadium/board%d.png" % i))
+        shutil.copy(board_png, os.path.join(project, "assets/stadium/board%d.png" % i))
     img_root = os.path.join(decoded, "images")
+    missing = []
     for rel, dst in copies.items():
         s, d = os.path.join(img_root, rel), os.path.join(project, dst)
         if os.path.isdir(s):
@@ -136,14 +141,16 @@ def main(src, decoded, project):
             os.makedirs(os.path.dirname(d), exist_ok=True)
             shutil.copy(s, d)
         else:
-            print("missing", rel)
+            missing.append(rel)
 
+    # Only what the game loads: the FIFA 96 music cues and the 1995 database (players.csv,
+    # teams.csv) are not copied; Godot would import the CSVs as translation tables.
     audio = os.path.join(decoded, "audio")
-    for sub, dst in (("music", "assets/audio/music"), ("SFX_GAME.BNK", "assets/audio/sfx"),
-                     ("CHN_GEN1.BNK", "assets/audio/crowd")):
+    for sub, dst in (("SFX_GAME.BNK", "assets/audio/sfx"), ("CHN_GEN1.BNK", "assets/audio/crowd")):
         shutil.copytree(os.path.join(audio, sub), os.path.join(project, dst), dirs_exist_ok=True)
-    shutil.copytree(os.path.join(decoded, "data"), os.path.join(project, "data"), dirs_exist_ok=True)
     print("animations", len(index))
+    if missing:
+        sys.exit("missing from %s:\n  %s" % (img_root, "\n  ".join(missing)))
 
 
 if __name__ == "__main__":

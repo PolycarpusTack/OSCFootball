@@ -15,7 +15,7 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT = os.environ.get("OSCF_FONT", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")  # any bold TTF
 PORTRAIT = 40  # pixels square
 PORTRAIT_COLOURS = 16
 BOARD = (256, 32)  # two times the original 128x16 boards
@@ -96,7 +96,7 @@ def skin_and_hair(src: str) -> tuple[str, str]:
     """Median colour of the cheeks and of the top of the head in the photo (head and
     shoulders on a transparent background). A bald head gives a skin-like hair colour."""
     im = Image.open(src).convert("RGBA")
-    left, top, right, bottom = im.getchannel("A").point(lambda a: 255 if a > 16 else 0).getbbox()
+    left, top, right, bottom = im.getchannel("A").point(lambda a: 255 if a > 16 else 0).getbbox() or (0, 0, *im.size)
     w, h = right - left, bottom - top
 
     def sample(x0, x1, y0, y1):

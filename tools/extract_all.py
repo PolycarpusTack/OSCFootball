@@ -24,7 +24,15 @@ errors = []
 
 
 def log_error(what):
-    errors.append(what + "\n" + traceback.format_exc(limit=1))
+    errors.append(what + "\n" + traceback.format_exc())
+
+
+def inside(dest, name):
+    """dest/name, refusing archive entry names that would land outside dest."""
+    path = os.path.normpath(os.path.join(dest, name))
+    if os.path.isabs(name) or os.path.commonpath([os.path.normpath(dest), path]) != os.path.normpath(dest):
+        raise ValueError("archive entry outside the output folder: %r" % name)
+    return path
 
 
 def save_shapes(data, dest, palette=None):
@@ -65,11 +73,11 @@ def images(src, out, dec):
                     for name, blob in read_bigf(data):
                         inner = dec.unpack(blob)
                         if inner[:4] == b"SHPI":
-                            save_shapes(inner, os.path.join(out, "images", rel, name), palette)
+                            save_shapes(inner, inside(os.path.join(out, "images", rel), name), palette)
                         else:
                             raw = os.path.join(out, "raw", rel)
                             os.makedirs(raw, exist_ok=True)
-                            open(os.path.join(raw, name), "wb").write(inner)
+                            open(inside(raw, name), "wb").write(inner)
             except Exception:
                 log_error(rel)
 
@@ -85,9 +93,9 @@ def audio(src, out):
                 os.makedirs(dest, exist_ok=True)
                 for name, blob in read_bigf(open(path, "rb").read()):
                     if blob[:4] == b"EACS":
-                        open(os.path.join(dest, name.rsplit(".", 1)[0] + ".wav"), "wb").write(eacs_to_wav(blob))
+                        open(inside(dest, name.rsplit(".", 1)[0] + ".wav"), "wb").write(eacs_to_wav(blob))
                     else:
-                        open(os.path.join(dest, name), "wb").write(blob)
+                        open(inside(dest, name), "wb").write(blob)
             elif ext == "BNK":
                 dest = os.path.join(out, "audio", f)
                 os.makedirs(dest, exist_ok=True)
@@ -161,9 +169,15 @@ def main(src, out):
     for step in (lambda: database(src, out, dec), lambda: text(src, out, dec), lambda: images(src, out, dec),
                  lambda: audio(src, out), lambda: video(src, out)):
         step()
+    report = os.path.join(out, "errors.txt")
     if errors:
-        open(os.path.join(out, "errors.txt"), "w").write("\n".join(errors))
+        with open(report, "w") as fh:
+            fh.write("\n".join(errors))
+    elif os.path.exists(report):
+        os.remove(report)  # left over from an earlier run
     print("done, %d errors" % len(errors))
+    if errors:
+        sys.exit("see " + report)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ Everything below was checked against the actual files unless it is marked **ASSU
 ## Layout
 
 ```
-extracted/   raw ISO contents (7z x FIFA96.ISO)
+extracted/   raw ISO contents (7z x FIFA96.ISO -oextracted)
 decoded/     everything converted to PNG / WAV / MP4 / CSV / TSV
   images/    4,216 PNGs (menus, stadiums, pitch, player animations, fonts are not rendered)
   audio/     18,492 WAVs (Motson/Hill commentary, crowd chants, SFX, 15 music cues)

@@ -23,13 +23,15 @@ IMAGE_HOSTS = {"drop-assets.ea.com", "ratings-images-prod.pulse.ea.com"}
 PAGE_DELAY = 2.0
 IMAGE_DELAY = 0.25
 MAX_IMAGE = 2 * 1024 * 1024
+MAX_PAGE = 20 * 1024 * 1024
 UA = "Mozilla/5.0 (personal FIFA 96 remake; one-off download)"
 
 
-def get(url: str) -> bytes:
+def get(url: str, limit: int) -> bytes:
+    """At most limit + 1 bytes, so callers can tell an oversized response."""
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read()
+        return r.read(limit + 1)
 
 
 def next_data(html: str) -> dict:
@@ -47,9 +49,12 @@ def fetch_image(url: str, path: str) -> bool:
         print("  skipped (unexpected host):", host)
         return False
     try:
-        data = get(url)
+        data = get(url, MAX_IMAGE)
     except urllib.error.HTTPError as e:  # some players have no portrait
         print(f"  skipped (HTTP {e.code}):", path)
+        return False
+    except (urllib.error.URLError, TimeoutError) as e:  # one bad image must not end the run
+        print(f"  skipped ({e}):", path)
         return False
     if not data.startswith(b"\x89PNG\r\n\x1a\n") or len(data) > MAX_IMAGE:
         print("  skipped (not a PNG or too big):", path)
@@ -71,7 +76,10 @@ def main(out: str) -> None:
     while page <= pages:
         path = os.path.join(out, "pages", f"league_p{page}.html")
         if not os.path.exists(path):
-            html = get(f"{LEAGUE_URL}?page={page}").decode("utf-8")
+            raw = get(f"{LEAGUE_URL}?page={page}", MAX_PAGE)
+            if len(raw) > MAX_PAGE:
+                sys.exit(f"page {page} is larger than {MAX_PAGE} bytes")
+            html = raw.decode("utf-8")
             with open(path, "w", encoding="utf-8") as f:
                 f.write(html)
             time.sleep(PAGE_DELAY)

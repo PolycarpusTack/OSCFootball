@@ -1,0 +1,6 @@
+# Python 3.12 venv for tools/:  python3 -m venv tools/.venv && tools/.venv/bin/pip install -r tools/requirements.txt
+# System tools also needed: 7z (p7zip-full) and ffmpeg.
+capstone==5.0.9
+numpy==2.5.4
+pillow==13.0.0
+unicorn==2.1.4
