@@ -270,6 +270,27 @@ func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot", bend)
 
 
+## A free kick over the wall: struck so it clears `wall_top` (pitch pixels up) `wall` pixels
+## out from the ball and comes down under the bar at `target`, curled (curve). freeKickAccuracy
+## decides how near it goes to where he aims and how well he judges the height: a poor one
+## clips the wall or goes over.
+func free_kick(target: Vector2, wall: float, wall_top: float) -> void:
+	var err := skill("freeKickAccuracy", 16.0, 2.0)
+	var miss := skill("freeKickAccuracy", 55.0, 6.0) * foot_factor(target)
+	target += Vector2(0.0, randf_range(-miss, miss))
+	var d := ball.position.distance_to(target)
+	var over := wall_top + 6.0 - randf_range(0.0, err)  # height at the wall: a poor taker clips it
+	var under := randf_range(10.0, 34.0) + randf_range(-err, err)  # height at the goal line
+	# no air drag: z(t) = lift t - g t^2 / 2 through both heights fixes the speed and the lift
+	var u2 := (over / wall - under / d) / (Ball.GRAVITY / 2.0 * (d - wall))
+	if d <= wall or u2 <= 0.0:
+		shoot(target, 0.8, "freeKickAccuracy")
+		return
+	var speed := clampf(1.0 / sqrt(u2), 420.0, 900.0)
+	var t := wall / speed
+	kick_to(target, speed, (over + Ball.GRAVITY / 2.0 * t * t) / t, "shoot", "shot", curl_bend())
+
+
 ## A cross into the box: lofted so it comes down at head height where `mate` is running to,
 ## whipped in with curve.
 func cross_to(mate: Footballer) -> void:

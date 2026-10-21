@@ -24,6 +24,8 @@ const KNOCK_FATIGUE := 0.1  # going down takes it out of you
 const DIZZY_AT := 0.6  # Chaos: knocked down this tired, he sees stars
 const DIZZY_TIME := 2.5
 const FREE_KICK_RANGE := 30.0 * Pitch.PX_PER_M  # closer than this a free kick is a shot
+const WALL_GAP := 0.7 * Pitch.PX_PER_M  # between the men in a free-kick wall
+const WALL_MEN := [[20.0, 4], [25.0, 3], [INF, 2]]  # [free kick within this many metres of goal, men in the wall]
 const KEEPER_CLEAR := 9.15 * Pitch.PX_PER_M  # a keeper holding it waits until opponents are this far away
 const KEEPER_MAX_HOLD := 6.0  # ... or this many seconds (the six-second rule)
 const FOUL_MISS := 0.4  # a slide that misses the ball takes the man this often
@@ -137,6 +139,8 @@ var _shootout_team: Team  # takes the next (or the current) shoot-out penalty
 var _shootout_live := false  # a shoot-out penalty is on its way: see _shootout
 var _restart_kind := ""  # "throw-in", "corner" or "goal kick" while state is RESTART
 var _restart_taker: Footballer
+var _wall: Array[Footballer] = []  # a free kick in range: the defenders in the wall
+var _wall_spots: Array[Vector2] = []
 var _restart_taken := false  # the taker has started the throw / kick; play on once it's left them
 var _keeper_held := 0.0  # seconds a keeper has held the ball in his box
 var _offside: Array[Footballer] = []  # in an offside position when the last kick was played
@@ -308,6 +312,7 @@ func nearest_opponent_distance(p: Footballer) -> float:
 
 func kickoff(kicking: Team) -> void:
 	state = State.KICKOFF
+	_wall.clear()
 	_state_left = 1.2
 	var news := _stoppage_news()
 	var centre := Pitch.field_rect().get_center()
@@ -2001,9 +2006,44 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 	ball.take(taker)
 	ball.in_hands = kind == "throw-in"  # the throw-in animation has it in the hands
 	_keep_opponents_back()
+	_line_up_wall(kind, team, spot)
 	if kind == "free kick":
 		referee.facing = Anims.facing_from(Vector2(team.side, 0.0))
 		referee.perform("rpoint")
+
+
+## A free kick to `team` within FREE_KICK_RANGE of the goal: the defenders nearest the ball
+## (WALL_MEN of them, more the closer it is) line up 9.15 m from it, across the line to the
+## goal and shifted to cover the near post. Any other restart: no wall.
+func _line_up_wall(kind: String, team: Team, spot: Vector2) -> void:
+	_wall.clear()
+	_wall_spots.clear()
+	var goal := team.goal_attacked()
+	if kind != "free kick" or spot.distance_to(goal) >= FREE_KICK_RANGE:
+		return
+	var metres := spot.distance_to(goal) / Pitch.PX_PER_M
+	var men: int = WALL_MEN.filter(func(w): return metres < w[0])[0][1]
+	var defenders := opponent(team).players.filter(func(p): return p.role != "G" and not p.sent_off)
+	defenders.sort_custom(func(a, b): return a.position.distance_to(spot) < b.position.distance_to(spot))
+	var to_goal := (goal - spot).normalized()
+	var across := to_goal.orthogonal()
+	var near_post := signf(spot.y - goal.y) if absf(spot.y - goal.y) > 1.0 else 0.0
+	var centre := spot + to_goal * Pitch.m(9.15) + across * across.dot(Vector2(0.0, near_post)) * WALL_GAP * 0.5 * (men - 1)
+	for i in mini(men, defenders.size()):
+		_wall.append(defenders[i])
+		_wall_spots.append(centre + across * WALL_GAP * (i - (men - 1) / 2.0))
+	_hold_wall()
+
+
+## The wall stands still on its spots, facing the ball, until the kick.
+func _hold_wall() -> void:
+	for i in _wall.size():
+		var p := _wall[i]
+		p.position = _wall_spots[i]
+		p.velocity = Vector2.ZERO
+		p.wish = Vector2.ZERO
+		p.ai_state = "wall"
+		p.facing = Anims.facing_from(ball.position - p.position)
 
 
 ## Opponents stay 9.15 m from the ball until it's taken, and out of the penalty area
@@ -2029,13 +2069,15 @@ func _restart(delta: float) -> void:
 		_switch_control()
 	for t in [home, away]:
 		for p in t.players:
-			if p != taker:
+			if p != taker and not p in _wall:
 				AI.think(p, self, delta)
 	_keep_opponents_back()
+	_hold_wall()
 	taker.wish = Vector2.ZERO
 	if _restart_taken:
 		if ball.holder != taker:  # it's left the taker: play on, from inside the lines
 			_restart_taken = false
+			_wall.clear()
 			var f := Pitch.field_rect().grow(-2.0)
 			ball.position = ball.position.clamp(f.position, f.end)
 			state = State.PLAY
@@ -2077,7 +2119,14 @@ func _restart(delta: float) -> void:
 		"free kick":  # a shot (freeKickAccuracy) from close enough, else played on
 			if shoot:
 				var at := _aim_shot(taker, aim.normalized()) if aim != Vector2.ZERO else goal + Vector2(0.0, randf_range(-0.7, 0.7) * GOAL_HALF_WIDTH)
-				taker.shoot(at, 0.8, "freeKickAccuracy")
+				if _wall.is_empty():
+					taker.shoot(at, 0.8, "freeKickAccuracy")
+				else:  # up over the wall and down under the bar
+					var top := 0.0
+					for p in _wall:
+						top = maxf(top, p.head_reach())
+					var reach := Footballer.REACH + 10.0 + 12.0  # their reach, the feet in front, a frame of the ball
+					taker.free_kick(at, ball.position.distance_to(_wall_spots[0]) - reach, top)
 			elif mate:
 				taker.pass_to(mate)
 			else:

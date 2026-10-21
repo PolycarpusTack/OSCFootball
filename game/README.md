@@ -72,6 +72,7 @@ godot --headless --path game -s res://tests/engine_test.gd                      
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
+godot --headless --path game -s res://tests/wall_test.gd                         # the free-kick wall: size by distance, holds still, blocks a low shot
 godot --headless --path game -s res://tests/referee_art_test.gd                  # the referee's own sprites, yellow and red card
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
@@ -213,7 +214,7 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | shoulder to shoulder | strength | steal rate x0.8 → 1.2 (against the holder's); wins a header both go up for; Body Check odds |
 | skill moves | dribbling vs defensiveAwareness, ballControl | nutmeg through 21% → 90% (even: 50%); rainbow clean 50% → 100%; AI dribblers with a man right in front try one 5% → 30% of decisions |
 | going to ground, getting booked | aggression | AI chaser on the dribbler slides 0.2% → 1.2% of frames; card odds 0.7x → 1.3x |
-| free kicks | freeKickAccuracy | up to 55 px off → 6 px |
+| free kicks | freeKickAccuracy | up to 55 px off → 6 px; over a wall it passes 6 px above their heads, minus up to 16 → 2 px |
 | getting tired | stamina | fatigue per second running 0.012 → 0.0045 (see Rules) |
 | staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
 | seeing a pass (AI and the pass button's pick) | vision | sees mates up to 400 → 560 px away, 45° → 75° either side of the pass button's aim; a cut-off lane counts against a mate 150 → 350; leads a runner 0.15 s → 0.65 s of his run |
@@ -317,7 +318,11 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   outright if slidingTackle comes off. A missed slide takes the man 40% of the time, and one
   from behind always does: a foul. A foul in the box gives a penalty (keeper guesses a side
   and dives); elsewhere a free kick where it happened. Within 30 m of goal the AI shoots it
-  (freeKickAccuracy); you choose: Space shoots (aim with the stick), X passes.
+  (freeKickAccuracy); you choose: Space shoots (aim with the stick), X passes. Within 30 m the
+  defenders nearest the ball make a wall 9.15 m out, across the line to the goal and shifted
+  to the near post: 4 men inside 20 m, 3 inside 25 m, 2 beyond. They stand still until the
+  kick. A shot from there goes up over the wall and dips under the bar; how close to the
+  wall's heads it passes depends on freeKickAccuracy, so a poor taker clips it.
 - Cards (Classic): a foul from behind is booked 45% of the time and is a straight red 10%;
   other fouls 12% yellow. Aggression scales both (0.7x → 1.3x). A second yellow is a red: the
   player leaves the pitch for the rest of the match. In Chaos the yellows come from the

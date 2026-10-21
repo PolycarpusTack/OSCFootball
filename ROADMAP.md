@@ -31,7 +31,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 | 2.1 | Substitutions (bench from `squads.json`) | Pause-menu sub; AI subs tired players; no subs for a sent-off player; 3 or 5 sub limit | M |
 | 2.2 | Formations: 4-4-2, 4-3-3, 4-2-4, 3-5-2, sweeper | `Team.FORMATION` becomes a choice; players looked up by role, not list index (fixes the `players[9]` / `players[0]` debt) | M |
 | 2.3 | Team strategy: defensive / balanced / attacking, long ball | Shifts the AI's support lines and pass choice | M |
-| 2.4 | Free-kick wall | Defenders form a wall at 9.15 m for free kicks in shooting range | M |
+| 2.4 | Free-kick wall | **Done** (`wall_test`): 2 to 4 defenders at 9.15 m within 30 m, the AI shoots over it (freeKickAccuracy). Still open: the AI always lets the striker (`players[9]`) take it, not its best free-kick taker | M |
 
 ## Phase 3: modes
 
