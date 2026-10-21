@@ -1,14 +1,17 @@
-"""A low-poly footballer in the OSCF kit, running on the spot, rendered from the game's five
-drawn directions (away, up-right, right, down-right, toward the camera) at 4x the sprite size.
+"""A low-poly footballer, running on the spot, rendered from the game's five drawn directions
+(away, up-right, right, down-right, toward the camera) at 4x the sprite size.
 
     blender -b -P tools/blender/footballer_run.py -- <out_dir>
 
-Writes <out_dir>/<dir>_<frame>.png (RGBA) and <out_dir>/origin.json: the pixel the ground
-point under the player lands on, the same in every render. tools/blender/pack_sprites.py
-turns them into a sheet and animations.json for the game.
+Writes <out_dir>/<dir>_<frame>.png and <out_dir>/origin.json: the pixel the ground point under
+the player lands on, the same in every render. tools/blender/pack_sprites.py turns them into
+a palette-indexed sheet, its palette and animations.json for the game's kit shader.
 
-Kit colours are the OSCF kit the game's kit shader recolours (scripts/kit.gdshader, own_art):
-white shirt and socks, blue shorts.
+The renders aren't pictures but codes, unlit (emission), one sample a pixel so codes never
+blend: red is the kit slot of scripts/kit.gdshader (1 shirt, 2 its second colour, 3 shorts,
+4 socks, 5 boots, 6 skin, 7 hair) times SLOT_STEP, green how much the surface faces the
+light (0.5 + 0.5 light . normal). The shirt is striped in slots 1 and 2 like FIFA 96's
+sprites, so a striped kit shows its stripes and a plain one (shirt2 = shirt) doesn't.
 """
 import json
 import math
@@ -26,29 +29,21 @@ ORTHO = 2.56  # metres across the render: 1.8 m tall comes out about 44 px at 64
 ELEVATION = math.radians(24.0)  # the match camera looks down about this much
 DIRECTIONS = {0: 90.0, 2: 45.0, 4: 0.0, 6: -45.0, 8: -90.0}  # drawn dir: heading (deg, 0 = screen right)
 
-COLOURS = {  # sRGB, as they come out lit full on
-    "shirt": (0.95, 0.95, 0.95),
-    "shorts": (0.1, 0.22, 0.8),
-    "socks": (0.95, 0.95, 0.95),
-    "boots": (0.1, 0.1, 0.1),
-    "skin": (0.92, 0.68, 0.5),
-    "hair": (0.3, 0.2, 0.1),
-}
+SLOTS = {"shirt": 1, "shirt2": 2, "shorts": 3, "socks": 4, "boots": 5, "skin": 6, "hair": 7}
+SLOT_STEP = 32  # red byte per slot; pack_sprites.py reads it back to the nearest
 LIGHT = (-0.45, -0.55, 0.7)  # toward the light: up, toward the camera, from the left
-BANDS = [(0.0, 0.66), (0.35, 0.82), (0.7, 1.0)]  # flat shading: light . normal from, brightness (the
-# darkest white must stay above the kit shader's 0.6, or it isn't recoloured as kit)
+STRIPE = 0.16  # metres from one stripe to the next across the shirt: 2 px each in the sprite
 
 
-def linear(c):
-    return tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c)
+def linear(v):
+    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
 
 
 def material(name):
+    """`name` a key of SLOTS, or "striped": the shirt in stripes of slots 1 and 2."""
     m = bpy.data.materials.get(name)
     if m:
         return m
-    # flat banded shading, pixel-art style: the colour times a step of light . normal, unlit
-    # by the scene (emission), so there's no render noise and every frame shades the same
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nodes, links = m.node_tree.nodes, m.node_tree.links
@@ -58,22 +53,40 @@ def material(name):
     dot.operation = "DOT_PRODUCT"
     dot.inputs[1].default_value = Vector(LIGHT).normalized()
     links.new(geo.outputs["Normal"], dot.inputs[0])
-    ramp = nodes.new("ShaderNodeValToRGB")
-    ramp.color_ramp.interpolation = "CONSTANT"
-    els = ramp.color_ramp.elements
-    els[0].position, els[0].color = 0.0, (*linear((BANDS[0][1],) * 3), 1.0)
-    els[1].position, els[1].color = BANDS[1][0], (*linear((BANDS[1][1],) * 3), 1.0)
-    e = els.new(BANDS[2][0])
-    e.color = (*linear((BANDS[2][1],) * 3), 1.0)
-    links.new(dot.outputs["Value"], ramp.inputs["Fac"])
-    mix = nodes.new("ShaderNodeMix")
-    mix.data_type = "RGBA"
-    mix.blend_type = "MULTIPLY"
-    mix.inputs["Factor"].default_value = 1.0
-    mix.inputs[6].default_value = (*linear(COLOURS[name]), 1.0)
-    links.new(ramp.outputs["Color"], mix.inputs[7])
+    lit = nodes.new("ShaderNodeMath")
+    lit.operation = "MULTIPLY_ADD"
+    lit.use_clamp = True
+    lit.inputs[1].default_value = 0.5
+    lit.inputs[2].default_value = 0.5
+    links.new(dot.outputs["Value"], lit.inputs[0])
+    code = nodes.new("ShaderNodeCombineColor")
+    links.new(lit.outputs["Value"], code.inputs["Green"])
+    slot_code = lambda slot: linear(slot * SLOT_STEP / 255.0)
+    if name == "striped":
+        coords = nodes.new("ShaderNodeTexCoord")
+        xyz = nodes.new("ShaderNodeSeparateXYZ")
+        links.new(coords.outputs["Object"], xyz.inputs["Vector"])
+        across = nodes.new("ShaderNodeMath")
+        across.operation = "DIVIDE"
+        across.inputs[1].default_value = STRIPE
+        links.new(xyz.outputs["X"], across.inputs[0])
+        frac = nodes.new("ShaderNodeMath")
+        frac.operation = "FRACT"
+        links.new(across.outputs["Value"], frac.inputs[0])
+        second = nodes.new("ShaderNodeMath")  # 1 on the second half of each stripe
+        second.operation = "GREATER_THAN"
+        second.inputs[1].default_value = 0.5
+        links.new(frac.outputs["Value"], second.inputs[0])
+        which = nodes.new("ShaderNodeMath")
+        which.operation = "MULTIPLY_ADD"
+        which.inputs[1].default_value = slot_code(SLOTS["shirt2"]) - slot_code(SLOTS["shirt"])
+        which.inputs[2].default_value = slot_code(SLOTS["shirt"])
+        links.new(second.outputs["Value"], which.inputs[0])
+        links.new(which.outputs["Value"], code.inputs["Red"])
+    else:
+        code.inputs["Red"].default_value = slot_code(SLOTS[name])
     emit = nodes.new("ShaderNodeEmission")
-    links.new(mix.outputs[2], emit.inputs["Color"])
+    links.new(code.outputs["Color"], emit.inputs["Color"])
     out = nodes.new("ShaderNodeOutputMaterial")
     links.new(emit.outputs["Emission"], out.inputs["Surface"])
     return m
@@ -132,7 +145,7 @@ def build():
     chest.parent = torso
     chest.location = (0.0, 0.0, 0.27)
     chest.scale = (1.0, 0.62, 1.0)
-    chest.data.materials.append(material("shirt"))
+    chest.data.materials.append(material("striped"))
     bpy.ops.object.shade_smooth()
     box(pelvis, (0.36, 0.24, 0.16), "shorts", (0.0, 0.0, -0.02))
     neck = joint("neck", torso, (0.0, 0.0, 0.53))
@@ -179,7 +192,8 @@ def pose(j, phase):
 def setup_scene():
     s = bpy.context.scene
     s.render.engine = "CYCLES"
-    s.cycles.samples = 8  # flat emission: only the edges need samples
+    s.cycles.samples = 1  # codes: one ray a pixel, at its centre, so no two codes blend
+    s.cycles.filter_width = 0.01
     s.cycles.device = "CPU"
     s.cycles.use_denoising = False  # the distro build has no OpenImageDenoise; the downscale smooths the noise
     s.render.resolution_x = CELL
@@ -187,15 +201,8 @@ def setup_scene():
     s.render.film_transparent = True
     s.render.image_settings.file_format = "PNG"
     s.render.image_settings.color_mode = "RGBA"
+    s.render.image_settings.color_depth = "8"
     s.view_settings.view_transform = "Standard"
-    s.world = s.world or bpy.data.worlds.new("World")
-    s.world.use_nodes = True
-    s.world.node_tree.nodes["Background"].inputs["Color"].default_value = (0.5, 0.5, 0.5, 1.0)
-    s.world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.6
-    sun = bpy.data.objects.new("sun", bpy.data.lights.new("sun", "SUN"))
-    sun.data.energy = 3.5
-    sun.rotation_euler = (math.radians(50.0), 0.0, math.radians(-35.0))
-    s.collection.objects.link(sun)
     cam = bpy.data.objects.new("camera", bpy.data.cameras.new("camera"))
     cam.data.type = "ORTHO"
     cam.data.ortho_scale = ORTHO

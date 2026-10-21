@@ -123,6 +123,12 @@ NW, W, SW are mirrored). Frames are up to **62 px tall**, most about 44 px. The 
 
 Also own and outside this list: `brand/sprites/line_actions` (bulldozer clear, cannon punt, …).
 
+**Blender pipeline** (`tools/blender/`): a scripted low-poly footballer rendered in kit-slot
+codes from the 5 directions and packed into FIFA 96's format (palette-indexed sheet, own
+`palette.png`, `animations.json`), so the kit shader recolours it: stripes, photo skin and
+hair. So far: `run` (12 frames). Not wired into the game yet: it needs the own palette per
+animation (a third kit material).
+
 ## B. Kit palette
 
 | File | Size | Note |
