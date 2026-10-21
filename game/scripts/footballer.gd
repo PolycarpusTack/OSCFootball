@@ -7,6 +7,7 @@ extends Node2D
 const RUN_SPEED := 170.0
 const ACCEL := 900.0
 const REACH := 14.0
+const GIANT := 1.6  # sprite scale with the giant players modifier (looks only)
 const PRESS_BLOCK_M := 2.5  # an opponent this close when a pass is played may block it (see _past_the_press)
 const KICK_CONTACT := 0.15  # seconds into a kick animation the foot meets the ball
 const THROW_RELEASE := 0.67  # the throw-in animation's hands are empty from tick 21 (frame 4)
@@ -65,6 +66,8 @@ var yellow := false  # booked: a second yellow is a red
 var sent_off := false  # red card: parked off the pitch for the rest of the match (see Match.book)
 var dizzy_left := 0.0  # Chaos: seeing stars after a knockdown when tired (see Match.knock_down)
 var discipline := 0.0  # Chaos: how far the referee's patience with him has run out, 0-100 (see Match.offence)
+var fouls := 0  # fouls the referee has called on him this match: the more, the harsher (see Match.repeat_factor)
+var warned := false  # Chaos: called over since his last booking (see Match.offence)
 var chaos_lock := false  # controlled by ChaosActions through wind-up, active and recovery
 var chaos_lift := 0.0  # cosmetic only; ball contacts use explicit action height windows
 var chaos_rotation := 0.0
@@ -81,6 +84,7 @@ var _actions := 0  # counts one-shot animations started: a wind-up knows if it w
 var _sprite := Sprite2D.new()
 var _kit: Material  # the kit shader, for the palette-indexed FIFA 96 frames
 var _own_kit: Material  # the same kit for our own RGBA art (Team.own_art_material)
+var _rendered_kit: Material  # and for the Rendered player art (Team.rendered_material)
 var _marks := Node2D.new()  # shadow, control ring and charge meter, drawn under the sprite
 
 
@@ -97,6 +101,7 @@ func _ready() -> void:
 		kit.set_shader_parameter("has_hair", true)
 	_kit = kit
 	_own_kit = Team.own_art_material(kit, role == "G")
+	_rendered_kit = Team.rendered_material(kit)
 	_sprite.material = art_material if art_material else kit
 	_sprite.top_level = true
 	_marks.top_level = true
@@ -109,7 +114,7 @@ func _ready() -> void:
 func place(screen: Vector3) -> void:
 	var at := Vector2(screen.x, screen.y)
 	_sprite.position = at
-	_sprite.scale = Vector2.ONE * screen.z
+	_sprite.scale = Vector2.ONE * screen.z * (GIANT if Match.modifier("giant players") else 1.0)
 	_sprite.rotation = chaos_rotation
 	if chaos_rotation != 0.0 or chaos_lift != 0.0:
 		var pivot := Vector2(0, -24)
@@ -200,7 +205,12 @@ func _physics_process(delta: float) -> void:
 	_sprite.offset = f.offset
 	_sprite.flip_h = f.flip
 	if not art_material:  # the referee brings his own
-		_sprite.material = _own_kit if Anims.own_art(_anim) else _kit
+		_sprite.material = art_for(_anim)
+
+
+## His kit for drawing `anim`: our RGBA art, the Rendered player art, or FIFA 96's frames.
+func art_for(anim: String) -> Material:
+	return _own_kit if Anims.own_art(anim) else _rendered_kit if Anims.rendered(anim) else _kit
 
 
 func _draw_marks() -> void:
@@ -266,6 +276,27 @@ func shoot(target: Vector2, power := 0.5, stat := "") -> void:
 	var speed := lerpf(470.0, 660.0, power) * skill("shotPower", 0.88, 1.12)
 	var bend := curl_bend() if stat in ["longShots", "freeKickAccuracy"] else 0.0
 	kick_to(target, speed, lerpf(110.0, 170.0, power), "shoot", "shot", bend)
+
+
+## A free kick over the wall: struck so it clears `wall_top` (pitch pixels up) `wall` pixels
+## out from the ball and comes down under the bar at `target`, curled (curve). freeKickAccuracy
+## decides how near it goes to where he aims and how well he judges the height: a poor one
+## clips the wall or goes over.
+func free_kick(target: Vector2, wall: float, wall_top: float) -> void:
+	var err := skill("freeKickAccuracy", 16.0, 2.0)
+	var miss := skill("freeKickAccuracy", 55.0, 6.0) * foot_factor(target)
+	target += Vector2(0.0, randf_range(-miss, miss))
+	var d := ball.position.distance_to(target)
+	var over := wall_top + 6.0 - randf_range(0.0, err)  # height at the wall: a poor taker clips it
+	var under := randf_range(10.0, 34.0) + randf_range(-err, err)  # height at the goal line
+	# no air drag: z(t) = lift t - g t^2 / 2 through both heights fixes the speed and the lift
+	var u2 := (over / wall - under / d) / (Ball.GRAVITY / 2.0 * (d - wall))
+	if d <= wall or u2 <= 0.0:
+		shoot(target, 0.8, "freeKickAccuracy")
+		return
+	var speed := clampf(1.0 / sqrt(u2), 420.0, 900.0)
+	var t := wall / speed
+	kick_to(target, speed, (over + Ball.GRAVITY / 2.0 * t * t) / t, "shoot", "shot", curl_bend())
 
 
 ## A cross into the box: lofted so it comes down at head height where `mate` is running to,

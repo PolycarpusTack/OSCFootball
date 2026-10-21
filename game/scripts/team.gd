@@ -4,6 +4,7 @@ extends RefCounted
 
 const KIT_SHADER := preload("res://scripts/kit.gdshader")
 const PALETTE := preload("res://assets/sprites/players/palette.png")
+const RENDERED_PALETTE := preload("res://assets/sprites/oscf_rendered/palette.png")  # tools/blender
 const LEAGUE := "res://data/league.json"
 
 ## Formations, slot by slot: the position on the team sheet, the role (G, D, M, F) and three
@@ -67,6 +68,25 @@ const FORMATIONS := {
 	],
 }
 const DEFAULT_FORMATION := "4-4-2"
+## Indoor, five a side (Pitch.indoor): the keeper and four
+const INDOOR_FORMATIONS := {
+	"1-2-1": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.03, 0.50), "attack": Vector2(0.15, 0.50), "defend": Vector2(-0.01, 0.50)},
+		{"pos": "CB", "role": "D", "spot": Vector2(0.22, 0.50), "attack": Vector2(0.38, 0.50), "defend": Vector2(0.14, 0.50)},
+		{"pos": "RM", "role": "M", "spot": Vector2(0.42, 0.20), "attack": Vector2(0.62, 0.15), "defend": Vector2(0.30, 0.28)},
+		{"pos": "LM", "role": "M", "spot": Vector2(0.42, 0.80), "attack": Vector2(0.62, 0.85), "defend": Vector2(0.30, 0.72)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.62, 0.50), "attack": Vector2(0.80, 0.50), "defend": Vector2(0.48, 0.50)},
+	],
+	"2-2": [
+		{"pos": "GK", "role": "G", "spot": Vector2(0.03, 0.50), "attack": Vector2(0.15, 0.50), "defend": Vector2(-0.01, 0.50)},
+		{"pos": "RB", "role": "D", "spot": Vector2(0.22, 0.28), "attack": Vector2(0.40, 0.25), "defend": Vector2(0.14, 0.34)},
+		{"pos": "LB", "role": "D", "spot": Vector2(0.22, 0.72), "attack": Vector2(0.40, 0.75), "defend": Vector2(0.14, 0.66)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.56, 0.30), "attack": Vector2(0.78, 0.32), "defend": Vector2(0.44, 0.36)},
+		{"pos": "ST", "role": "F", "spot": Vector2(0.56, 0.70), "attack": Vector2(0.78, 0.68), "defend": Vector2(0.44, 0.64)},
+	],
+}
+const INDOOR_FORMATION := "1-2-1"
+const CATCH_UP := 0.5  # the catch-up modifier: energy gains x1.5 a goal behind, x2 two or more
 
 var name: String
 var short: String
@@ -111,6 +131,13 @@ static func own_art_material(kit: ShaderMaterial, keeper: bool) -> ShaderMateria
 	return m
 
 
+## `kit` for the Rendered player art (Anims.rendered): the same kit through its own palette.
+static func rendered_material(kit: ShaderMaterial) -> ShaderMaterial:
+	var m := kit.duplicate() as ShaderMaterial
+	m.set_shader_parameter("palette", RENDERED_PALETTE)
+	return m
+
+
 ## Pitch position (pixels) for a formation spot, seen from this team's end.
 func to_pitch(spot: Vector2) -> Vector2:
 	var field := Pitch.field_rect()
@@ -132,18 +159,26 @@ func goal_defended() -> Vector2:
 func gain(amount: float) -> void:
 	if not Match.chaos:  # Classic Football has no energy bar
 		return
+	if amount > 0.0 and Match.modifier("catch-up") and not players.is_empty():
+		amount *= 1.0 + CATCH_UP * clampi(players[0].opponents.score - score, 0, 2)
 	energy = clampf(energy + amount, 0.0, Supers.MAX_ENERGY)
 
 
-## Who takes kick-offs and penalties: the number 10 slot, or another outfield player if
-## he's been sent off.
+## The slots of `formation`, outdoor or indoor.
+static func slots_of(formation: String) -> Array:
+	return FORMATIONS[formation] if FORMATIONS.has(formation) else INDOOR_FORMATIONS[formation]
+
+
+## Who takes kick-offs and penalties: the number 10 slot (indoors the last), or another
+## outfield player if he's been sent off.
 func taker() -> Footballer:
-	if not players[9].sent_off:
-		return players[9]
+	var first := players[mini(9, players.size() - 1)]
+	if not first.sent_off:
+		return first
 	for p in players:
 		if p.role != "G" and not p.sent_off:
 			return p
-	return players[9]
+	return first
 
 
 func keeper() -> Footballer:

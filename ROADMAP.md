@@ -31,7 +31,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 | 2.1 | Substitutions (bench from `squads.json`) | Pause-menu sub; AI subs tired players; no subs for a sent-off player; 3 or 5 sub limit | M |
 | 2.2 | Formations: 4-4-2, 4-3-3, 4-2-4, 3-5-2, sweeper | `Team.FORMATION` becomes a choice; players looked up by role, not list index (fixes the `players[9]` / `players[0]` debt) | M |
 | 2.3 | Team strategy: defensive / balanced / attacking, long ball | Shifts the AI's support lines and pass choice | M |
-| 2.4 | Free-kick wall | Defenders form a wall at 9.15 m for free kicks in shooting range | M |
+| 2.4 | Free-kick wall | **Done** (`wall_test`): 2 to 4 defenders at 9.15 m within 30 m, the AI shoots over it (freeKickAccuracy). Still open: the nearest man takes it, not the side's best free-kick taker (who'd have to walk over) | M |
 
 ## Phase 3: modes
 
@@ -40,6 +40,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 | 3.1 | Cup (straight knockout, 8 or 16 clubs) | Bracket screen; uses 1.3; the other matches are simulated | M |
 | 3.2 | League season (Jupiler Pro League, 18 clubs) | Fixtures, simulated results, table, top scorers, cards carried over; starts from `league.json` | L |
 | 3.3 | Save / load for cup and season | One save slot per mode | M |
+| 3.4 | Indoor, 5 a side (IDEAS_TO_IMPLEMENT I.1) | **Done** (`indoor_test`): arena with boards, no throw-ins / corners / offside, 1-2-1. Still open: own arena art (floor, boards, low crowd), smaller indoor goals, rolling subs | M |
 
 ## Phase 4: atmosphere (own content first, see the replacement list)
 
@@ -48,7 +49,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 | 4.1 | Music in the game: own tracks for team select, half-time, win, lose | Converted to OGG; nothing loads `QUE_*` | S |
 | 4.2 | Crowd that reacts: background, chants that rotate, swells near goal, a roar on goals | Own crowd recordings, or FIFA 96 `CHN_*` as listed placeholders | S–M |
 | 4.3 | Goal celebrations: fireworks, flag-waving crowd | Own effect art; FIFA 96 `FW*` / `FAnim` only as placeholders | M |
-| 4.4 | Commentary | Decide first: own voice recordings, or FIFA 96 phrase clips as a personal-use extra. Start with ~30 generic lines (goal, save, miss, foul, kick-off, full time) | M first step; L in full |
+| 4.4 | Commentary | Decide first: own voice recordings, or FIFA 96 phrase clips as a personal-use extra. Start with ~30 generic lines (goal, save, miss, foul, kick-off, full time). **Written ticker done** (`commentary.gd`, 60+ moments, our own lines); voice still open | M first step; L in full |
 
 ## Phase 5: polish
 
@@ -121,6 +122,15 @@ NW, W, SW are mirrored). Frames are up to **62 px tall**, most about 44 px. The 
 | Referee | `rcard`, `rpoint` | Done: own referee art (`oscf_roles/referee`) replaces them |
 
 Also own and outside this list: `brand/sprites/line_actions` (bulldozer clear, cannon punt, …).
+
+**Blender pipeline** (`tools/blender/`): a scripted low-poly footballer rendered in kit-slot
+codes from the 5 directions and packed into FIFA 96's format (palette-indexed sheet, own
+`palette.png`, `animations.json`), so the kit shader recolours it: stripes, photo skin and
+hair. So far: `run`, `jog` (12 frames each), `xstandd` (1) and `kick` (5), on FIFA 96's frame
+timings. In the game as the **Rendered** player art (match options / pause menu, PLAYERS:
+Pixel or Rendered); animations not rendered yet fall back to FIFA 96's. The packed sprites
+are tracked in `game/assets/sprites/oscf_rendered/`. A real-time 3D view is parked until the
+original OSCF is finished (IDEAS I.6).
 
 ## B. Kit palette
 

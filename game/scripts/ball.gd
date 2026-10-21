@@ -5,6 +5,7 @@ extends Node2D
 const GRAVITY := 900.0
 const ROLL_FRICTION := 1.2  # exponential decay per second while rolling
 const BOUNCE := 0.5
+const CRAZY_BOUNCE := 0.85  # the crazy bounce modifier: livelier, and off at an angle
 const BANANA_TURN := 3.4  # rad/s the banana shot bends toward its target
 const SUPER_HEIGHT := 12.0  # fireball / thunder skim along at this height
 const TRAIL := 16
@@ -18,6 +19,8 @@ var velocity := Vector2.ZERO
 var z := 0.0
 var vz := 0.0
 var bounds := Rect2()  # set by the match; the ball bounces off its edges
+var mouth := Vector2.ZERO  # indoors: half the goal's width and the net's depth, where it goes past the ends
+var mouth_height := 0.0  # ... under the bar
 var holder: Footballer = null  # player dribbling it, if any
 var in_hands := false  # not drawn: a throw-in animation draws the ball in the thrower's hands
 var last_touch: Footballer = null
@@ -133,10 +136,18 @@ func _physics_process(delta: float) -> void:
 	else:
 		_normal_flight(delta)
 	if bounds.size != Vector2.ZERO:
-		if position.x < bounds.position.x or position.x > bounds.end.x:
+		var lo := bounds.position.x
+		var hi := bounds.end.x
+		var cy := bounds.get_center().y
+		if mouth != Vector2.ZERO and absf(position.y - cy) < mouth.x and z < mouth_height:  # into the net
+			lo -= mouth.y
+			hi += mouth.y
+		if position.x < lo or position.x > hi:
 			velocity.x = -velocity.x * 0.6
-			position.x = clampf(position.x, bounds.position.x, bounds.end.x)
+			position.x = clampf(position.x, lo, hi)
 			end_power()
+		if mouth != Vector2.ZERO and (position.x < bounds.position.x or position.x > bounds.end.x):
+			position.y = clampf(position.y, cy - mouth.x, cy + mouth.x)  # the side netting
 		if position.y < bounds.position.y or position.y > bounds.end.y:
 			velocity.y = -velocity.y * 0.6
 			position.y = clampf(position.y, bounds.position.y, bounds.end.y)
@@ -170,8 +181,11 @@ func _normal_flight(delta: float) -> void:
 			z = 0.0
 			if absf(vz) > 80.0:
 				bounced.emit(absf(vz))
-			vz = -vz * BOUNCE if absf(vz) > 80.0 else 0.0
+			var crazy := Match.modifier("crazy bounce")
+			vz = -vz * (CRAZY_BOUNCE if crazy else BOUNCE) if absf(vz) > 80.0 else 0.0
 			velocity *= 0.85
+			if crazy and vz > 0.0:
+				velocity = velocity.rotated(randf_range(-0.6, 0.6))
 	else:
 		velocity *= exp(-ROLL_FRICTION * delta)
 

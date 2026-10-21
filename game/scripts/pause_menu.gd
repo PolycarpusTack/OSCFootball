@@ -2,10 +2,11 @@ class_name PauseMenu
 extends CanvasLayer
 ## Esc (gamepad Start) pauses the match: the whole tree stops (clock, AI, ball, wind-ups)
 ## while this layer keeps running. Up / Down picks, Space / Enter (A) chooses, Esc / Start
-## (B) resumes. MOVES shows the command list (MoveList), SUBSTITUTIONS the human sides' SubsMenu.
+## (B) resumes. MOVES shows the command list (MoveList), SUBSTITUTIONS the human sides' SubsMenu,
+## PLAYERS switches the player art (Pixel / Rendered).
 
 const TITLE := "res://scenes/title.tscn"
-const ITEMS := ["RESUME", "MOVES", "SUBSTITUTIONS", "RESTART MATCH", "QUIT TO TITLE"]
+const ITEMS := ["RESUME", "MOVES", "SUBSTITUTIONS", "PLAYERS", "RESTART MATCH", "QUIT TO TITLE"]
 
 var _pick := 0
 var _box := Control.new()  # the menu: shown and hidden as one
@@ -55,7 +56,10 @@ func _label(text: String, font_size: int, colour: Color) -> Label:
 
 func _refresh() -> void:
 	for i in _rows.size():
-		_rows[i].text = ("▶  %s  ◀" if i == _pick else "%s") % ITEMS[i]
+		var text: String = ITEMS[i]
+		if text == "PLAYERS":  # the player art, switched on the spot
+			text = "PLAYERS: %s" % ("RENDERED" if Match.rendered else "PIXEL")
+		_rows[i].text = ("▶  %s  ◀" if i == _pick else "%s") % text
 		_rows[i].modulate.a = 1.0 if i == _pick else 0.7
 
 
@@ -117,6 +121,9 @@ func _choose() -> void:
 			_subs_open = true
 			_box.visible = false
 			add_sibling(menu)
+		"PLAYERS":
+			Match.rendered = not Match.rendered
+			_refresh()
 		"RESTART MATCH":
 			get_tree().paused = false
 			get_tree().reload_current_scene()

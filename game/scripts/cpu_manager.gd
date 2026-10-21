@@ -74,7 +74,7 @@ func at_stoppage() -> Array:
 	var lines := []
 	_choose_style(now)
 	var f := _formation()
-	if f[0] != team.formation:
+	if f[0] != team.formation and Team.FORMATIONS.has(team.formation):  # indoors it keeps its shape
 		_m.change_formation(team, f[0])
 		_note(lines, "%s GO %s\n%s" % [team.short, f[0], f[1]])
 	_pick_subs(now)
@@ -142,10 +142,10 @@ func _formation() -> Array:
 ## discounted for how tired he is, the bench held back before the hour; full-backs facing the
 ## human's danger man count double.
 func _pick_subs(now: float) -> void:
-	var slots: Array = Team.FORMATIONS[team.formation]
+	var slots: Array = Team.slots_of(team.formation)
 	var danger := _danger()
 	var options := []
-	for i in range(1, 11):
+	for i in range(1, team.players.size()):
 		var p: Footballer = team.players[i]
 		if p.sent_off:
 			continue

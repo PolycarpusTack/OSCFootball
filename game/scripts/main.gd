@@ -9,12 +9,12 @@ signal player_event(kind: String, p: Footballer)  # who: "foul" (the fouler), "y
 enum State { KICKOFF, PLAY, GOAL, PENALTY, RESTART, HALF_TIME, FULL_TIME, SHOOTOUT }
 
 const GOAL_HALF_WIDTH := 7.32 / 2.0 * Pitch.PX_PER_M
+const GOAL_DEPTH_M := 2.0  # the net, behind the line
 const CROSSBAR := 2.44 * Pitch.PX_PER_M
 const KEEPER_REACH := 24.0
 const DIVE_REACH := 34.0
-const PENALTY_SPOT := 11.0 * Pitch.PX_PER_M
-const BOX_DEPTH := 16.5 * Pitch.PX_PER_M
-const BOX_HALF_WIDTH := 40.32 / 2.0 * Pitch.PX_PER_M
+const SUPER_GOALIE := 2.0  # keeper reach x2 with the super goalie modifier
+const HOT_POTATO := 3.0  # seconds a player can keep the ball with the hot potato modifier
 const STEAL_RATE := 2.0  # chance per second of winning the ball when touching it
 const AIR_SHOT_RANGE := 20.0 * Pitch.PX_PER_M  # headers and volleys go at goal from closer than this
 const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to your own goal
@@ -26,6 +26,8 @@ const KNOCK_FATIGUE := 0.1  # going down takes it out of you
 const DIZZY_AT := 0.6  # Chaos: knocked down this tired, he sees stars
 const DIZZY_TIME := 2.5
 const FREE_KICK_RANGE := 30.0 * Pitch.PX_PER_M  # closer than this a free kick is a shot
+const WALL_GAP := 0.7 * Pitch.PX_PER_M  # between the men in a free-kick wall
+const WALL_MEN := [[20.0, 4], [25.0, 3], [INF, 2]]  # [free kick within this many metres of goal, men in the wall]
 const KEEPER_CLEAR := 9.15 * Pitch.PX_PER_M  # a keeper holding it waits until opponents are this far away
 const KEEPER_MAX_HOLD := 6.0  # ... or this many seconds (the six-second rule)
 const FOUL_MISS := 0.4  # a slide that misses the ball takes the man this often
@@ -58,6 +60,17 @@ const BRIBE_FLAG := 2.0  # seconds later he flags it
 const REF_VIEW_ANGLE := deg_to_rad(50.0)  # either side of where he looks
 const REF_VIEW_RANGE := 40.0 * Pitch.PX_PER_M
 const REF_NEAR := 6.0 * Pitch.PX_PER_M  # this close he sees it whichever way he looks
+# advantage: a seen foul where the fouled side has the ball running to one of its own plays on
+const ADVANTAGE_REACH := 5.0 * Pitch.PX_PER_M  # a teammate this close to where the ball runs, first to it
+const ADVANTAGE_TIME := 2.0  # seconds he waits; lost to the offenders meanwhile, he brings it back
+const ADVANTAGE_RUN := 140.0  # px/s the fouled man's ball runs on at
+const LATE_LOOK := 1.5  # seconds a man fouled behind the referee's back stays down: seen, a late whistle
+const WARN_AT := 70.0  # Chaos: the meter past this, the first time since a booking: he calls him over
+const REPEAT_STEP := 0.12  # each foul called on a man before makes his next one count this much more
+const REPEAT_CAP := 1.6
+const BOOKED_RATE := 0.85  # a booked man's meter fills slower: second yellows come later
+const LAST_MAN_RANGE := 35.0 * Pitch.PX_PER_M  # a foul on a man this close to goal with only the keeper to beat
+const LAST_MAN_RED := {"behind": 0.6, "front": 0.3}  # ... is a straight red this often
 const REF_TURN := 2.5  # radians a second his gaze turns toward the ball
 const SKILL_GAIN := 10.0  # energy for beating an opponent with a nutmeg or rainbow
 const NUTMEG_RANGE := 45.0  # an opponent this close in front can be nutmegged  # Chaos special: energy for a shoulder barge
@@ -95,10 +108,19 @@ static var home_sheet := {}  # {"xi", "bench"} from the team management screen (
 static var away_sheet := {}
 # match options screen (match_options.gd); kept between matches like the above
 static var half_minutes := 3  # real minutes per half; the clock shows 45 match minutes (ASSUMED default length)
-static var offside_on := true
+static var offside_on := true  # the option; indoors there's no offside either way (see offside_rule)
 static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
 static var cards_on := true
 static var knockout := false  # level at full time: extra time (golden goal), then penalties
+static var rendered := false  # player art: Pixel (FIFA 96's sprites) or Rendered (ours, tools/blender; see AnimLibrary)
+## How hard the referee is (match options): his card odds in Classic and how fast the
+## discipline meter fills in Chaos, times this. [name, factor]; strictness is the index.
+const STRICTNESS := [["LENIENT", 0.6], ["NORMAL", 1.0], ["STRICT", 1.5]]
+static var strictness := 1
+## Chaos modifiers (after FIFA 97 / RTWC 98's cheats), each a toggle in the match options;
+## Chaos Football only.
+const MODIFIERS := ["giant players", "super goalie", "crazy bounce", "hot potato", "catch-up"]
+static var modifiers: Array[String] = []
 
 var ball: Ball
 var home: Team
@@ -109,6 +131,9 @@ var referee_gaze := Vector2.UP  # where he looks: toward the ball, turning at RE
 var ref_mood := {}  # Team -> his mood with that side (Chaos); angry, he books faster
 var bribed := {}  # Team -> seconds of play he still leans its way (Chaos)
 var _bribe_flag := {}  # Team -> seconds until the linesman flags its bribe
+var _advantage := {}  # a foul he's playing advantage on: by, victim, from_behind, spot, left
+var _late_cards: Array = []  # fouls from advantage played: judged at the next stoppage
+var _unseen := {}  # Chaos: a foul behind his back, its victim still down: by, victim, from_behind, left
 var _blow_up := {}  # he's fuming at a side: team, left (seconds until the whistle stun)
 var referee_cone := true  # false: he sees everything (tests that aren't about him)
 var state := State.KICKOFF
@@ -125,16 +150,20 @@ var _shootout_team: Team  # takes the next (or the current) shoot-out penalty
 var _shootout_live := false  # a shoot-out penalty is on its way: see _shootout
 var _restart_kind := ""  # "throw-in", "corner" or "goal kick" while state is RESTART
 var _restart_taker: Footballer
+var _wall: Array[Footballer] = []  # a free kick in range: the defenders in the wall
+var _wall_spots: Array[Vector2] = []
 var _restart_taken := false  # the taker has started the throw / kick; play on once it's left them
 var _keeper_held := 0.0  # seconds a keeper has held the ball in his box
 var _offside: Array[Footballer] = []  # in an offside position when the last kick was played
 var _banner_left := 0.0
+var _potato_left := HOT_POTATO  # the holder's time left with the ball (hot potato)
 var stadium := Stadium.new()
 var _crowd := AudioStreamPlayer.new()
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_next := 0
 var _score_label := Label.new()  # "BRU  0 - 0  AND", between the two crests
 var _clock_label := Label.new()
+var _ticker := Label.new()  # the commentary line, along the top
 var _banner := Label.new()
 var _player_labels: Array[Label] = []  # each human's controlled player's name, as in FIFA 96
 var _discipline_bars: Array[ColorRect] = []  # Chaos: each human's player's discipline meter, under his portrait
@@ -144,6 +173,8 @@ var _energy_labels := {}  # Team -> Label
 var _aim_arrows := Node2D.new()  # each human's shot arrow on the grass (see aim_arrow)
 var _mood_meter := Node2D.new()  # Chaos: his mood with each side, over his head
 var _parry := {}  # a human side's called foul still open to "Sorry, ref!": p, added, left
+var detail := {}  # who an event is about, for those the ball can't tell: {kind, p1, p2, ...}, set just before it
+var commentary: Commentary
 var stats: MatchStats  # for the full-time screen
 var cpu: CpuManager  # the CPU side's manager; null when two people play
 var _full_time_panel := PanelContainer.new()
@@ -161,7 +192,10 @@ func _ready() -> void:
 	add_child(world)
 
 	ball = Ball.new()
-	ball.bounds = Pitch.field_rect().grow(Pitch.m(Pitch.MARGIN_M) - 4.0)
+	ball.bounds = Pitch.field_rect() if Pitch.indoor else Pitch.field_rect().grow(Pitch.m(Pitch.MARGIN_M) - 4.0)
+	if Pitch.indoor:  # off the boards, but into the goals
+		ball.mouth = Vector2(GOAL_HALF_WIDTH, Pitch.m(GOAL_DEPTH_M))
+		ball.mouth_height = CROSSBAR
 	world.add_child(ball)
 
 	home = Team.from_league(home_club)
@@ -186,12 +220,15 @@ func _ready() -> void:
 		var names := squad
 		var formation := home_formation if t == home else away_formation
 		var sheet := home_sheet if t == home else away_sheet
+		if Pitch.indoor:  # five a side: the team sheet is for eleven
+			formation = Team.INDOOR_FORMATION
+			sheet = {}
 		if squad.size() >= 11:
 			var picked := Lineup.checked(squad, formation, sheet) if not sheet.is_empty() else Lineup.auto_pick(squad, formation)
 			names = Lineup.entries(squad, picked.xi)
 			t.bench = Lineup.entries(squad, picked.bench)
 		t.formation = formation
-		var slots: Array = Team.FORMATIONS[formation]
+		var slots: Array = Team.slots_of(formation)
 		for i in slots.size():
 			var p := _new_player(t, slots[i], names[i] if i < names.size() else {"number": i + 1})
 			t.players.append(p)
@@ -229,6 +266,7 @@ func _ready() -> void:
 	add_child(DebugOverlay.new(self))
 	add_child(PauseMenu.new())
 	stats = MatchStats.new(self)
+	commentary = Commentary.new(self)  # after stats: a hat-trick is read off its goals
 	if not human_for(away):
 		cpu = CpuManager.new(self, away)
 	chaos_actions = ChaosActions.new(self)
@@ -286,6 +324,7 @@ func nearest_opponent_distance(p: Footballer) -> float:
 
 func kickoff(kicking: Team) -> void:
 	state = State.KICKOFF
+	_wall.clear()
 	_state_left = 1.2
 	var news := _stoppage_news()
 	var centre := Pitch.field_rect().get_center()
@@ -349,6 +388,7 @@ func request_sub(t: Team, slot: int, entry: Dictionary) -> bool:
 
 ## A stoppage: the CPU manager's decisions, then the substitutions waiting for it. Banner text, or "".
 func _stoppage_news() -> String:
+	_cards_held_over()
 	var lines: Array = []
 	for t in [home, away]:
 		var text := _cover_goal(t)
@@ -360,6 +400,19 @@ func _stoppage_news() -> String:
 	if subs != "":
 		lines.append(subs)
 	return "\n".join(lines)
+
+
+## At a stoppage: advantage still running is played, and the cards from advantage played
+## are shown now; a man fouled behind his back is up again.
+func _cards_held_over() -> void:
+	if not _advantage.is_empty():
+		_late_cards.append(_advantage)
+		_advantage = {}
+	_unseen = {}
+	var due := _late_cards
+	_late_cards = []
+	for a in due:
+		_punish(a)
 
 
 ## `t`'s keeper sent off: a forward (the weakest; else the weakest outfield player) makes way
@@ -385,7 +438,7 @@ func _cover_goal(t: Team) -> String:
 ## `t` lines up in formation `f` from now on: the keeper stays in goal, the others take the slot
 ## that suits them best one by one (a slot like the one he had first); men sent off fill the last.
 func change_formation(t: Team, f: String) -> void:
-	var slots: Array = Team.FORMATIONS[f]
+	var slots: Array = Team.slots_of(f)
 	var free: Array = t.players.slice(1).filter(func(p): return not p.sent_off)
 	var out: Array = t.players.slice(1).filter(func(p): return p.sent_off)
 	var order: Array = [t.players[0]]
@@ -474,6 +527,9 @@ func _physics_process(delta: float) -> void:
 	chaos_actions.tick(delta)
 	line_moves.tick()
 	_update_hud()
+	commentary.tick(delta)
+	_ticker.text = commentary.line
+	_ticker.visible = commentary.line != ""
 	_referee_follows()
 	_sorry_ref(delta)
 	if _banner_left > 0.0:
@@ -522,7 +578,7 @@ func _physics_process(delta: float) -> void:
 					p.wear(delta / half_seconds * 45.0)
 			if cpu:
 				cpu.tick(delta)
-			if _referee_temper(delta):
+			if _referee_temper(delta) or _watch_advantage(delta) or _late_whistle(delta):
 				return
 			for t in [home, away]:
 				for p in t.players:
@@ -543,8 +599,11 @@ func _physics_process(delta: float) -> void:
 						_human_input(h, p)
 					else:
 						AI.think(p, self, delta)
+			if Pitch.indoor:
+				_keep_inside()
 			_clear_keepers_box(delta)
 			_resolve_possession(delta)
+			_hot_potato(delta)
 			stats.tick(delta)
 			if ball.holder and ball.holder.role != "G":
 				ball.holder.team.gain(Supers.GAIN.dribble * delta)
@@ -1042,13 +1101,13 @@ func _air_duel(p: Footballer) -> Footballer:
 
 ## Out wide within `metres` of the goal line `p` attacks.
 func wide_within(p: Footballer, metres: float) -> bool:
-	return p != null and absf(p.position.y - Pitch.field_rect().size.y / 2.0) > BOX_HALF_WIDTH * 0.7 \
+	return p != null and absf(p.position.y - Pitch.field_rect().size.y / 2.0) > Pitch.box_half_width() * 0.7 \
 		and absf(p.team.goal_attacked().x - p.position.x) < Pitch.m(metres)
 
 
 ## Out wide in the last third: a pass from here to a teammate in the box is a cross.
 func wide_in_final_third(p: Footballer) -> bool:
-	return wide_within(p, Pitch.LENGTH_M / 3.0)
+	return wide_within(p, Pitch.length_m() / 3.0)
 
 
 ## A pass from `p` to `mate` that's a cross: from out wide in the last third to a teammate
@@ -1059,7 +1118,31 @@ func is_cross(p: Footballer, mate: Footballer) -> bool:
 
 ## Keeper's reach for a ball: reflexes standing, diving in a dive.
 func keeper_reach(k: Footballer) -> float:
-	return DIVE_REACH * k.skill("gkDiving", 0.8, 1.2) if k.diving() else KEEPER_REACH * k.skill("gkReflexes", 0.8, 1.2)
+	var reach := DIVE_REACH * k.skill("gkDiving", 0.8, 1.2) if k.diving() else KEEPER_REACH * k.skill("gkReflexes", 0.8, 1.2)
+	return reach * (SUPER_GOALIE if modifier("super goalie") else 1.0)
+
+
+## A Chaos modifier switched on in the match options (never in Classic).
+static func modifier(name: String) -> bool:
+	return chaos and name in modifiers
+
+
+## Hot potato: nobody but a keeper keeps the ball for more than HOT_POTATO seconds; then
+## it jumps off his foot, anywhere.
+func _hot_potato(delta: float) -> void:
+	var holder := ball.holder
+	if not modifier("hot potato") or holder == null or holder.role == "G":
+		_potato_left = HOT_POTATO
+		return
+	_potato_left -= delta
+	if _potato_left > 0.0:
+		return
+	_potato_left = HOT_POTATO
+	ball.release()
+	ball.kick(Vector2.RIGHT.rotated(randf() * TAU) * 220.0, 140.0)
+	ball.kick_kind = ""
+	holder.touch_cooldown = 0.8
+	flash("HOT POTATO!", 0.8)
 
 
 ## Chance per second that `tackler`, touching the ball, takes it off `holder`.
@@ -1174,34 +1257,157 @@ func _foul(by: Footballer, victim: Footballer, from_behind := true) -> void:
 	by.touch_cooldown = 1.0  # one foul per slide: the slider is still on the ball for a moment
 	if not referee_sees(victim.position):  # Chaos: play on
 		flash("REF DIDN'T SEE IT!", 1.2)
+		detail = {"kind": "unseen foul", "p1": by, "p2": victim}
 		event.emit("unseen foul", by.team)
+		_unseen = {"by": by, "victim": victim, "from_behind": from_behind, "left": LATE_LOOK}
 		return
+	_call_foul(by, victim, from_behind)
+
+
+## The referee saw `by` foul `victim`: a free kick or penalty, and maybe a card. Unless the
+## ball runs on to one of the fouled side and it isn't in the box: advantage (see _watch_advantage).
+func _call_foul(by: Footballer, victim: Footballer, from_behind: bool) -> void:
 	if bribed.has(by.team):  # Chaos: he looks the other way
 		flash("PLAY ON!", 1.2)
 		event.emit("bribed call", by.team)
 		return
 	victim.team.gain(Supers.GAIN.fouled)
+	detail = {"kind": "foul", "p1": by, "p2": victim}
 	event.emit("foul", by.team)
 	player_event.emit("foul", by)
+	var spot := victim.position.clamp(Vector2.ZERO, Pitch.field_rect().size)
+	var a := {"by": by, "victim": victim, "from_behind": from_behind, "spot": spot, "left": ADVANTAGE_TIME}
 	if in_penalty_area(victim.position, by.team):
 		award_penalty(victim.team)
-	else:
-		_award_restart("free kick", victim.team, victim.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
-	if not cards_on:
+	elif _advantage_on(by, victim):
+		_advantage = a
+		flash("ADVANTAGE!", ADVANTAGE_TIME)
+		event.emit("advantage", victim.team)
 		return
-	var odds: Array = CARD_ODDS["behind" if from_behind else "front"]
-	var r := randf() / by.skill("aggression", 0.7, 1.3)
-	if r < odds[1]:
-		book(by, true)
-	elif chaos:  # yellows come from the discipline meter
-		offence(by, victim.position, "foul from behind" if from_behind else "foul")
-	elif r < odds[0] + odds[1]:
-		book(by, false)
+	else:
+		_award_restart("free kick", victim.team, spot)
+	_punish(a)
+
+
+## Advantage for a foul by `by` on `victim`: he had the ball, and where it runs on (ADVANTAGE_RUN
+## his way) one of his teammates is close and first there. The ball is set running if so.
+func _advantage_on(by: Footballer, victim: Footballer) -> bool:
+	if ball.holder != victim:
+		return false
+	var dir: Vector2 = Anims.FACING_VECTORS[victim.facing]
+	var to := ball.position + dir * ADVANTAGE_RUN * 0.6
+	var first: Footballer = null
+	for t in [home, away]:
+		for p in t.players:
+			if p != by and p != victim and not p.sent_off and p.role != "G" \
+					and (first == null or p.time_to(to) < first.time_to(to)):
+				first = p
+	if first == null or first.team != victim.team or first.position.distance_to(to) > ADVANTAGE_REACH:
+		return false
+	ball.release()
+	ball.kick(dir * ADVANTAGE_RUN, 0.0)
+	ball.last_touch = victim
+	return true
+
+
+## Every frame of play while he plays advantage: the offenders win the ball, and he brings it
+## back for the free kick; the time is up with the fouled side still on it, and play stands
+## (the card waits for the next stoppage); loose and nobody's, he brings it back too. True
+## if play stopped.
+func _watch_advantage(delta: float) -> bool:
+	if _advantage.is_empty():
+		return false
+	var a := _advantage
+	var holder := ball.holder
+	var theirs: bool = (holder.team if holder else (ball.last_touch.team if ball.last_touch else null)) == a.victim.team
+	if holder != null and not theirs:
+		_bring_back("ADVANTAGE LOST\nFREE KICK")
+		return true
+	a.left -= delta
+	if a.left > 0.0:
+		return false
+	if theirs:
+		_advantage = {}
+		_late_cards.append(a)
+		event.emit("advantage played", a.victim.team)
+		return false
+	_bring_back("FREE KICK")
+	return true
+
+
+func _bring_back(text: String) -> void:
+	var a := _advantage
+	_advantage = {}
+	event.emit("brought back", a.victim.team)
+	_award_restart("free kick", a.victim.team, a.spot)
+	flash(text, 1.4)
+	_punish(a)
+
+
+## Chaos, every frame of play: a man fouled behind the referee's back is still down when the
+## referee looks his way: a late whistle. True if play stopped.
+func _late_whistle(delta: float) -> bool:
+	if _unseen.is_empty():
+		return false
+	_unseen.left -= delta
+	if _unseen.left <= 0.0 or _unseen.victim.sent_off or _unseen.by.sent_off:
+		_unseen = {}
+		return false
+	if not referee_sees(_unseen.victim.position):
+		return false
+	var u := _unseen
+	_unseen = {}
+	flash("LATE WHISTLE!", 1.2)
+	detail = {"kind": "late whistle", "p1": u.by, "p2": u.victim}
+	event.emit("late whistle", u.by.team)
+	_call_foul(u.by, u.victim, u.from_behind)
+	return state != State.PLAY
+
+
+## The card for a called foul (`a` from _call_foul): denying a man with only the keeper to
+## beat is often a straight red; otherwise a straight red is rare (aggression), and a yellow
+## comes from the odds in Classic and from the discipline meter in Chaos. Repeat offenders
+## are dealt with harder.
+func _punish(a: Dictionary) -> void:
+	var by: Footballer = a.by
+	if cards_on and not by.sent_off:
+		var odds: Array = CARD_ODDS["behind" if a.from_behind else "front"]
+		var r: float = randf() / by.skill("aggression", 0.7, 1.3) / STRICTNESS[strictness][1]
+		if last_man(by, a.victim) and randf() < LAST_MAN_RED["behind" if a.from_behind else "front"]:
+			flash("LAST MAN!", 1.2)
+			detail = {"kind": "last man", "p1": by, "p2": a.victim}
+			event.emit("last man", by.team)
+			book(by, true)
+		elif r < odds[1]:
+			book(by, true)
+		elif chaos:  # yellows come from the discipline meter
+			offence(by, a.spot, "foul from behind" if a.from_behind else "foul", true)
+		elif r < (odds[0] + odds[1]) * repeat_factor(by):
+			book(by, false)
+	by.fouls += 1
+
+
+## How much harder the referee is on `p` for the fouls he's already been called for.
+func repeat_factor(p: Footballer) -> float:
+	return minf(REPEAT_CAP, 1.0 + REPEAT_STEP * p.fouls)
+
+
+## `victim` was through on goal when `by` fouled him: near `by`'s goal, and no outfield man of
+## `by`'s side but `by` himself between him and it.
+func last_man(by: Footballer, victim: Footballer) -> bool:
+	var goal := by.team.goal_defended()
+	if victim.position.distance_to(goal) > LAST_MAN_RANGE:
+		return false
+	for p in by.team.players:
+		if p != by and p.role != "G" and not p.sent_off and absf(p.position.x - goal.x) < absf(victim.position.x - goal.x):
+			return false
+	return true
 
 
 ## The referee shows `p` a card. A second yellow is a red: off he goes, for the rest of the
 ## match (parked off the pitch, out of play).
 func book(p: Footballer, red: bool) -> void:
+	var second := p.yellow and not red
 	red = red or p.yellow
 	p.yellow = true
 	referee.facing = Anims.facing_from(p.position - referee.position)
@@ -1209,6 +1415,7 @@ func book(p: Footballer, red: bool) -> void:
 	referee.perform("rcard")
 	effects.play("red_card_spin" if red else "yellow_card_spin", p.position, Pitch.m(2.6), 1.0, Color.WHITE, 3)
 	flash("%s CARD\n%s" % ["RED" if red else "YELLOW", p.display_name], 2.0)
+	detail = {"kind": "red card" if red else "yellow card", "p1": p, "second": second}
 	event.emit("red card" if red else "yellow card", p.team)
 	player_event.emit("red card" if red else "yellow card", p)
 	if not red:
@@ -1269,7 +1476,7 @@ func _note_shot() -> void:
 ## On every kick in open play: who's offside for it (see _caught_offside).
 func _note_offside() -> void:
 	_offside.clear()
-	if offside_on and state == State.PLAY and ball.last_touch:
+	if offside_rule() and state == State.PLAY and ball.last_touch:
 		_offside = offside_players(ball.last_touch)
 
 
@@ -1282,6 +1489,7 @@ func _caught_offside(p: Footballer) -> bool:
 	_offside.clear()
 	_award_restart("free kick", opponent(p.team), p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
 	flash("OFFSIDE", 1.5)
+	detail = {"kind": "offside", "p1": p}
 	event.emit("offside", p.team)
 	return true
 
@@ -1314,13 +1522,22 @@ func referee_sees(pos: Vector2) -> bool:
 ## Chaos: `p` did something rough (`kind`, see DISCIPLINE) at `pos`. If the referee saw it,
 ## p's discipline meter fills, faster the angrier he is with p's side, and so does his mood.
 ## Full, p is booked (a second time: sent off) and it starts again. A human side's foul
-## (play has stopped) waits PARRY_WINDOW for "Sorry, ref!" first.
-func offence(p: Footballer, pos: Vector2, kind: String) -> void:
-	if not chaos or p.sent_off or not referee_sees(pos) or bribed.has(p.team):
+## (play has stopped) waits PARRY_WINDOW for "Sorry, ref!" first. Repeat offenders fill it
+## faster, a booked man slower; past WARN_AT the first time he's called over. `seen`: he
+## already saw it (a foul he played advantage on).
+func offence(p: Footballer, pos: Vector2, kind: String, seen := false) -> void:
+	if not chaos or p.sent_off or not (seen or referee_sees(pos)) or bribed.has(p.team):
 		return
-	var added: float = DISCIPLINE[kind] * (1.0 + ref_mood.get(p.team, 0.0) / MOOD_FULL)
+	var added: float = DISCIPLINE[kind] * (1.0 + ref_mood.get(p.team, 0.0) / MOOD_FULL) \
+		* repeat_factor(p) * (BOOKED_RATE if p.yellow else 1.0) * STRICTNESS[strictness][1]
 	p.discipline += added
 	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + added * MOOD_GAIN)
+	if not p.warned and p.discipline >= WARN_AT and p.discipline < DISCIPLINE_FULL:
+		p.warned = true
+		referee.facing = Anims.facing_from(p.position - referee.position)
+		flash("REF CALLS %s OVER" % p.display_name, 1.5)
+		detail = {"kind": "ref warning", "p1": p}
+		event.emit("ref warning", p.team)
 	if state != State.PLAY and not autoplay and human_for(p.team) != null:
 		if not _parry.is_empty():  # the one before it is judged now
 			_judge(_parry.p)
@@ -1353,9 +1570,11 @@ func dive(p: Footballer) -> void:
 		if not o.sent_off and (blamed == null or o.position.distance_to(p.position) < blamed.position.distance_to(p.position)):
 			blamed = o
 	if randf() < dive_odds(p):
+		detail = {"kind": "dive bought", "p1": p, "p2": blamed}
 		event.emit("dive bought", p.team)
 		_foul(blamed, p, false)
 		return
+	detail = {"kind": "dive", "p1": p}
 	event.emit("dive", p.team)
 	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + DISSENT)
 	_award_restart("free kick", blamed.team, p.position.clamp(Vector2.ZERO, Pitch.field_rect().size))
@@ -1448,6 +1667,7 @@ func _whistle_stun(t: Team) -> void:
 func _judge(p: Footballer) -> void:
 	if p.discipline >= DISCIPLINE_FULL:
 		p.discipline = 0.0
+		p.warned = false
 		if cards_on:
 			book(p, false)
 
@@ -1526,13 +1746,13 @@ func _draw_mood_meter() -> void:
 
 func in_penalty_area(pos: Vector2, defending: Team) -> bool:
 	var goal := defending.goal_defended()
-	return absf(pos.x - goal.x) < BOX_DEPTH and absf(pos.y - goal.y) < BOX_HALF_WIDTH
+	return absf(pos.x - goal.x) < Pitch.box_depth() and absf(pos.y - goal.y) < Pitch.box_half_width()
 
 
 func award_penalty(attacking: Team, taker: Footballer = null) -> void:
 	var defending := opponent(attacking)
 	var goal := attacking.goal_attacked()
-	var spot := goal - Vector2(attacking.side * PENALTY_SPOT, 0)
+	var spot := goal - Vector2(attacking.side * Pitch.penalty_spot(), 0)
 	state = State.PENALTY
 	_state_left = 2.5
 	ball.stop_at(spot)
@@ -1540,7 +1760,7 @@ func award_penalty(attacking: Team, taker: Footballer = null) -> void:
 	play_sfx("long_whistle")
 	event.emit("penalty", attacking)
 	_penalty_taker = taker if taker else attacking.taker()
-	var box_edge := goal.x - attacking.side * (BOX_DEPTH + 30.0)
+	var box_edge := goal.x - attacking.side * (Pitch.box_depth() + 30.0)
 	for t in [home, away]:
 		for p in t.players:
 			p.wish = Vector2.ZERO
@@ -1551,7 +1771,7 @@ func award_penalty(attacking: Team, taker: Footballer = null) -> void:
 			elif p == _penalty_taker:
 				p.position = spot - Vector2(attacking.side * 45.0, 10.0)
 				p.facing = Anims.facing_from(spot - p.position)
-			elif in_penalty_area(p.position, defending) or absf(p.position.x - goal.x) < BOX_DEPTH + 30.0:
+			elif in_penalty_area(p.position, defending) or absf(p.position.x - goal.x) < Pitch.box_depth() + 30.0:
 				p.position.x = box_edge - attacking.side * randf_range(0.0, 60.0)
 
 
@@ -1702,7 +1922,7 @@ func _shootout_decided() -> bool:
 
 ## The next of `t`'s players in SHOOTOUT_ORDER who's still on, round again after all.
 func _shootout_taker(t: Team) -> Footballer:
-	var on := SHOOTOUT_ORDER.filter(func(i): return not t.players[i].sent_off)
+	var on := SHOOTOUT_ORDER.filter(func(i): return i < t.players.size() and not t.players[i].sent_off)
 	return t.players[on[shootout[t].size() % on.size()]]
 
 
@@ -1731,6 +1951,8 @@ func _show_full_time(heading: String, result: String) -> void:
 	if motm:
 		column.add_child(_screen_label("MAN OF THE MATCH: %s (%s)  %.1f" % [motm.display_name, motm.team.short, stats.rating(motm)],
 			24, Color(1, 0.85, 0.2)))
+	for entry in commentary.report.slice(0, 8):  # the goals and red cards, in order
+		column.add_child(_screen_label(entry, 16, Color(0.9, 0.9, 0.9)))
 	column.add_child(_screen_label("SPACE: BACK TO THE TITLE", 16, Color(0.8, 0.8, 0.8)))
 	_full_time_panel.visible = true
 
@@ -1751,9 +1973,26 @@ func flash(text: String, seconds: float) -> void:
 	_banner_left = seconds
 
 
-## Ball over the touchline: throw-in. Over the goal line: corner or goal kick.
+## Whether offside is called: the option, and never indoors.
+static func offside_rule() -> bool:
+	return offside_on and not Pitch.indoor
+
+
+## Indoors the boards are on the lines: nobody gets past them.
+func _keep_inside() -> void:
+	var f := Pitch.field_rect()
+	for t in [home, away]:
+		for p in t.players:
+			if not p.sent_off:
+				p.position = p.position.clamp(f.position, f.end)
+
+
+## Ball over the touchline: throw-in. Over the goal line: corner or goal kick. Indoors
+## neither: it plays off the boards.
 func _check_out() -> void:
 	var f := Pitch.field_rect()
+	if Pitch.indoor:  # it comes back off the boards
+		return
 	if state != State.PLAY or f.has_point(ball.position) or ball.last_touch == null:
 		return
 	var b := ball.position
@@ -1804,9 +2043,44 @@ func _award_restart(kind: String, team: Team, spot: Vector2) -> void:
 	ball.take(taker)
 	ball.in_hands = kind == "throw-in"  # the throw-in animation has it in the hands
 	_keep_opponents_back()
+	_line_up_wall(kind, team, spot)
 	if kind == "free kick":
 		referee.facing = Anims.facing_from(Vector2(team.side, 0.0))
 		referee.perform("rpoint")
+
+
+## A free kick to `team` within FREE_KICK_RANGE of the goal: the defenders nearest the ball
+## (WALL_MEN of them, more the closer it is) line up 9.15 m from it, across the line to the
+## goal and shifted to cover the near post. Any other restart: no wall.
+func _line_up_wall(kind: String, team: Team, spot: Vector2) -> void:
+	_wall.clear()
+	_wall_spots.clear()
+	var goal := team.goal_attacked()
+	if kind != "free kick" or spot.distance_to(goal) >= FREE_KICK_RANGE:
+		return
+	var metres := spot.distance_to(goal) / Pitch.PX_PER_M
+	var men: int = WALL_MEN.filter(func(w): return metres < w[0])[0][1]
+	var defenders := opponent(team).players.filter(func(p): return p.role != "G" and not p.sent_off)
+	defenders.sort_custom(func(a, b): return a.position.distance_to(spot) < b.position.distance_to(spot))
+	var to_goal := (goal - spot).normalized()
+	var across := to_goal.orthogonal()
+	var near_post := signf(spot.y - goal.y) if absf(spot.y - goal.y) > 1.0 else 0.0
+	var centre := spot + to_goal * Pitch.m(9.15) + across * across.dot(Vector2(0.0, near_post)) * WALL_GAP * 0.5 * (men - 1)
+	for i in mini(men, defenders.size()):
+		_wall.append(defenders[i])
+		_wall_spots.append(centre + across * WALL_GAP * (i - (men - 1) / 2.0))
+	_hold_wall()
+
+
+## The wall stands still on its spots, facing the ball, until the kick.
+func _hold_wall() -> void:
+	for i in _wall.size():
+		var p := _wall[i]
+		p.position = _wall_spots[i]
+		p.velocity = Vector2.ZERO
+		p.wish = Vector2.ZERO
+		p.ai_state = "wall"
+		p.facing = Anims.facing_from(ball.position - p.position)
 
 
 ## Opponents stay 9.15 m from the ball until it's taken, and out of the penalty area
@@ -1820,7 +2094,7 @@ func _keep_opponents_back() -> void:
 			var dir := away_from.normalized() if away_from.length() > 1.0 else Vector2(team.side, 0.0)
 			p.position = spot + dir * Pitch.m(9.15)
 		if _restart_kind == "goal kick" and in_penalty_area(p.position, team):
-			p.position.x = team.goal_defended().x + team.side * (BOX_DEPTH + 1.0)
+			p.position.x = team.goal_defended().x + team.side * (Pitch.box_depth() + 1.0)
 
 
 ## Everyone repositions; the taker waits for the pause (and for the human's pass or
@@ -1832,13 +2106,15 @@ func _restart(delta: float) -> void:
 		_switch_control()
 	for t in [home, away]:
 		for p in t.players:
-			if p != taker:
+			if p != taker and not p in _wall:
 				AI.think(p, self, delta)
 	_keep_opponents_back()
+	_hold_wall()
 	taker.wish = Vector2.ZERO
 	if _restart_taken:
 		if ball.holder != taker:  # it's left the taker: play on, from inside the lines
 			_restart_taken = false
+			_wall.clear()
 			var f := Pitch.field_rect().grow(-2.0)
 			ball.position = ball.position.clamp(f.position, f.end)
 			state = State.PLAY
@@ -1880,7 +2156,14 @@ func _restart(delta: float) -> void:
 		"free kick":  # a shot (freeKickAccuracy) from close enough, else played on
 			if shoot:
 				var at := _aim_shot(taker, aim.normalized()) if aim != Vector2.ZERO else goal + Vector2(0.0, randf_range(-0.7, 0.7) * GOAL_HALF_WIDTH)
-				taker.shoot(at, 0.8, "freeKickAccuracy")
+				if _wall.is_empty():
+					taker.shoot(at, 0.8, "freeKickAccuracy")
+				else:  # up over the wall and down under the bar
+					var top := 0.0
+					for p in _wall:
+						top = maxf(top, p.head_reach())
+					var reach := Footballer.REACH + 10.0 + 12.0  # their reach, the feet in front, a frame of the ball
+					taker.free_kick(at, ball.position.distance_to(_wall_spots[0]) - reach, top)
 			elif mate:
 				taker.pass_to(mate)
 			else:
@@ -2010,6 +2293,23 @@ func _start_crowd() -> void:
 func _add_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	_ticker.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_ticker.offset_left = -300.0  # clear of the score on the left: a long line wraps
+	_ticker.offset_right = 300.0
+	_ticker.offset_top = 12.0
+	_ticker.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_ticker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ticker.add_theme_font_size_override("font_size", 18)
+	_ticker.add_theme_color_override("font_outline_color", Color.BLACK)
+	_ticker.add_theme_constant_override("outline_size", 5)
+	var strip := StyleBoxFlat.new()
+	strip.bg_color = Color(0, 0, 0, 0.55)
+	strip.set_content_margin_all(6)
+	strip.content_margin_left = 14
+	strip.content_margin_right = 14
+	_ticker.add_theme_stylebox_override("normal", strip)
+	_ticker.visible = false
+	layer.add_child(_ticker)
 	var panel := PanelContainer.new()
 	panel.position = Vector2(12, 10)
 	layer.add_child(panel)

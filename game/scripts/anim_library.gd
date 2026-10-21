@@ -2,6 +2,9 @@ extends Node
 ## Player animations from FIFA 96, built by tools/build_godot_assets.py, and the referee's
 ## own art ("ref_*", RGBA, drawn without the kit shader), built by tools/pack_oscf_referee.gd,
 ## and the Chaos line moves' own art (brand/sprites/line_actions, one right-facing view).
+## With the Rendered player art (Match.rendered) the animations rendered by tools/blender
+## (assets/sprites/oscf_rendered, palette-indexed with their own palette) stand in for the
+## FIFA 96 ones of the same name; the rest stay FIFA 96's.
 ##
 ## The original draws five directions (away, up-right, right, down-right,
 ## toward camera); the three left-facing ones are the right-facing frames
@@ -10,6 +13,7 @@ extends Node
 const SHEET_DIR := "res://assets/sprites/players/"
 const REFEREE_DIR := "res://assets/sprites/oscf_roles/referee/"
 const LINE_ACTIONS_DIR := "res://brand/sprites/line_actions/"
+const RENDERED_DIR := "res://assets/sprites/oscf_rendered/"
 const LINE_ACTIONS_FPS := 10.0  # the manifest's frame durations are weights at this rate
 const TICKS_PER_SECOND := 30.0
 const DRAWN_DIR := [0, 2, 4, 6, 8, 6, 4, 2]
@@ -22,16 +26,28 @@ const FACING_VECTORS := [
 var _anims := {}
 var _own_art := {}  # anim names drawn already coloured (no kit shader)
 var _lengths := {}  # anim name -> length in ticks, where the last frame's own length is known
+var _rendered := {}  # anim name -> { drawn direction -> frames }, the Rendered player art
 
 
 func _ready() -> void:
 	_load(SHEET_DIR)
 	_load(REFEREE_DIR, true)
 	_load_line_actions()
+	_rendered = _read(RENDERED_DIR)
 
 
 ## Every animation in `dir`: animations.json plus one sheet <anim>.png per animation.
 func _load(dir: String, own := false) -> void:
+	var anims := _read(dir)
+	_anims.merge(anims, true)
+	if own:
+		for anim in anims:
+			_own_art[anim] = true
+
+
+## { anim name -> { drawn direction -> frames } } from `dir`.
+func _read(dir: String) -> Dictionary:
+	var out := {}
 	var meta: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(dir + "animations.json"))
 	for anim in meta:
 		var sheet: Texture2D = load(dir + anim + ".png")
@@ -44,9 +60,8 @@ func _load(dir: String, own := false) -> void:
 				tex.region = Rect2(f.x, f.y, f.w, f.h)
 				frames.append({"tex": tex, "ax": f.ax, "ay": f.ay, "w": f.w, "t": f.t})
 			dirs[int(d)] = frames
-		_anims[anim] = dirs
-		if own:
-			_own_art[anim] = true
+		out[anim] = dirs
+	return out
 
 
 ## The line moves: one strip of 192-px cells per move, feet at the manifest's origin, drawn
@@ -72,6 +87,11 @@ func _load_line_actions() -> void:
 
 func own_art(anim: String) -> bool:
 	return _own_art.has(anim)
+
+
+## `anim` is drawn from the Rendered player art (the setting is on and it's been rendered).
+func rendered(anim: String) -> bool:
+	return Match.rendered and _rendered.has(anim)
 
 
 func has(anim: String) -> bool:
@@ -111,7 +131,7 @@ func frame_at(anim: String, facing: int, seconds: float, loop := true) -> Dictio
 ## Some animations were only drawn for a few directions (e.g. goalkeeper dives
 ## to one side); use the nearest one that exists.
 func _frames_for(anim: String, drawn_dir: int) -> Array:
-	var dirs: Dictionary = _anims[anim]
+	var dirs: Dictionary = _rendered[anim] if rendered(anim) else _anims[anim]
 	var best: int = dirs.keys()[0]
 	for d in dirs:
 		if absi(d - drawn_dir) < absi(best - drawn_dir):

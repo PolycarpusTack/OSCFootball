@@ -27,8 +27,13 @@ var club_crowds: Array[Texture2D] = []  # home and away supporters (null: the or
 
 var _look := Vector3(52.5, 0.0, 34.0)
 var _rng := RandomNumberGenerator.new()  # own generator: shaking mustn't change the match's random sequence
-var _length := Pitch.LENGTH_M
-var _width := Pitch.WIDTH_M
+var _length := Pitch.length_m()
+var _width := Pitch.width_m()
+# indoors (Pitch.indoor) the boards are the walls on the lines, the stands close behind them,
+# and the camera nearer
+var _board_dist := 0.15 if Pitch.indoor else BOARD_DIST
+var _stand_dist := 3.5 if Pitch.indoor else STAND_DIST
+var _cam_offset := CAM_OFFSET * (0.75 if Pitch.indoor else 1.0)
 
 
 func _ready() -> void:
@@ -59,10 +64,10 @@ func to_screen(p: Vector2, height_px := 0.0) -> Vector3:
 
 ## Ease the camera toward the pitch point `focus` (pixels). delta 0 snaps.
 func follow(focus: Vector2, delta: float) -> void:
-	var target := Vector3(clampf(focus.x / Pitch.PX_PER_M, 14.0, _length - 14.0), 0.0,
-		clampf(focus.y / Pitch.PX_PER_M, 18.0, _width - 8.0))
+	var target := Vector3(clampf(focus.x / Pitch.PX_PER_M, minf(14.0, _length / 2.0), maxf(_length - 14.0, _length / 2.0)), 0.0,
+		clampf(focus.y / Pitch.PX_PER_M, minf(18.0, _width / 2.0), maxf(_width - 8.0, _width / 2.0)))
 	_look = target if delta == 0.0 else _look.lerp(target, 1.0 - exp(-CAM_FOLLOW * delta))
-	camera.position = _look + CAM_OFFSET
+	camera.position = _look + _cam_offset
 	camera.look_at(_look + Vector3(0, 0, -4.0))  # a little beyond the ball: more of the far side in view
 	shake = maxf(0.0, shake - delta)
 	camera.h_offset = _rng.randf_range(-1, 1) * 0.6 * shake
@@ -71,7 +76,7 @@ func follow(focus: Vector2, delta: float) -> void:
 
 func _build_ground() -> void:
 	# the 2D pitch drawing (grass texture + markings) baked into one texture
-	var outer := Pitch.field_rect().grow(Pitch.m(Pitch.MARGIN_M))
+	var outer := Pitch.field_rect().grow(Pitch.m(Pitch.margin_m()))
 	var vp := SubViewport.new()
 	vp.size = Vector2i(outer.size)
 	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
@@ -89,7 +94,7 @@ func _build_ground() -> void:
 	# the strip between the boards and the stands
 	var track := _material(null)
 	track.albedo_color = Color("3e6b2a")
-	var m := STAND_DIST + 1.0
+	var m := _stand_dist + 1.0
 	_quad([Vector3(-m - 20, -0.02, -m), Vector3(_length + m + 20, -0.02, -m),
 		Vector3(_length + m + 20, -0.02, _width + m), Vector3(-m - 20, -0.02, _width + m)], track)
 
@@ -112,7 +117,7 @@ func _build_boards() -> void:
 		boards.append(load(OWN_BOARDS.get(i, TEX + "board%d.png" % i)))
 	var back := _material(null)
 	back.albedo_color = Color("202020")
-	var d := BOARD_DIST
+	var d := _board_dist
 	# each side as a run of boards facing the pitch: start, direction along, count
 	var runs := [
 		[Vector3(-d, 0, -d), Vector3.RIGHT, ceili((_length + 2 * d) / BOARD.x)],
@@ -120,6 +125,8 @@ func _build_boards() -> void:
 		[Vector3(-d, 0, _width + d), Vector3.BACK * -1, ceili((_width + 2 * d) / BOARD.x)],
 		[Vector3(_length + d, 0, -d), Vector3.BACK, ceili((_width + 2 * d) / BOARD.x)],
 	]
+	if Pitch.indoor:  # the near wall would hide the near touchline from the camera: glass, unseen
+		runs.remove_at(1)
 	var n := 0
 	for r in runs:
 		var start: Vector3 = r[0]
@@ -148,7 +155,7 @@ func _build_stands() -> void:
 	var roof := _material(load(TEX + "roof.png"))
 	var dark := _material(null)
 	dark.albedo_color = Color("1c1c22")
-	var s := STAND_DIST
+	var s := _stand_dist
 	var corner := 24.0  # stands run on past the corners so no sky shows through
 	# [start, direction along the stand, length, roofed, club crowd]. No stand on the near (camera)
 	# side: the camera is always either in front of it (it's behind the camera) or behind it, when

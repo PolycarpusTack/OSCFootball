@@ -1,7 +1,7 @@
 # Original game and everything derived from it: rebuilt from the ISO with tools/
 # (see game/README.md "Rebuilding the assets"). EA's property, kept out of history.
-# game/assets/ is all of that, except sprites/oscf_starter/ and oscf_roles/: our own
-# original art (generated player sprites), tracked.
+# game/assets/ is all of that, except sprites/oscf_starter/, oscf_roles/ and oscf_rendered/
+# (tools/blender): our own original art (generated player sprites), tracked.
 FIFA96.ISO
 extracted/
 downloads/
@@ -11,6 +11,7 @@ game/assets/*
 game/assets/sprites/*
 !game/assets/sprites/oscf_starter/
 !game/assets/sprites/oscf_roles/
+!game/assets/sprites/oscf_rendered/
 game/data/*
 !game/data/league.json
 lisez-moi.txt

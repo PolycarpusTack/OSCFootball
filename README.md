@@ -197,8 +197,9 @@ wings; ↑↗→ is accepted too. The AI spends its bar on shots inside shooting
 - No player-vs-player collision; goal posts and net don't stop the ball. Sprites are
   always drawn over the 3D scene, so a post never hides a player.
 - Sound effects are matched to their use by their spectra, not by ear (`SFX` in `main.gd`:
-  kicks, bounce, whistles, crowd "ooh" and roar). No commentary yet: the speech banks
-  are decoded but which phrase is which isn't known.
+  kicks, bounce, whistles, crowd "ooh" and roar). No spoken commentary: the speech banks
+  are decoded but which phrase is which isn't known (the written commentary is ours, see
+  Commentary).
 - Match length, camera framing and the AI's shot accuracy are guesses, not FIFA 96's values.
 - Frame timing assumes a 30 ticks/s clock (`TICKS_PER_SECOND` in `anim_library.gd`).
 # OSCFootball

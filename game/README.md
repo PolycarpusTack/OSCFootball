@@ -16,7 +16,8 @@ same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or
 Gamepads work on the title screen too (d-pad to choose, A/B/Start to go on). Then team select:
 W/S picks player 1's club, ↑/↓ the opponent's, Space goes on, Esc goes back. Then the match
 options: ↑/↓ picks a row, ←/→ changes it, Space kicks off, Esc goes back. Mode (Chaos or
-Classic, the same setting as on the title screen), half length (2, 3, 5, 10, 20 or 45 real
+Classic, the same setting as on the title screen), pitch (outdoor 11 a side, or indoor 5 a
+side: see Indoor), half length (2, 3, 5, 10, 20 or 45 real
 minutes; the clock always shows 45 match minutes a half), offside, fouls and cards on or
 off, and Friendly or Knockout (extra time and penalties when level). The choices are kept for
 the next match until the game is closed.
@@ -71,12 +72,18 @@ godot --headless --path game -s res://tests/engine_test.gd                      
 godot --headless --path game -s res://tests/controls_test.gd                     # switch, pass lanes and marker, throw-in
 godot --headless --path game -s res://tests/air_test.gd                          # headers, volleys, chest, crosses, posts and bar
 godot --headless --path game -s res://tests/rules_test.gd                        # cards, sending off, offside, free kicks
+godot --headless --path game -s res://tests/wall_test.gd                         # the free-kick wall: size by distance, holds still, blocks a low shot
 godot --headless --path game -s res://tests/referee_art_test.gd                  # the referee's own sprites, yellow and red card
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
+godot --headless --path game -s res://tests/rendered_test.gd                     # player art: Pixel / Rendered, fallback, options and pause menu
+godot --headless --path game -s res://tests/modifiers_test.gd                    # Chaos modifiers: giant players, super goalie, crazy bounce, hot potato, catch-up
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
 godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
+godot --headless --path game -s res://tests/discipline_test.gd                   # advantage, late whistle, warning, repeat offenders, last man
+godot --headless --path game -s res://tests/indoor_test.gd                       # indoor: 5 a side, off the boards, into the goal, no offside, kept inside
+godot --headless --path game -s res://tests/commentary_test.gd                   # commentary: kinds of goal, shot then save, priorities, no repeats, report
 godot --path game -s res://tests/demo.gd --write-movie demo.avi --fixed-fps 30 -- seed=2   # record the demo reel
 godot --path game -s res://tests/supers_demo.gd --write-movie supers.avi --fixed-fps 30 -- seed=2   # super-shot reel
 godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed-fps 30 -- seed=7   # 2-player reel (scripted controls)
@@ -209,7 +216,7 @@ more `hi`, and a player without ratings is halfway (the behaviour before ratings
 | shoulder to shoulder | strength | steal rate x0.8 → 1.2 (against the holder's); wins a header both go up for; Body Check odds |
 | skill moves | dribbling vs defensiveAwareness, ballControl | nutmeg through 21% → 90% (even: 50%); rainbow clean 50% → 100%; AI dribblers with a man right in front try one 5% → 30% of decisions |
 | going to ground, getting booked | aggression | AI chaser on the dribbler slides 0.2% → 1.2% of frames; card odds 0.7x → 1.3x |
-| free kicks | freeKickAccuracy | up to 55 px off → 6 px |
+| free kicks | freeKickAccuracy | up to 55 px off → 6 px; over a wall it passes 6 px above their heads, minus up to 16 → 2 px |
 | getting tired | stamina | fatigue per second running 0.012 → 0.0045 (see Rules) |
 | staying on your feet | balance | a slid-in dribbler stays up 0% → 50% of the time; harder to body check (0.9x → 1.1x) |
 | seeing a pass (AI and the pass button's pick) | vision | sees mates up to 400 → 560 px away, 45° → 75° either side of the pass button's aim; a cut-off lane counts against a mate 150 → 350; leads a runner 0.15 s → 0.65 s of his run |
@@ -313,11 +320,22 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   outright if slidingTackle comes off. A missed slide takes the man 40% of the time, and one
   from behind always does: a foul. A foul in the box gives a penalty (keeper guesses a side
   and dives); elsewhere a free kick where it happened. Within 30 m of goal the AI shoots it
-  (freeKickAccuracy); you choose: Space shoots (aim with the stick), X passes.
+  (freeKickAccuracy); you choose: Space shoots (aim with the stick), X passes. Within 30 m the
+  defenders nearest the ball make a wall 9.15 m out, across the line to the goal and shifted
+  to the near post: 4 men inside 20 m, 3 inside 25 m, 2 beyond. They stand still until the
+  kick. A shot from there goes up over the wall and dips under the bar; how close to the
+  wall's heads it passes depends on freeKickAccuracy, so a poor taker clips it.
 - Cards (Classic): a foul from behind is booked 45% of the time and is a straight red 10%;
   other fouls 12% yellow. Aggression scales both (0.7x → 1.3x). A second yellow is a red: the
   player leaves the pitch for the rest of the match. In Chaos the yellows come from the
-  discipline meter instead (see The Chaos referee); straight reds stay.
+  discipline meter instead (see The Chaos referee); straight reds stay. A player is dealt
+  with harder for every foul he's been called for (12% more each, up to 60%). Fouling a man
+  through on goal (within 35 m, nobody but the fouler between him and the keeper) is a
+  straight red 60% of the time from behind, 30% from the front.
+- Advantage: a foul outside the box on a man whose ball runs on to a teammate close by and
+  first to it: ADVANTAGE!, play on. If the other side wins the ball within 2 seconds, or it's
+  loose and nobody's when they're up, he brings it back for the free kick; if not, play
+  stands and any card for the foul is shown at the next stoppage.
 - Offside: a player in the opponents' half, nearer their goal line than the ball and than the
   second-last defender when a teammate kicks it (a pass, a cross, a shot, a header), is
   offside if he plays that ball, also after it comes back off the woodwork: a free kick to
@@ -325,6 +343,9 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   offside line, and the AI doesn't pass to a teammate standing offside.
 - With fouls off in the match options a slide never takes the man (no free kicks or penalties
   from fouls); with cards off fouls are never booked; with offside off nobody is offside.
+- Referee (match options): lenient, normal or strict (`Match.STRICTNESS`) multiplies his card
+  odds in Classic and how fast a foul fills the discipline meter in Chaos by 0.6, 1 or 1.5.
+  The last man's red isn't affected.
 - Match stats (`match_stats.gd`) are counted from the match's events: a shot is a shot,
   header or volley at goal or a super-shot from within 40 m (kicks marked as shots from
   farther out are punts and blind passes). Possession is the time on the ball (or since the
@@ -341,6 +362,68 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   opponents are 9.15 m away, which they walk to, or after six seconds.
 - `tests/demo.gd` stages three situations (Brugge attack, Anderlecht attack, foul in the box)
   and lets the AI play them out; `seed=2` gives a save, a goal and a scored penalty.
+
+## Indoor
+
+Five a side (match options, PITCH): a 44 x 28 m arena (`Pitch.indoor`, `Pitch.INDOOR_M`) with
+the boards on the lines, so the ball plays off them (and into the goals: the ball only gets
+past the ends through the goal mouth, under the bar), the players can't leave it, and there
+are no throw-ins, corners, goal kicks or offside (whatever the offside option says). Fouls,
+cards, penalties (a 7 m spot in an 8 m deep box) and the Chaos moves stay. Each side plays the
+1-2-1 diamond (`Team.INDOOR_FORMATIONS`, a 2-2 too), picked from the squad slot by slot as
+for any formation (the team sheet is for eleven, so it isn't used), with the usual bench and
+three substitutions; the CPU manager keeps the diamond. The stands come in close behind the
+far and end boards; the near wall is glass (unseen, so it doesn't hide the near touchline),
+and the camera sits nearer. The goals and keepers are the outdoor ones for now, so expect
+goals. After FIFA 97's and RTWC 98's indoor modes (IDEAS_TO_IMPLEMENT.md I.1); the arena is
+our own layout.
+
+## Player art: Pixel or Rendered
+
+Match options (PLAYERS) or the pause menu, mid-match: **Pixel** draws the players with FIFA
+96's sprites; **Rendered** with ours, rendered in Blender from a scripted low-poly footballer
+(`tools/blender/`, see the scripts' notes). They're palette-indexed like FIFA 96's, with their
+own palette (`assets/sprites/oscf_rendered/palette.png`), so the kit shader colours them the
+same way: stripes, second colours, and the skin and hair from a player's photo. Rendered so
+far: run, jog, stand and kick, on FIFA 96's frame timings; every other animation falls back
+to FIFA 96's (`Anims.rendered()`, `Footballer.art_for()`). To re-render:
+
+```
+blender -b -P tools/blender/footballer.py -- /tmp/renders
+tools/.venv/bin/python -I tools/blender/pack_sprites.py /tmp/renders game/assets/sprites/oscf_rendered run jog xstandd kick
+```
+
+## Chaos modifiers (Chaos Football only)
+
+Five toggles at the bottom of the match options, listed in Chaos Football only and ignored in
+Classic (`Match.MODIFIERS`, `Match.modifiers`, `Match.modifier()`), kept between matches:
+
+- **Giant players**: everyone (the referee too) is drawn 1.6x as big. Looks only: reach and
+  headers are unchanged.
+- **Super goalie**: keepers reach twice as far, standing and diving.
+- **Crazy bounce**: the ball comes up off the ground at 0.85 of its fall speed (0.5
+  normally) and up to 0.6 rad off its line.
+- **Hot potato**: nobody but a keeper keeps the ball more than 3 s; then it jumps off his
+  foot in any direction ("HOT POTATO!").
+- **Catch-up**: the side behind fills its energy bar 1.5x as fast a goal down, 2x two or
+  more down (`Team.CATCH_UP`).
+
+After the cheats of FIFA 97 and RTWC 98 (IDEAS_TO_IMPLEMENT.md I.4); what each one does here
+is ours.
+
+## Commentary
+
+A line along the top of the screen says what just happened (`scripts/commentary.gd`, lines in
+`scripts/commentary_lines.gd`, all our own). A goal's line says what kind of goal it was: the
+opener, an equaliser (late, or with a man down), a late goal, one pulled back, the clincher, a
+hat-trick, an own goal, a golden goal, a super-shot. A shot waits up to 1.6 s for its save,
+woodwork or goal so the two are said together; nothing, and the miss is said. Fouls name both
+men; every referee moment, card, skill move and Chaos action has its lines. At most three
+lines wait, the big moments (goals, red cards, penalties, the whistles) push the chatter out,
+and chatter isn't repeated within 4 s or while lines are waiting; no line comes up again
+while it's one of the last two for that moment. The goals and red cards, with the minute,
+are listed on the full-time screen. The structure follows CM3's match commentary (priorities,
+a shot held for its outcome, goals told by their context); no CM3 text is used.
 
 ## Stamina
 
@@ -360,13 +443,16 @@ and he can't touch the ball. Expect a few a match.
 **View cone:** the referee looks toward the ball, turning to it at about 140° a second, and
 sees 50° either side of where he looks, up to 40 m (a faint wedge on the grass), and
 anything within 6 m of him. A foul he doesn't see goes unpunished: REF DIDN'T SEE IT!, the
-victim goes down, play on.
+victim goes down, play on. But if the referee looks his way while he's still down (1.5 s):
+LATE WHISTLE!, and the foul is given after all.
 
 **Discipline meter:** every player has one (your player's is the bar under his portrait).
 What the referee sees fills it: a foul from behind 45, another foul 30, a body check 20, a
 Chaos stun (Stego Sweep, Bass Drop) 20. Full, he's booked and it starts again: twice full is
 a red. It cools by 1.5 a second of play. A body check is never a foul, but the referee
-remembers it.
+remembers it. Past 70 for the first time since his last booking, the referee calls him over
+(REF CALLS ... OVER): a warning, and the moment to say sorry. Repeat offenders fill it
+faster (as their cards, above), and a booked player's fills 15% slower.
 
 **His mood:** two bars over his head, one per side (home on top, in the sides' colours).
 Every offence he sees makes him angrier with that side (half of what it adds to the meter),
@@ -426,8 +512,9 @@ sometimes spends 20 on a Body Check.
 - No player-vs-player collision; the net doesn't stop the ball. Sprites are
   always drawn over the 3D scene, so a post never hides a player.
 - Sound effects are matched to their use by their spectra, not by ear (`SFX` in `main.gd`:
-  kicks, bounce, whistles, crowd "ooh" and roar). No commentary yet: the speech banks
-  are decoded but which phrase is which isn't known.
+  kicks, bounce, whistles, crowd "ooh" and roar). No spoken commentary: the speech banks
+  are decoded but which phrase is which isn't known (the written commentary is ours, see
+  Commentary).
 - Match length, camera framing and the AI's shot accuracy are guesses, not FIFA 96's values.
 - Frame timing assumes a 30 ticks/s clock (`TICKS_PER_SECOND` in `anim_library.gd`).
 # OSCFootball
