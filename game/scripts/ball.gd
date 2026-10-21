@@ -5,6 +5,7 @@ extends Node2D
 const GRAVITY := 900.0
 const ROLL_FRICTION := 1.2  # exponential decay per second while rolling
 const BOUNCE := 0.5
+const CRAZY_BOUNCE := 0.85  # the crazy bounce modifier: livelier, and off at an angle
 const BANANA_TURN := 3.4  # rad/s the banana shot bends toward its target
 const SUPER_HEIGHT := 12.0  # fireball / thunder skim along at this height
 const TRAIL := 16
@@ -180,8 +181,11 @@ func _normal_flight(delta: float) -> void:
 			z = 0.0
 			if absf(vz) > 80.0:
 				bounced.emit(absf(vz))
-			vz = -vz * BOUNCE if absf(vz) > 80.0 else 0.0
+			var crazy := Match.modifier("crazy bounce")
+			vz = -vz * (CRAZY_BOUNCE if crazy else BOUNCE) if absf(vz) > 80.0 else 0.0
 			velocity *= 0.85
+			if crazy and vz > 0.0:
+				velocity = velocity.rotated(randf_range(-0.6, 0.6))
 	else:
 		velocity *= exp(-ROLL_FRICTION * delta)
 

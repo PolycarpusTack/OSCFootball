@@ -76,6 +76,7 @@ godot --headless --path game -s res://tests/wall_test.gd                        
 godot --headless --path game -s res://tests/referee_art_test.gd                  # the referee's own sprites, yellow and red card
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
+godot --headless --path game -s res://tests/modifiers_test.gd                    # Chaos modifiers: giant players, super goalie, crazy bounce, hot potato
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
 godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
@@ -372,6 +373,22 @@ far and end boards; the near wall is glass (unseen, so it doesn't hide the near 
 and the camera sits nearer. The goals and keepers are the outdoor ones for now, so expect
 goals. After FIFA 97's and RTWC 98's indoor modes (IDEAS_TO_IMPLEMENT.md I.1); the arena is
 our own layout.
+
+## Chaos modifiers (Chaos Football only)
+
+Four toggles at the bottom of the match options, listed in Chaos Football only and ignored in
+Classic (`Match.MODIFIERS`, `Match.modifiers`, `Match.modifier()`), kept between matches:
+
+- **Giant players**: everyone (the referee too) is drawn 1.6x as big. Looks only: reach and
+  headers are unchanged.
+- **Super goalie**: keepers reach twice as far, standing and diving.
+- **Crazy bounce**: the ball comes up off the ground at 0.85 of its fall speed (0.5
+  normally) and up to 0.6 rad off its line.
+- **Hot potato**: nobody but a keeper keeps the ball more than 3 s; then it jumps off his
+  foot in any direction ("HOT POTATO!").
+
+After the cheats of FIFA 97 and RTWC 98 (IDEAS_TO_IMPLEMENT.md I.4); what each one does here
+is ours.
 
 ## Commentary
 

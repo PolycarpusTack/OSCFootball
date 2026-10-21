@@ -7,8 +7,9 @@ const MATCH := "res://scenes/main.tscn"
 const TEAM_MANAGER := "res://scenes/team_manager.tscn"
 const BACKGROUND := "res://brand/title.png"
 const HALF_LENGTHS := [2, 3, 5, 10, 20, 45]  # real minutes per half
-const TOP := 200.0
-const ROW := 48.0
+const TOP := 190.0
+const ROW := 44.0
+const ROWS := 7  # the rows before the Chaos modifiers, shown in Chaos Football only
 
 var _row := 0
 var _labels: Array[Label] = []
@@ -29,7 +30,7 @@ func _ready() -> void:
 	fixture.position.y = 96
 	var hint := _label("↑ / ↓: choose        ← / →: change        SPACE: kick off        ESC: back", 16, Color(0.85, 0.85, 0.85))
 	hint.position.y = 140
-	for i in _rows().size():
+	for i in ROWS + Match.MODIFIERS.size():
 		var l := _label("", 26, Color.WHITE)
 		l.position.y = TOP + i * ROW
 		_labels.append(l)
@@ -59,12 +60,16 @@ func _rows() -> Array:
 		["FOULS", "ON" if Match.fouls_on else "OFF"],
 		["CARDS", "ON" if Match.cards_on else "OFF"],
 		["MATCH", "KNOCKOUT (EXTRA TIME, PENALTIES)" if Match.knockout else "FRIENDLY"],
-	]
+	] + (Match.MODIFIERS.map(func(m): return [m.to_upper(), "ON" if m in Match.modifiers else "OFF"]) if Match.chaos else [])
 
 
 func _refresh() -> void:
 	var rows := _rows()
-	for i in rows.size():
+	_row = mini(_row, rows.size() - 1)
+	for i in _labels.size():
+		_labels[i].visible = i < rows.size()
+		if i >= rows.size():
+			continue
 		var picked := i == _row
 		_labels[i].text = ("%s:   ◀  %s  ▶" if picked else "%s:   %s") % rows[i]
 		_labels[i].add_theme_color_override("font_color", Color(1, 0.85, 0.2) if picked else Color(0.8, 0.8, 0.8))
@@ -82,13 +87,19 @@ func _change(step: int) -> void:
 		4: Match.fouls_on = not Match.fouls_on
 		5: Match.cards_on = not Match.cards_on
 		6: Match.knockout = not Match.knockout
+		_:
+			var m: String = Match.MODIFIERS[_row - ROWS]
+			if m in Match.modifiers:
+				Match.modifiers.erase(m)
+			else:
+				Match.modifiers.append(m)
 	_refresh()
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	var key: bool = event is InputEventKey and event.pressed and not event.echo
 	var button: bool = event is InputEventJoypadButton and event.pressed
-	var n := _labels.size()
+	var n := _rows().size()
 	if (key and event.physical_keycode in [KEY_UP, KEY_W]) or (button and event.button_index == JOY_BUTTON_DPAD_UP):
 		_row = posmod(_row - 1, n)
 		_refresh()

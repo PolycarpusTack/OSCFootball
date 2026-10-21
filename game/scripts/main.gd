@@ -13,6 +13,8 @@ const GOAL_DEPTH_M := 2.0  # the net, behind the line
 const CROSSBAR := 2.44 * Pitch.PX_PER_M
 const KEEPER_REACH := 24.0
 const DIVE_REACH := 34.0
+const SUPER_GOALIE := 2.0  # keeper reach x2 with the super goalie modifier
+const HOT_POTATO := 3.0  # seconds a player can keep the ball with the hot potato modifier
 const STEAL_RATE := 2.0  # chance per second of winning the ball when touching it
 const AIR_SHOT_RANGE := 20.0 * Pitch.PX_PER_M  # headers and volleys go at goal from closer than this
 const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to your own goal
@@ -110,6 +112,10 @@ static var offside_on := true  # the option; indoors there's no offside either w
 static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
 static var cards_on := true
 static var knockout := false  # level at full time: extra time (golden goal), then penalties
+## Chaos modifiers (after FIFA 97 / RTWC 98's cheats), each a toggle in the match options;
+## Chaos Football only.
+const MODIFIERS := ["giant players", "super goalie", "crazy bounce", "hot potato"]
+static var modifiers: Array[String] = []
 
 var ball: Ball
 var home: Team
@@ -145,6 +151,7 @@ var _restart_taken := false  # the taker has started the throw / kick; play on o
 var _keeper_held := 0.0  # seconds a keeper has held the ball in his box
 var _offside: Array[Footballer] = []  # in an offside position when the last kick was played
 var _banner_left := 0.0
+var _potato_left := HOT_POTATO  # the holder's time left with the ball (hot potato)
 var stadium := Stadium.new()
 var _crowd := AudioStreamPlayer.new()
 var _sfx_players: Array[AudioStreamPlayer] = []
@@ -591,6 +598,7 @@ func _physics_process(delta: float) -> void:
 				_keep_inside()
 			_clear_keepers_box(delta)
 			_resolve_possession(delta)
+			_hot_potato(delta)
 			stats.tick(delta)
 			if ball.holder and ball.holder.role != "G":
 				ball.holder.team.gain(Supers.GAIN.dribble * delta)
@@ -1105,7 +1113,31 @@ func is_cross(p: Footballer, mate: Footballer) -> bool:
 
 ## Keeper's reach for a ball: reflexes standing, diving in a dive.
 func keeper_reach(k: Footballer) -> float:
-	return DIVE_REACH * k.skill("gkDiving", 0.8, 1.2) if k.diving() else KEEPER_REACH * k.skill("gkReflexes", 0.8, 1.2)
+	var reach := DIVE_REACH * k.skill("gkDiving", 0.8, 1.2) if k.diving() else KEEPER_REACH * k.skill("gkReflexes", 0.8, 1.2)
+	return reach * (SUPER_GOALIE if modifier("super goalie") else 1.0)
+
+
+## A Chaos modifier switched on in the match options (never in Classic).
+static func modifier(name: String) -> bool:
+	return chaos and name in modifiers
+
+
+## Hot potato: nobody but a keeper keeps the ball for more than HOT_POTATO seconds; then
+## it jumps off his foot, anywhere.
+func _hot_potato(delta: float) -> void:
+	var holder := ball.holder
+	if not modifier("hot potato") or holder == null or holder.role == "G":
+		_potato_left = HOT_POTATO
+		return
+	_potato_left -= delta
+	if _potato_left > 0.0:
+		return
+	_potato_left = HOT_POTATO
+	ball.release()
+	ball.kick(Vector2.RIGHT.rotated(randf() * TAU) * 220.0, 140.0)
+	ball.kick_kind = ""
+	holder.touch_cooldown = 0.8
+	flash("HOT POTATO!", 0.8)
 
 
 ## Chance per second that `tackler`, touching the ball, takes it off `holder`.

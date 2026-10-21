@@ -7,6 +7,7 @@ extends Node2D
 const RUN_SPEED := 170.0
 const ACCEL := 900.0
 const REACH := 14.0
+const GIANT := 1.6  # sprite scale with the giant players modifier (looks only)
 const PRESS_BLOCK_M := 2.5  # an opponent this close when a pass is played may block it (see _past_the_press)
 const KICK_CONTACT := 0.15  # seconds into a kick animation the foot meets the ball
 const THROW_RELEASE := 0.67  # the throw-in animation's hands are empty from tick 21 (frame 4)
@@ -111,7 +112,7 @@ func _ready() -> void:
 func place(screen: Vector3) -> void:
 	var at := Vector2(screen.x, screen.y)
 	_sprite.position = at
-	_sprite.scale = Vector2.ONE * screen.z
+	_sprite.scale = Vector2.ONE * screen.z * (GIANT if Match.modifier("giant players") else 1.0)
 	_sprite.rotation = chaos_rotation
 	if chaos_rotation != 0.0 or chaos_lift != 0.0:
 		var pivot := Vector2(0, -24)
