@@ -2,7 +2,7 @@ extends SceneTree
 ## The referee's judgement on fouls: advantage (the fouled side keeps the ball: play on, the
 ## card at the next stoppage; the offenders win it: back for the free kick), the late whistle
 ## (a man fouled behind his back still down when he looks), the warning before the card,
-## repeat offenders dealt with harder, and the last man's straight red.
+## repeat offenders dealt with harder, the last man's straight red, and the strictness option.
 ## godot --headless --path game -s res://tests/discipline_test.gd
 
 const AWAY := Vector2(-5000, -5000)
@@ -142,6 +142,41 @@ func _initialize() -> void:
 			reds += 1
 	print("through on goal: last man %s, with a covering defender %s; straight red %d of 200" % [through, covered, reds])
 	ok = ok and through and not covered and reds > 90 and reds < 150
+
+	# referee strictness: the meter fills 0.6x / 1.5x in Chaos; the Classic card odds the same
+	var match_script: GDScript = m.get_script()
+	var filled := []
+	for level in 3:
+		match_script.strictness = level
+		hacker.discipline = 0.0
+		hacker.fouls = 0
+		hacker.yellow = false
+		hacker.warned = true
+		m.ref_mood.clear()
+		m.offence(hacker, c, "foul", true)
+		filled.append(hacker.discipline)
+	match_script.chaos = false
+	var yellows := []
+	for level in [0, 2]:
+		match_script.strictness = level
+		var n := 0
+		for i in 400:
+			hacker.sent_off = false
+			hacker.yellow = false
+			hacker.fouls = 0
+			hacker.position = c
+			_clear()
+			m._punish({"by": hacker, "victim": victim, "from_behind": false, "spot": c})
+			if events.has("yellow card:AND"):
+				n += 1
+		yellows.append(n)
+	match_script.chaos = true
+	match_script.strictness = 1
+	hacker.sent_off = false
+	hacker.yellow = false
+	print("strictness: one foul fills the meter %s (lenient, normal, strict); Classic yellows of 400 lenient %d, strict %d" % [filled, yellows[0], yellows[1]])
+	ok = ok and is_equal_approx(filled[0], filled[1] * 0.6) and is_equal_approx(filled[2], filled[1] * 1.5) \
+		and yellows[1] > yellows[0] * 1.6
 
 	print("DISCIPLINE TEST PASSED" if ok else "DISCIPLINE TEST FAILED")
 	quit(0 if ok else 1)

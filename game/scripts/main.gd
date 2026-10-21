@@ -112,6 +112,10 @@ static var offside_on := true  # the option; indoors there's no offside either w
 static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
 static var cards_on := true
 static var knockout := false  # level at full time: extra time (golden goal), then penalties
+## How hard the referee is (match options): his card odds in Classic and how fast the
+## discipline meter fills in Chaos, times this. [name, factor]; strictness is the index.
+const STRICTNESS := [["LENIENT", 0.6], ["NORMAL", 1.0], ["STRICT", 1.5]]
+static var strictness := 1
 ## Chaos modifiers (after FIFA 97 / RTWC 98's cheats), each a toggle in the match options;
 ## Chaos Football only.
 const MODIFIERS := ["giant players", "super goalie", "crazy bounce", "hot potato"]
@@ -1367,7 +1371,7 @@ func _punish(a: Dictionary) -> void:
 	var by: Footballer = a.by
 	if cards_on and not by.sent_off:
 		var odds: Array = CARD_ODDS["behind" if a.from_behind else "front"]
-		var r := randf() / by.skill("aggression", 0.7, 1.3)
+		var r: float = randf() / by.skill("aggression", 0.7, 1.3) / STRICTNESS[strictness][1]
 		if last_man(by, a.victim) and randf() < LAST_MAN_RED["behind" if a.from_behind else "front"]:
 			flash("LAST MAN!", 1.2)
 			detail = {"kind": "last man", "p1": by, "p2": a.victim}
@@ -1524,7 +1528,7 @@ func offence(p: Footballer, pos: Vector2, kind: String, seen := false) -> void:
 	if not chaos or p.sent_off or not (seen or referee_sees(pos)) or bribed.has(p.team):
 		return
 	var added: float = DISCIPLINE[kind] * (1.0 + ref_mood.get(p.team, 0.0) / MOOD_FULL) \
-		* repeat_factor(p) * (BOOKED_RATE if p.yellow else 1.0)
+		* repeat_factor(p) * (BOOKED_RATE if p.yellow else 1.0) * STRICTNESS[strictness][1]
 	p.discipline += added
 	ref_mood[p.team] = minf(MOOD_FULL, ref_mood.get(p.team, 0.0) + added * MOOD_GAIN)
 	if not p.warned and p.discipline >= WARN_AT and p.discipline < DISCIPLINE_FULL:

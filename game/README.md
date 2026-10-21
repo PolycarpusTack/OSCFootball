@@ -342,6 +342,9 @@ ffmpeg -i title_loop.wav -c:a libvorbis -q:a 6 brand/title_music.ogg
   offside line, and the AI doesn't pass to a teammate standing offside.
 - With fouls off in the match options a slide never takes the man (no free kicks or penalties
   from fouls); with cards off fouls are never booked; with offside off nobody is offside.
+- Referee (match options): lenient, normal or strict (`Match.STRICTNESS`) multiplies his card
+  odds in Classic and how fast a foul fills the discipline meter in Chaos by 0.6, 1 or 1.5.
+  The last man's red isn't affected.
 - Match stats (`match_stats.gd`) are counted from the match's events: a shot is a shot,
   header or volley at goal or a super-shot from within 40 m (kicks marked as shots from
   farther out are punts and blind passes). Possession is the time on the ball (or since the
