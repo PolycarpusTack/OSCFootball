@@ -8,8 +8,8 @@ const TEAM_MANAGER := "res://scenes/team_manager.tscn"
 const BACKGROUND := "res://brand/title.png"
 const HALF_LENGTHS := [2, 3, 5, 10, 20, 45]  # real minutes per half
 const TOP := 180.0
-const ROW := 40.0
-const ROWS := 8  # the rows before the Chaos modifiers, shown in Chaos Football only
+const ROW := 37.0
+const ROWS := 9  # the rows before the Chaos modifiers, shown in Chaos Football only
 
 var _row := 0
 var _labels: Array[Label] = []
@@ -61,6 +61,7 @@ func _rows() -> Array:
 		["CARDS", "ON" if Match.cards_on else "OFF"],
 		["MATCH", "KNOCKOUT (EXTRA TIME, PENALTIES)" if Match.knockout else "FRIENDLY"],
 		["REFEREE", Match.STRICTNESS[Match.strictness][0]],
+		["PLAYERS", "RENDERED" if Match.rendered else "PIXEL"],
 	] + (Match.MODIFIERS.map(func(m): return [m.to_upper(), "ON" if m in Match.modifiers else "OFF"]) if Match.chaos else [])
 
 
@@ -89,6 +90,7 @@ func _change(step: int) -> void:
 		5: Match.cards_on = not Match.cards_on
 		6: Match.knockout = not Match.knockout
 		7: Match.strictness = clampi(Match.strictness + step, 0, Match.STRICTNESS.size() - 1)
+		8: Match.rendered = not Match.rendered
 		_:
 			var m: String = Match.MODIFIERS[_row - ROWS]
 			if m in Match.modifiers:

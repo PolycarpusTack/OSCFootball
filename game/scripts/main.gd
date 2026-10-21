@@ -112,6 +112,7 @@ static var offside_on := true  # the option; indoors there's no offside either w
 static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
 static var cards_on := true
 static var knockout := false  # level at full time: extra time (golden goal), then penalties
+static var rendered := false  # player art: Pixel (FIFA 96's sprites) or Rendered (ours, tools/blender; see AnimLibrary)
 ## How hard the referee is (match options): his card odds in Classic and how fast the
 ## discipline meter fills in Chaos, times this. [name, factor]; strictness is the index.
 const STRICTNESS := [["LENIENT", 0.6], ["NORMAL", 1.0], ["STRICT", 1.5]]

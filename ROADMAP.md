@@ -127,8 +127,10 @@ Also own and outside this list: `brand/sprites/line_actions` (bulldozer clear, c
 codes from the 5 directions and packed into FIFA 96's format (palette-indexed sheet, own
 `palette.png`, `animations.json`), so the kit shader recolours it: stripes, photo skin and
 hair. So far: `run`, `jog` (12 frames each), `xstandd` (1) and `kick` (5), on FIFA 96's frame
-timings. Not wired into the game yet: it needs the own palette per
-animation (a third kit material).
+timings. In the game as the **Rendered** player art (match options / pause menu, PLAYERS:
+Pixel or Rendered); animations not rendered yet fall back to FIFA 96's. The packed sprites
+are tracked in `game/assets/sprites/oscf_rendered/`. A real-time 3D view is parked until the
+original OSCF is finished (IDEAS I.6).
 
 ## B. Kit palette
 

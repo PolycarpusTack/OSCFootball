@@ -84,6 +84,7 @@ var _actions := 0  # counts one-shot animations started: a wind-up knows if it w
 var _sprite := Sprite2D.new()
 var _kit: Material  # the kit shader, for the palette-indexed FIFA 96 frames
 var _own_kit: Material  # the same kit for our own RGBA art (Team.own_art_material)
+var _rendered_kit: Material  # and for the Rendered player art (Team.rendered_material)
 var _marks := Node2D.new()  # shadow, control ring and charge meter, drawn under the sprite
 
 
@@ -100,6 +101,7 @@ func _ready() -> void:
 		kit.set_shader_parameter("has_hair", true)
 	_kit = kit
 	_own_kit = Team.own_art_material(kit, role == "G")
+	_rendered_kit = Team.rendered_material(kit)
 	_sprite.material = art_material if art_material else kit
 	_sprite.top_level = true
 	_marks.top_level = true
@@ -203,7 +205,12 @@ func _physics_process(delta: float) -> void:
 	_sprite.offset = f.offset
 	_sprite.flip_h = f.flip
 	if not art_material:  # the referee brings his own
-		_sprite.material = _own_kit if Anims.own_art(_anim) else _kit
+		_sprite.material = art_for(_anim)
+
+
+## His kit for drawing `anim`: our RGBA art, the Rendered player art, or FIFA 96's frames.
+func art_for(anim: String) -> Material:
+	return _own_kit if Anims.own_art(anim) else _rendered_kit if Anims.rendered(anim) else _kit
 
 
 func _draw_marks() -> void:

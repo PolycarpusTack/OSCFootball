@@ -4,6 +4,7 @@ extends RefCounted
 
 const KIT_SHADER := preload("res://scripts/kit.gdshader")
 const PALETTE := preload("res://assets/sprites/players/palette.png")
+const RENDERED_PALETTE := preload("res://assets/sprites/oscf_rendered/palette.png")  # tools/blender
 const LEAGUE := "res://data/league.json"
 
 ## Formations, slot by slot: the position on the team sheet, the role (G, D, M, F) and three
@@ -127,6 +128,13 @@ static func own_art_material(kit: ShaderMaterial, keeper: bool) -> ShaderMateria
 	var m := kit.duplicate() as ShaderMaterial
 	m.set_shader_parameter("own_art", true)
 	m.set_shader_parameter("white_is_kit", not keeper)
+	return m
+
+
+## `kit` for the Rendered player art (Anims.rendered): the same kit through its own palette.
+static func rendered_material(kit: ShaderMaterial) -> ShaderMaterial:
+	var m := kit.duplicate() as ShaderMaterial
+	m.set_shader_parameter("palette", RENDERED_PALETTE)
 	return m
 
 

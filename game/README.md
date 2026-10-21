@@ -76,6 +76,7 @@ godot --headless --path game -s res://tests/wall_test.gd                        
 godot --headless --path game -s res://tests/referee_art_test.gd                  # the referee's own sprites, yellow and red card
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
+godot --headless --path game -s res://tests/rendered_test.gd                     # player art: Pixel / Rendered, fallback, options and pause menu
 godot --headless --path game -s res://tests/modifiers_test.gd                    # Chaos modifiers: giant players, super goalie, crazy bounce, hot potato, catch-up
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
@@ -376,6 +377,21 @@ far and end boards; the near wall is glass (unseen, so it doesn't hide the near 
 and the camera sits nearer. The goals and keepers are the outdoor ones for now, so expect
 goals. After FIFA 97's and RTWC 98's indoor modes (IDEAS_TO_IMPLEMENT.md I.1); the arena is
 our own layout.
+
+## Player art: Pixel or Rendered
+
+Match options (PLAYERS) or the pause menu, mid-match: **Pixel** draws the players with FIFA
+96's sprites; **Rendered** with ours, rendered in Blender from a scripted low-poly footballer
+(`tools/blender/`, see the scripts' notes). They're palette-indexed like FIFA 96's, with their
+own palette (`assets/sprites/oscf_rendered/palette.png`), so the kit shader colours them the
+same way: stripes, second colours, and the skin and hair from a player's photo. Rendered so
+far: run, jog, stand and kick, on FIFA 96's frame timings; every other animation falls back
+to FIFA 96's (`Anims.rendered()`, `Footballer.art_for()`). To re-render:
+
+```
+blender -b -P tools/blender/footballer.py -- /tmp/renders
+tools/.venv/bin/python -I tools/blender/pack_sprites.py /tmp/renders game/assets/sprites/oscf_rendered run jog xstandd kick
+```
 
 ## Chaos modifiers (Chaos Football only)
 
