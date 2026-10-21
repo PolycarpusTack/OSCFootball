@@ -106,8 +106,8 @@ runner, a Grapple Tackle.
 | Exaggerated ball physics | V: "Ball Physics", "Exaggerated" | Chaos modifier | S |
 | **Chaos modifiers menu**: each cheat one toggle | V, RTWC 98 (`FIFARTWC.EXE`): "Take a Dive", "Hot Potato", "Big Heads", "Crazy Ball", "Silly Moves", "Invisible Walls". FIFA 97 (`LANG000.POG`): "Giant player", "Metallic men", "Laser ball", "Curve ball", "Radical curve", "Crazy bounce", "Super Goalie", "Hot potato", "Crazy ball" | a new options page; big heads = sprite scale, laser ball = super trails always, super goalie = keeper reach ×2, crazy bounce = restitution up | S each |
 
-**Status (2026-10-21):** Chaos modifiers started: giant players, super goalie, crazy bounce and
-hot potato are toggles in the match options (`modifiers_test`); referee strictness (lenient,
+**Status (2026-10-21):** Chaos modifiers started: giant players, super goalie, crazy bounce, hot
+potato and catch-up (energy for the side behind) are toggles in the match options (`modifiers_test`); referee strictness (lenient,
 normal, strict) is an option for both modes (`discipline_test`). Open: the other cheats (big
 heads needs head art; laser ball, curve ball, invisible walls), and the rest of the table.
 

@@ -2,7 +2,7 @@ extends SceneTree
 ## The Chaos modifiers: each one only with its toggle on, and never in Classic. Super goalie
 ## doubles a keeper's reach; crazy bounce sends the ball up higher and off at an angle; hot
 ## potato knocks the ball off anyone but a keeper after HOT_POTATO seconds; giant players
-## draws them bigger. The match options list them in Chaos Football only.
+## draws them bigger; catch-up fills the bar of the side behind faster. The match options list them in Chaos Football only.
 ## godot --headless --path game -s res://tests/modifiers_test.gd
 
 var m: Node
@@ -63,6 +63,19 @@ func _initialize() -> void:
 	print("giant players: scale %.1f, off %.1f" % [giant, runner._sprite.scale.x])
 	ok = ok and giant > 1.5 and runner._sprite.scale.x == 1.0
 
+	# catch-up: the side behind fills its bar faster, x1.5 a goal down, x2 two or more
+	match_script.modifiers.assign(["catch-up"])
+	var fills := []
+	for down in [0, 1, 3]:
+		m.home.score = 0
+		m.away.score = down
+		m.home.energy = 0.0
+		m.home.gain(10.0)
+		fills.append(m.home.energy)
+	m.away.score = 0
+	print("catch-up: +10 energy level, 1 down, 3 down: %s" % [fills])
+	ok = ok and fills == [10.0, 15.0, 20.0]
+
 	# Classic: the toggles do nothing
 	match_script.modifiers.assign(match_script.MODIFIERS)
 	match_script.chaos = false
@@ -83,7 +96,7 @@ func _initialize() -> void:
 	var on: Array = match_script.modifiers.duplicate()
 	options._change(1)
 	print("options: %d rows in Classic, %d in Chaos; row 8 toggled on %s, off %s" % [classic_rows, chaos_rows, on, match_script.modifiers])
-	ok = ok and classic_rows == 8 and chaos_rows == 12 and on == ["giant players"] and match_script.modifiers.is_empty()
+	ok = ok and classic_rows == 8 and chaos_rows == 13 and on == ["giant players"] and match_script.modifiers.is_empty()
 	options.queue_free()
 
 	print("MODIFIERS TEST PASSED" if ok else "MODIFIERS TEST FAILED")

@@ -85,6 +85,7 @@ const INDOOR_FORMATIONS := {
 	],
 }
 const INDOOR_FORMATION := "1-2-1"
+const CATCH_UP := 0.5  # the catch-up modifier: energy gains x1.5 a goal behind, x2 two or more
 
 var name: String
 var short: String
@@ -150,6 +151,8 @@ func goal_defended() -> Vector2:
 func gain(amount: float) -> void:
 	if not Match.chaos:  # Classic Football has no energy bar
 		return
+	if amount > 0.0 and Match.modifier("catch-up") and not players.is_empty():
+		amount *= 1.0 + CATCH_UP * clampi(players[0].opponents.score - score, 0, 2)
 	energy = clampf(energy + amount, 0.0, Supers.MAX_ENERGY)
 
 

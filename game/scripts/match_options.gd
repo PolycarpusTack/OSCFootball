@@ -7,8 +7,8 @@ const MATCH := "res://scenes/main.tscn"
 const TEAM_MANAGER := "res://scenes/team_manager.tscn"
 const BACKGROUND := "res://brand/title.png"
 const HALF_LENGTHS := [2, 3, 5, 10, 20, 45]  # real minutes per half
-const TOP := 190.0
-const ROW := 42.0
+const TOP := 180.0
+const ROW := 40.0
 const ROWS := 8  # the rows before the Chaos modifiers, shown in Chaos Football only
 
 var _row := 0

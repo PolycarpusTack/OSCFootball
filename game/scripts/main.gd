@@ -118,7 +118,7 @@ const STRICTNESS := [["LENIENT", 0.6], ["NORMAL", 1.0], ["STRICT", 1.5]]
 static var strictness := 1
 ## Chaos modifiers (after FIFA 97 / RTWC 98's cheats), each a toggle in the match options;
 ## Chaos Football only.
-const MODIFIERS := ["giant players", "super goalie", "crazy bounce", "hot potato"]
+const MODIFIERS := ["giant players", "super goalie", "crazy bounce", "hot potato", "catch-up"]
 static var modifiers: Array[String] = []
 
 var ball: Ball
