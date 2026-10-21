@@ -126,7 +126,8 @@ Also own and outside this list: `brand/sprites/line_actions` (bulldozer clear, c
 **Blender pipeline** (`tools/blender/`): a scripted low-poly footballer rendered in kit-slot
 codes from the 5 directions and packed into FIFA 96's format (palette-indexed sheet, own
 `palette.png`, `animations.json`), so the kit shader recolours it: stripes, photo skin and
-hair. So far: `run` (12 frames). Not wired into the game yet: it needs the own palette per
+hair. So far: `run`, `jog` (12 frames each), `xstandd` (1) and `kick` (5), on FIFA 96's frame
+timings. Not wired into the game yet: it needs the own palette per
 animation (a third kit material).
 
 ## B. Kit palette

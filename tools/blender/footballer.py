@@ -1,11 +1,13 @@
-"""A low-poly footballer, running on the spot, rendered from the game's five drawn directions
-(away, up-right, right, down-right, toward the camera) at 4x the sprite size.
+"""A low-poly footballer's animations (ANIMS: run, jog, stand, kick), on the spot, rendered from
+the game's five drawn directions (away, up-right, right, down-right, toward the camera) at 4x
+the sprite size.
 
-    blender -b -P tools/blender/footballer_run.py -- <out_dir>
+    blender -b -P tools/blender/footballer.py -- <out_dir> [anim ...]   (default: all of ANIMS)
 
-Writes <out_dir>/<dir>_<frame>.png and <out_dir>/origin.json: the pixel the ground point under
-the player lands on, the same in every render. tools/blender/pack_sprites.py turns them into
-a palette-indexed sheet, its palette and animations.json for the game's kit shader.
+Writes <out_dir>/<anim>/<dir>_<frame>.png and <out_dir>/<anim>/origin.json: the pixel the
+ground point under the player lands on (the same in every render) and each frame's start
+tick. tools/blender/pack_sprites.py turns them into a palette-indexed sheet, its palette and
+animations.json for the game's kit shader.
 
 The renders aren't pictures but codes, unlit (emission), one sample a pixel so codes never
 blend: red is the kit slot of scripts/kit.gdshader (1 shirt, 2 its second colour, 3 shorts,
@@ -22,8 +24,8 @@ import bpy
 from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
-OUT = sys.argv[sys.argv.index("--") + 1] if "--" in sys.argv else "/tmp/footballer_run"
-FRAMES = 12  # one stride cycle, like FIFA 96's run
+ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+OUT = ARGS[0] if ARGS else "/tmp/footballer"
 CELL = 256  # render size; the sprite is a quarter of it
 ORTHO = 2.56  # metres across the render: 1.8 m tall comes out about 44 px at 64 px
 ELEVATION = math.radians(24.0)  # the match camera looks down about this much
@@ -161,32 +163,109 @@ def build():
         knee = joint("knee" + side, hip, (0.0, 0.0, -0.43))
         limb(knee, 0.4, 0.068, "socks", start=0.02)
         ankle = joint("ankle" + side, knee, (0.0, 0.0, -0.42))
-        box(ankle, (0.12, 0.27, 0.09), "boots", (0.0, 0.06, -0.03))
+        boot = box(ankle, (0.12, 0.27, 0.09), "boots", (0.0, 0.06, -0.03))
         shoulder = joint("shoulder" + side, torso, (0.24 * x, 0.0, 0.47))
         limb(shoulder, 0.14, 0.072, "shirt")
         limb(shoulder, 0.13, 0.055, "skin", start=0.14)
         elbow = joint("elbow" + side, shoulder, (0.0, 0.0, -0.28))
         limb(elbow, 0.22, 0.05, "skin")
         ball(elbow, 0.06, "skin", (0.0, 0.0, -0.25))
-        j.update({"hip" + side: hip, "knee" + side: knee, "ankle" + side: ankle,
+        j.update({"boot" + side: boot, "hip" + side: hip, "knee" + side: knee, "ankle" + side: ankle,
                   "shoulder" + side: shoulder, "elbow" + side: elbow})
     return j
 
 
-def pose(j, phase):
-    """The run at `phase` (0..2pi): legs swing, the knee folds as the leg comes through,
-    arms swing against the legs, the body leans in and bobs twice a stride."""
-    for side, off, arm in (("L", 0.0, -1.0), ("R", math.pi, -1.0)):
+def _rest(j):
+    for name, o in j.items():
+        if name != "root" and not name.startswith("boot"):
+            o.rotation_euler = (0.0, 0.0, 0.0)
+    j["pelvis"].location.z = 0.95
+
+
+def _out(j, side, angle):
+    """Arm `side` lifted `angle` out sideways (the left arm hangs at -X, the right at +X)."""
+    j["shoulder" + side].rotation_euler.y = angle if side == "L" else -angle
+
+
+def _stride(j, phase, swing, fold, lean, arms, elbow):
+    """A run or jog at `phase` (0..2pi): legs swing, the knee folds as the leg comes through,
+    arms swing against the legs, the body leans in (_ground then puts a foot on the ground)."""
+    for side, off in (("L", 0.0), ("R", math.pi)):
         p = phase + off
-        j["hip" + side].rotation_euler.x = 0.95 * math.sin(p) + 0.15
-        j["knee" + side].rotation_euler.x = -(0.3 + 1.9 * max(0.0, math.cos(p - 0.35)) ** 1.3)
+        j["hip" + side].rotation_euler.x = swing * math.sin(p) + 0.15 * swing
+        j["knee" + side].rotation_euler.x = -(0.3 * fold / 1.9 + fold * max(0.0, math.cos(p - 0.35)) ** 1.3)
         j["ankle" + side].rotation_euler.x = 0.3 * math.sin(p - 0.8)
-        j["shoulder" + side].rotation_euler.x = arm * 0.95 * math.sin(p)
-        j["elbow" + side].rotation_euler.x = 1.6
-    j["torso"].rotation_euler.x = 0.32
-    j["torso"].rotation_euler.z = 0.12 * math.sin(phase)
-    j["head"].rotation_euler.x = -0.15
-    j["pelvis"].location.z = 0.9 + 0.04 * math.cos(2.0 * phase)
+        j["shoulder" + side].rotation_euler.x = -arms * math.sin(p)
+        j["elbow" + side].rotation_euler.x = elbow
+        _out(j, side, 0.08)
+    j["torso"].rotation_euler.x = lean
+    j["torso"].rotation_euler.z = 0.12 * swing * math.sin(phase)
+    j["head"].rotation_euler.x = -0.5 * lean
+
+
+def _ground(j):
+    """Down (or up) until the lowest boot stands on the ground, where the sprite's anchor is."""
+    bpy.context.view_layer.update()
+    low = min((b.matrix_world @ Vector(c)).z for b in (j["bootL"], j["bootR"]) for c in b.bound_box)
+    j["pelvis"].location.z -= low
+    bpy.context.view_layer.update()
+
+
+def run(j, i, n):
+    _stride(j, i / n * math.tau, swing=0.95, fold=1.9, lean=0.32, arms=0.95, elbow=1.6)
+
+
+def jog(j, i, n):
+    _stride(j, i / n * math.tau, swing=0.6, fold=1.2, lean=0.14, arms=0.55, elbow=1.45)
+
+
+def stand(j, i, n):
+    """Weight on both feet a little apart, knees soft, arms hanging just off the body."""
+    for side, x in (("L", -1.0), ("R", 1.0)):
+        j["hip" + side].rotation_euler.y = 0.06 * -x
+        j["hip" + side].rotation_euler.x = 0.05
+        j["knee" + side].rotation_euler.x = -0.1
+        j["ankle" + side].rotation_euler.x = 0.05
+        j["elbow" + side].rotation_euler.x = 0.25
+        _out(j, side, 0.12)
+    j["torso"].rotation_euler.x = 0.04
+
+
+# The right foot kicks: back-swing, coming through, contact, follow-through, recovering.
+# Per frame: kicking hip, kicking knee, standing hip, standing knee, lean, arms out, arm swing.
+KICK = [
+    (-0.9, -2.0, 0.25, -0.45, 0.3, 0.9, 0.6),
+    (-0.4, -1.7, 0.2, -0.4, 0.32, 1.0, 0.4),
+    (0.45, -0.35, 0.1, -0.3, 0.12, 1.05, -0.1),
+    (1.35, -0.1, 0.0, -0.2, -0.15, 1.1, -0.6),
+    (0.35, -0.6, 0.05, -0.15, 0.1, 0.5, -0.2),
+]
+
+
+def kick(j, i, n):
+    hip, knee, stand_hip, stand_knee, lean, arms, swing = KICK[i]
+    j["hipR"].rotation_euler.x = hip
+    j["kneeR"].rotation_euler.x = knee
+    j["ankleR"].rotation_euler.x = 0.4 if i >= 2 else -0.2  # toes pointed through the ball
+    j["hipL"].rotation_euler.x = stand_hip
+    j["kneeL"].rotation_euler.x = stand_knee
+    for side in ("L", "R"):
+        _out(j, side, arms)
+        j["elbow" + side].rotation_euler.x = 0.5
+    j["shoulderL"].rotation_euler.x = swing  # the other arm comes across against the kick
+    j["shoulderR"].rotation_euler.x = -swing
+    j["torso"].rotation_euler.x = lean
+    j["torso"].rotation_euler.z = -0.45 * swing  # the shoulders turn against the leg
+
+
+# name in the game: pose, frames, start tick of each frame (FIFA 96's timing for the same
+# animation, so loops and the kick's contact time stay what the game is tuned to)
+ANIMS = {
+    "run": (run, 12, [1, 4, 6, 8, 11, 14, 16, 19, 21, 23, 26, 29]),
+    "jog": (jog, 12, [1, 4, 6, 8, 11, 14, 16, 19, 21, 23, 26, 29]),
+    "xstandd": (stand, 1, [1]),
+    "kick": (kick, 5, [4, 7, 10, 13, 18]),
+}
 
 
 def setup_scene():
@@ -216,20 +295,25 @@ def setup_scene():
 
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    os.makedirs(OUT, exist_ok=True)
     s, cam = setup_scene()
     j = build()
-    for d, heading in DIRECTIONS.items():
-        # the figure faces +Y (into the screen); turn it to face `heading`
-        j["root"].rotation_euler.z = math.radians(heading - 90.0)
-        for f in range(FRAMES):
-            pose(j, f / FRAMES * math.tau)
-            bpy.context.view_layer.update()
-            s.render.filepath = os.path.join(OUT, "%d_%02d.png" % (d, f))
-            bpy.ops.render.render(write_still=True)
     o = world_to_camera_view(s, cam, Vector((0.0, 0.0, 0.0)))
-    with open(os.path.join(OUT, "origin.json"), "w") as fh:
-        json.dump({"cell": CELL, "x": o.x * CELL, "y": (1.0 - o.y) * CELL, "frames": FRAMES}, fh)
+    for anim in WANTED:
+        pose, frames, ticks = ANIMS[anim]
+        out = os.path.join(OUT, anim)
+        os.makedirs(out, exist_ok=True)
+        for d, heading in DIRECTIONS.items():
+            # the figure faces +Y (into the screen); turn it to face `heading`
+            j["root"].rotation_euler.z = math.radians(heading - 90.0)
+            for f in range(frames):
+                _rest(j)
+                pose(j, f, frames)
+                _ground(j)
+                s.render.filepath = os.path.join(out, "%d_%02d.png" % (d, f))
+                bpy.ops.render.render(write_still=True)
+        with open(os.path.join(out, "origin.json"), "w") as fh:
+            json.dump({"cell": CELL, "x": o.x * CELL, "y": (1.0 - o.y) * CELL, "ticks": ticks}, fh)
 
 
+WANTED = ARGS[1:] or list(ANIMS)
 main()

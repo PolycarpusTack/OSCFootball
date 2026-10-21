@@ -1,10 +1,10 @@
-"""Packs the coded renders of footballer_run.py into one animation for the game, in FIFA 96's
-format (see tools/build_godot_assets.py): an 8-bit grayscale sheet <out_dir>/<anim>.png whose
+"""Packs the coded renders of footballer.py into animations for the game, in FIFA 96's
+format (see tools/build_godot_assets.py): per animation an 8-bit grayscale sheet <out_dir>/<anim>.png whose
 pixels are palette indices (255 transparent), <out_dir>/palette.png (256 x 2: row 0 the
 colours, row 1 R = kit slot, G = shade) and <out_dir>/animations.json (per drawn direction,
 frames {x, y, w, h, ax, ay, t}; ax, ay is where the feet touch the ground).
 
-    tools/.venv/bin/python -I tools/blender/pack_sprites.py <render_dir> <out_dir> <anim>
+    tools/.venv/bin/python -I tools/blender/pack_sprites.py <render_dir> <out_dir> <anim> [anim ...]
 
 Each 4 x 4 block of a render becomes one pixel: drawn if half of it is, in the slot most of
 it shows, at the shade band of that slot's average light. A dark outline goes round the
@@ -18,8 +18,7 @@ from pathlib import Path
 from PIL import Image
 
 SCALE = 4
-TICKS = 31  # one cycle in game ticks (30 a second), as FIFA 96's run
-SLOT_STEP = 32  # footballer_run.py's red byte per kit slot
+SLOT_STEP = 32  # footballer.py's red byte per kit slot
 TRANSPARENT = 255
 OUTLINE = 0  # palette index, slot 0: drawn as is
 OUTLINE_COLOUR = (24, 28, 24)
@@ -89,32 +88,37 @@ def outline(img):
     return out
 
 
-def main():
-    src, out, anim = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+def pack(src, out, anim):
     origin = json.loads((src / "origin.json").read_text())
     ox, oy = origin["x"] / SCALE, origin["y"] / SCALE
-    n = origin["frames"]
+    ticks = origin["ticks"]
     cells, meta = [], {}
     x = 0
     for d in (0, 2, 4, 6, 8):
         meta[str(d)] = []
-        for i in range(n):
+        for i, tick in enumerate(ticks):
             img = frame(src / ("%d_%02d.png" % (d, i)))
             l, t, r, b = img.point(lambda v: 0 if v == TRANSPARENT else 255).getbbox()
             cells.append((img.crop((l, t, r, b)), x))
             meta[str(d)].append({"x": x, "y": 0, "w": r - l, "h": b - t, "ax": round(ox - l), "ay": round(oy - t),
-                                 "t": 1 + round(i * TICKS / n)})
+                                 "t": tick})
             x += r - l + 1
     height = max(c.height for c, _ in cells)
     sheet = Image.new("L", (x, height), TRANSPARENT)
     for c, cx in cells:
         sheet.paste(c, (cx, 0))
-    out.mkdir(parents=True, exist_ok=True)
     sheet.save(out / (anim + ".png"))
+    return meta
+
+
+def main():
+    src, out = Path(sys.argv[1]), Path(sys.argv[2])
+    out.mkdir(parents=True, exist_ok=True)
     palette().save(out / "palette.png")
     path = out / "animations.json"
     all_meta = json.loads(path.read_text()) if path.exists() else {}
-    all_meta[anim] = meta
+    for anim in sys.argv[3:]:
+        all_meta[anim] = pack(src / anim, out, anim)
     path.write_text(json.dumps(all_meta))
 
 
