@@ -36,7 +36,8 @@ const WHIRLWIND_DRIFT := 140.0  # pitch pixels a second he turns away along the 
 const FIST_REACH := 63.0  # a loose ball this close, ...
 const FIST_TOP := 100.0  # ... up to this high, is punched clear
 const COLOUR := Color("67f4ef")
-const AI_CAPTAIN_AT := 30.0  # the AI sends its captain once the referee is this angry with it (or fuming)
+const AI_CAPTAIN_AT := 20.0  # the AI sends its captain once the referee is this angry with it (or fuming),
+# and spends nothing on other moves until he has had his word
 const AI_DIVE_ODDS := 0.35  # and dives only when the referee is likely enough to fall for it
 const AI_DIVE_CHANCE := 0.2  # ... and then only now and again, not at every chance (about 3 a match)
 var match_game: Match
@@ -436,8 +437,8 @@ func think_ai() -> void:
 		if float(cooldown.get(t, 0.0)) > 0.0: continue
 		var b := match_game.ball
 		var cap := match_game.captain(t)
-		if (match_game.ref_mood.get(t, 0.0) >= AI_CAPTAIN_AT or match_game._blow_up.get("team") == t) \
-				and start(cap, "captain", Vector2.ZERO):
+		if match_game.ref_mood.get(t, 0.0) >= AI_CAPTAIN_AT or match_game._blow_up.get("team") == t:
+			start(cap, "captain", Vector2.ZERO)  # or, short of energy, keep it back for him
 			continue
 		var p: Footballer = b.holder if b.holder != null and b.holder.team == t else match_game.chaser(t)
 		var ids: Array = []

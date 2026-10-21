@@ -316,7 +316,7 @@ func _initialize() -> void:
 	m.home.energy = 10.0
 	m.away.energy = 0.0
 	actions.think_ai()
-	check(actions.active.is_empty(), "AI doesn't dive when the referee is angry with it")
+	check(actions.active.is_empty() and not actions.ai_dive_pays(diver), "AI doesn't dive when the referee is angry with it")
 	reset()
 	diver.position = Pitch.field_rect().get_center() - Vector2(att * Pitch.m(25.0), 0.0)  # own half
 	o.position = diver.position + Vector2(att * Pitch.m(1.5), 0.0)
@@ -335,7 +335,7 @@ func _initialize() -> void:
 	m.referee.position = cap.position + Vector2(Pitch.m(10.0), 0.0)
 	m.away.energy = 0.0
 	m.ref_mood.clear()
-	m.ref_mood[m.home] = 20.0
+	m.ref_mood[m.home] = 10.0
 	actions.think_ai()
 	check(actions.active.is_empty() or actions.active[0].id != "captain", "AI leaves a mildly cross referee be")
 	reset()
@@ -344,6 +344,22 @@ func _initialize() -> void:
 	m.ref_mood[m.home] = 70.0
 	actions.think_ai()
 	check(actions.active.size() == 1 and actions.active[0].id == "captain" and actions.active[0].p == cap, "AI sends its captain to an angry referee")
+	# short of the captain's energy, it keeps what it has back for him rather than spend it
+	reset()
+	var holder = m.home.players[9]
+	m.referee.position = cap.position + Vector2(Pitch.m(10.0), 0.0)
+	m.away.energy = 0.0
+	m.home.energy = 20.0
+	m.ball.stop_at(holder.feet_front())
+	m.ball.take(holder)
+	m.ref_mood[m.home] = 25.0
+	for tries in 20:
+		actions.think_ai()
+		actions.cooldown.clear()
+	check(actions.active.is_empty() and m.home.energy == 20.0, "AI keeps its energy back for the captain")
+	m.home.energy = 30.0
+	actions.think_ai()
+	check(actions.active.size() == 1 and actions.active[0].id == "captain", "... and sends him once it can")
 	m.ref_mood.clear()
 	print("CHAOS ACTIONS TEST ", "PASSED" if failed == 0 else "FAILED (%d)" % failed)
 	m.queue_free()
