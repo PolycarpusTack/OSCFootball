@@ -58,7 +58,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | Up / Down on the title screen | 1 player (vs the AI) or 2 players (Brugge vs Anderlecht) |
 | WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow) |
 | Space | with the ball: shoot on release, hold for power (aims at goal when you face it). Without: slide tackle |
-| ↓ ↘ → then Space | **Fireball** (50 energy): flat rocket, bowls over anyone in the way |
+| E + Space, or ↓ → then Space | **Fireball** (50 energy): flat rocket, bowls over anyone in the way |
 | ← → then Space | **Banana Shot** (50): bends hard toward the far post |
 | hold Space 0.8 s, full bar | **Thunder Strike** (100): bicycle kick, slow-mo, lightning ball that nobody can hold |
 | Up/Down while taking a penalty | choose the corner |

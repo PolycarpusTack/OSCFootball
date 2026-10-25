@@ -4,6 +4,7 @@ extends RefCounted
 ## Ball behaviour lives in ball.gd (`power`), knock-downs in main.gd.
 
 const MAX_ENERGY := 100.0
+const SEGMENT := 25.0  # the bar fills in four of these; every Chaos move costs whole ones
 
 const LIST := {
 	"fireball": {

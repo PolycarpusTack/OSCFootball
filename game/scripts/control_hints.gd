@@ -3,15 +3,10 @@ extends CanvasLayer
 ## The prompts along the bottom of the match: for each human, the 3-5 things his player can do
 ## right now (with the ball, without it, a ball in the air coming, a keeper holding it), in
 ## the buttons of the keyboard or gamepad he's using, with Chaos costs greyed when the bar
-## is short. In front, the combo directions he's just entered (F2 hides them). In Chaos, ticks
-## on his team's energy bar mark what his ↓↘→ move and his selected special cost.
+## is short. In front, the combo directions he's just entered (F2 hides them).
 
 const ARROWS := {1: "↙", 2: "↓", 3: "↘", 4: "←", 6: "→", 7: "↖", 8: "↑", 9: "↗"}
 const NOTICE_SECONDS := 1.4
-const LINE_TICK := Color(1.0, 0.6, 0.2)  # the ↓↘→ move's cost
-const SPECIAL_TICK := Color(0.4, 0.95, 1.0)  # the selected special's
-const BAR_LEFT := 14.0  # the energy fill's x and width (see Match._add_hud)
-const BAR_WIDTH := 200.0
 
 static var show_trail := true  # F2; kept between matches
 
@@ -20,7 +15,6 @@ var _lines: Array[RichTextLabel] = []
 var _pad: Array[bool] = [false, false]  # each human's last input came from a gamepad
 var _notice: Array[String] = ["", ""]  # a short message in front of his prompts ...
 var _notice_left: Array[float] = [0.0, 0.0]  # ... for this many more seconds
-var _ticks: Array = []  # per human: [line tick, special tick]
 
 
 func _init(m: Match) -> void:
@@ -46,15 +40,6 @@ func _ready() -> void:
 		line.add_theme_constant_override("outline_size", 4)
 		add_child(line)
 		_lines.append(line)
-		var ticks := []
-		for colour in [LINE_TICK, SPECIAL_TICK]:
-			var tick := ColorRect.new()
-			tick.color = colour
-			tick.size = Vector2(2.0, 16.0)
-			tick.visible = false
-			add_child(tick)
-			ticks.append(tick)
-		_ticks.append(ticks)
 
 
 ## The ↓↘→ move `p` would make: {name, cost}. A striker's is the Fireball.
@@ -91,7 +76,7 @@ func prompts(h: Human) -> Array:
 		out.append({"input": ["@switch"], "text": "Switch player", "short": "Switch"})
 	if Match.chaos and p.has_ball() and (p.role != "G" or m.keeper_may_release(p)):
 		var lm := line_move(p)
-		out.append({"input": ["↓", "↘", "→", "@shoot"], "text": lm.name, "cost": lm.cost})
+		out.append({"input": ["@special", "+", "@shoot"], "text": lm.name, "cost": lm.cost})
 		if p.role != "G" and p.team.energy >= Supers.cost("thunder"):
 			out.append({"input": ["hold", "@shoot"], "text": "THUNDER STRIKE", "short": "THUNDER", "cost": Supers.cost("thunder")})
 	elif Match.chaos and not p.has_ball() and not m._ball_coming_in_air(p):
@@ -146,20 +131,6 @@ func _process(delta: float) -> void:
 		var text := line_text(h)
 		if _lines[h.index].text != text:
 			_lines[h.index].text = text
-		_place_ticks(h)
-
-
-## The cost ticks on `h`'s team's energy bar: his ↓↘→ move's and his selected special's.
-func _place_ticks(h: Human) -> void:
-	var bar: ColorRect = match_game._energy_bars.get(h.team)
-	var p := h.controlled
-	var shown: bool = Match.chaos and bar != null and p != null and not match_game.autoplay
-	var costs := [line_move(p).cost if p else 0.0, ChaosActions.MOVES[match_game.chaos_actions.chosen(h)].cost if shown else 0.0]
-	for i in 2:
-		var tick: ColorRect = _ticks[h.index][i]
-		tick.visible = shown
-		if shown:
-			tick.position = Vector2(BAR_LEFT + BAR_WIDTH * minf(costs[i], Supers.MAX_ENERGY) / Supers.MAX_ENERGY - 1.0, bar.position.y - 2.0)
 
 
 func _input(event: InputEvent) -> void:

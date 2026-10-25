@@ -32,22 +32,28 @@ Rocket Throw, **Palm Barrage** (rapid keeper parries) and **Cyclone Scissor**
 (defender), **Stepover Storm** (midfielder or striker), **Whirlwind Turn** (midfielder) and
 **Rising Fist** (keeper).
 
-**Line moves:** ↓↘→ then shoot, with the ball, does a different move on each line: a
-striker's **Fireball**, a defender's **Bulldozer Clear** (charges, flattening whoever's in the
-way, then hoofs it upfield; 40 energy), a midfielder's **Laser Pass** (flat, fast, straight to
-the man; 30) and the keeper's **Cannon Punt** (from the hands, far upfield, once the box is
-clear; 30). The role moves look like the rest of the match: in the Pixel view each plays the
+**Line moves:** special + shoot (or ↓→ then shoot), with the ball, does a different move on
+each line: a striker's **Fireball**, a defender's **Bulldozer Clear** (charges, flattening
+whoever's in the way, then hoofs it upfield), a midfielder's **Laser Pass** (flat, fast,
+straight to the man) and the keeper's **Cannon Punt** (from the hands, far upfield, once the
+box is clear); 50 energy each. The role moves look like the rest of the match: in the Pixel view each plays the
 nearest FIFA 96 animation, in the Rendered view its own Blender animation, in each team's kit.
 
-**P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
-R cycles only the moves your player's line can do (plus the keeper's and the captain's).
-The HUD shows the selected one between its neighbours, white when ready and grey when not,
-and what it still needs. Along the bottom, each player's **prompts** show what his player can
+**Hold special (P1: E, P2: comma, gamepad: Y) and press shoot, pass or switch.** The button
+picks the kind of move, the play picks which one: special + shoot is the line move with the
+ball, else a keeper's save when a ball comes at him, a Cyclone Scissor at a ball in the air, a
+Grapple or Stego Sweep at the carrier, a Magnet Sole or Bass Drop at a loose ball; special + pass
+a Rocket Throw from the keeper's hands, a Boomerang Cross out wide, a Pinball Pass, a Spring
+Header or a Phalanx Wall; special + switch a Stepover Storm with a man in front, a Whirlwind
+Turn (midfielders) or a Ghost Step, or a Dive. Special pressed on its own sends the Captain
+(or, with a full bar by the referee, the Bribe). The HUD shows what each button would do now,
+lit when the bar allows. **The energy bar fills in four segments of 25**, and every Chaos move
+costs whole segments: one for a Ghost Step, Magnet Sole, Stepover Storm, Dive or Body Check,
+four for the Thunder Strike or the Bribe, two for the rest. Along the bottom, each player's **prompts** show what his player can
 do right now (with the ball, without it, a ball in the air, a keeper holding it) in the
 buttons of the keyboard or gamepad he's using, Chaos costs grey when the bar is short; in
 front, the directions he's just entered (F2 hides them), or what a combo he couldn't afford
-needs ("LASER PASS: NEED 30"). Ticks on the energy bar mark the cost of his ↓↘→ move
-(orange) and his selected special (cyan). **Esc → MOVES**, or **M / Y on the title screen**, lists every move: its input in the keyboard's or
+needs ("LASER PASS: NEED 50"). **Esc → MOVES**, or **M / Y on the title screen**, lists every move: its input in the keyboard's or
 the gamepad's buttons, its cost and what it does, your line's moves first, with the
 animation looping beside it. Keeper moves command your keeper
 while you control an outfielder. Classic mode has none of these powers.
@@ -62,7 +68,8 @@ godot --editor --path game     # open in the Godot editor
 godot --headless --path game -s res://tests/smoke_test.gd                        # match smoke test (Chaos)
 godot --headless --path game -s res://tests/chaos_actions_test.gd                # 11 actions, counters, input and Classic isolation
 godot --headless --path game -s res://tests/role_moves_test.gd                   # line moves (↓↘→ per line) and the four signature specials
-godot --headless --path game -s res://tests/move_list_test.gd                    # pause-menu move list, special picker by line
+godot --headless --path game -s res://tests/move_list_test.gd                    # pause-menu move list, special + button by line
+godot --headless --path game -s res://tests/controls_menu_test.gd                # Controls screen: rebinding, swaps, saving
 godot --headless --path game -s res://tests/control_hints_test.gd                # bottom prompts per situation, input trail, cost ticks
 godot --headless --path game -s res://tests/classic_test.gd                      # Classic: no energy, no supers
 godot --headless --path game -s res://tests/two_player_test.gd                   # 2 players, gamepad stick
@@ -92,10 +99,11 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | Key | Action |
 |---|---|
 | Left / Right on the title screen | Chaos or Classic Football |
+| C on the title screen | **Controls**: rebind both players' keys (saved in `user://controls.cfg`; the gamepad layout is fixed) |
 | Up / Down on the title screen | 1 player (vs the AI) or 2 players (Brugge vs Anderlecht) |
 | WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow; the ring empties as he tires) |
 | Space | with the ball: shoot on release, hold for power (aims at goal when you face it). Without: slide tackle |
-| ↓ ↘ → then Space | the line move: a striker's **Fireball** (50 energy): flat rocket, bowls over anyone in the way. Defender: Bulldozer Clear, midfielder: Laser Pass, keeper: Cannon Punt (see Chaos special actions) |
+| E + Space, or ↓ → (↓ ↘ →) then Space | the line move: a striker's **Fireball** (50 energy): flat rocket, bowls over anyone in the way. Defender: Bulldozer Clear, midfielder: Laser Pass, keeper: Cannon Punt (see Chaos special actions) |
 | ← → then Space | **Banana Shot** (50): bends hard toward the far post |
 | hold Space 0.8 s, full bar | **Thunder Strike** (100): bicycle kick, slow-mo, lightning ball that nobody can hold |
 | Up/Down while taking a penalty | choose the corner |
@@ -103,7 +111,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | X or K | pass to the best teammate in the direction you're pushing (the one a triangle marks over his head; a pass lane with an opponent in it counts against a teammate) |
 | Q with the ball | **dodge**: a hop that slides and tackles miss for its first 0.25-0.45 s (reactions). Time it as the tackle comes in; in Chaos a dodged slide flashes DODGE! and earns 10 energy |
 | **skill moves**: a motion, then Q, with the ball (directions relative to the goal you attack, as for the supers) | double-tap a direction: **nutmeg**, through the legs of the opponent in front and on (dribbling against his defensiveAwareness; fails: he has it). ↓↑ or ↑↓: **rainbow flick** over everyone's head to land 5 m on (nobody can touch it on the way up; ballControl, or it drops short). →←: **backheel** to the teammate behind. The ball goes where he faces; opponents beside him can still nick it before the touch. In Chaos, beating a man with a nutmeg or rainbow flashes and earns 10 energy |
-| double-tap a direction, then Space, without the ball | **Body Check** (Chaos, 20 energy): a shoulder charge along that direction; hit the dribbler and strength against his strength and balance decides who goes down (10-90%) |
+| double-tap a direction, then Space, without the ball | **Body Check** (Chaos, 25 energy): a shoulder charge along that direction; hit the dribbler and strength against his strength and balance decides who goes down (10-90%) |
 | Q | switch to the teammate nearest the ball (kept for a second before the automatic switching takes over again) |
 | Space / X as a ball in the air comes to you | head or volley it: Space at goal (aim with the stick), X to a teammate. Pressing nothing, your player does what the AI would (see Rules) |
 | X from out wide in the last third | to a teammate in (or running into) the box: a cross, at head height |
@@ -475,14 +483,14 @@ it added to the meter and to his mood, and a booking it earned becomes a warning
 left at 80). Pressed at a stoppage with nothing to be sorry for, it's dissent: +20 mood
 with your side. Only for fouls, which stop play; the AI never says sorry.
 
-**The dive** (Chaos action DIVE, 10 energy, with an opponent within 2.5 m): your player
+**The dive** (Chaos action DIVE, 25 energy: special + switch, with an opponent within 2.5 m): your player
 throws himself down and the ball rolls free. If the referee doesn't see it, nothing comes of it.
 If he does, he may fall for it: a foul on you by the nearest opponent (a penalty in the box;
 the opponent's meter fills as for any foul). The odds are 50% for an average diver with a calm
 referee, more for a high composure rating, down to a fifth of that when he's furious with your
 side. If he sees through it: a yellow for diving, +20 mood, a free kick the other way.
 
-**The captain** (Chaos action CAPTAIN, 30 energy): your side's captain, the outfield player
+**The captain** (Chaos action CAPTAIN, 50 energy: special on its own): your side's captain, the outfield player
 with the highest composure rating (a C over his head), has a word with the referee from
 within 25 m: his mood with your side drops by 40. Only when he's angry with you at all.
 
@@ -512,7 +520,7 @@ Each team has a bar (top left, 0-100; the tick marks 50). It fills from complete
 (+6), tackles (+10), saves (+15), being fouled (+20), conceding (+25) and dribbling
 (+2.5/s). Combo directions are relative to the goal you attack, so ↓↘→ works on both
 wings; ↑↗→ is accepted too. The AI spends its bar on shots inside shooting range, and a chaser stronger than the dribbler
-sometimes spends 20 on a Body Check.
+sometimes spends 25 on a Body Check.
 `tests/supers_demo.gd` stages one of each (`seed=2`: three goals, `supers_demo.mp4`).
 
 ## Known simplifications

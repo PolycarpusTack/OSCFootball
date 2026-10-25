@@ -21,7 +21,7 @@ const CLEAR_RANGE := 30.0 * Pitch.PX_PER_M  # and are cleared away this close to
 const POST_HIT := 3.0  # pitch pixels from a post or the bar (ball plus post radius) that hit it
 const AIR_REQUEST := 0.4  # seconds a header / volley button press waits for the ball
 const DODGE_GAIN := 10.0  # energy for hopping over a slide (Chaos)
-const BODY_CHECK_COST := 20.0
+const BODY_CHECK_COST := 25.0
 const KNOCK_FATIGUE := 0.1  # going down takes it out of you
 const DIZZY_AT := 0.6  # Chaos: knocked down this tired, he sees stars
 const DIZZY_TIME := 2.5
@@ -642,7 +642,7 @@ func _switch_control() -> void:
 		h.switch_lock = maxf(0.0, h.switch_lock - get_physics_process_delta_time())
 		if ball.holder and ball.holder.team == h.team:
 			best = ball.holder
-		elif Input.is_action_just_pressed(h.action("switch")):  # manual: the next-nearest teammate to the ball
+		elif Input.is_action_just_pressed(h.action("switch")) and not (chaos and Input.is_action_pressed(h.action("special"))):  # manual: the next-nearest teammate to the ball
 			for p in h.team.players:
 				if p != current and p.role != "G" and (best == null
 						or p.position.distance_to(ball.position) < best.position.distance_to(ball.position)):
@@ -673,14 +673,8 @@ func _human_input(h: Human, p: Footballer) -> void:
 	var aim: Vector2 = Anims.FACING_VECTORS[p.facing] if p.wish == Vector2.ZERO else p.wish.normalized()
 	if p.wish == Vector2.ZERO and _pass_for(p):  # auto-receive: hands off the stick, he goes to meet it
 		p.wish = ((AI.chase_spot(self) - p.position) / 10.0).limit_length(1.0)
-	if chaos:
-		if Input.is_action_just_pressed(h.action("cycle_special")):
-			chaos_actions.cycle(h)
-		if Input.is_action_just_pressed(h.action("special")):
-			if chaos_actions.activate(h, aim):
-				h.charging = false
-				p.charge = 0.0
-				return
+	if chaos and _special_input(h, p, aim):
+		return
 	_mark_pass_target(h, AI.best_pass(p, self, aim) if p.has_ball() else null)
 	if h.charging and not p.has_ball():
 		h.charging = false
@@ -738,6 +732,39 @@ func _human_input(h: Human, p: Footballer) -> void:
 			p.kick_to(p.position + aim * 450.0, 520.0, 300.0, "kick")
 		else:
 			p.kick_to(p.position + aim * 250.0, 380.0, 20.0, "kick")
+
+
+## Chaos: hold special and press shoot, pass or switch for what that button's special is now
+## (see ChaosActions.pick); special pressed and let go on its own, the referee's. True when
+## the press went to a special (done or not): the button does nothing else.
+func _special_input(h: Human, p: Footballer, aim: Vector2) -> bool:
+	if Input.is_action_just_pressed(h.action("special")):
+		h.special_used = false
+	if Input.is_action_just_released(h.action("special")) and not h.special_used:
+		var id := chaos_actions.pick(h, "")
+		if id != "":
+			chaos_actions.activate(h, id, aim)
+		return false
+	if not Input.is_action_pressed(h.action("special")):
+		return false
+	for button in ["shoot", "pass", "switch"]:
+		if not Input.is_action_just_pressed(h.action(button)):
+			continue
+		h.special_used = true
+		var id := chaos_actions.pick(h, button)
+		var done := false
+		if id == "line":
+			done = combo_move(p, "fireball", _aim_shot(p, aim), aim)
+			if not done:
+				control_hints.combo_short(h, p, "fireball")
+		elif id != "":
+			done = chaos_actions.activate(h, id, aim)
+		if done:
+			h.charging = false
+			p.charge = 0.0
+		h.combo.clear()
+		return true
+	return false
 
 
 ## The shot arrow for `h`'s player while he has the ball: from him toward where a shot
@@ -2334,11 +2361,12 @@ func _add_hud() -> void:
 		fill.size = Vector2(0, 12)
 		fill.color = t.colour.lightened(0.15)
 		layer.add_child(fill)
-		var half := ColorRect.new()  # marks the 50 needed for a fireball / banana
-		half.color = Color(1, 1, 1, 0.5)
-		half.position = Vector2(14 + 100, y + 2)
-		half.size = Vector2(1, 12)
-		layer.add_child(half)
+		for k in range(1, int(Supers.MAX_ENERGY / Supers.SEGMENT)):  # the bar's segments
+			var line := ColorRect.new()
+			line.color = Color(0, 0, 0, 0.7)
+			line.position = Vector2(14 + 200.0 * k * Supers.SEGMENT / Supers.MAX_ENERGY - 1.0, y + 2)
+			line.size = Vector2(2, 12)
+			layer.add_child(line)
 		var label := Label.new()
 		label.position = Vector2(222, y - 4)
 		label.add_theme_font_size_override("font_size", 14)
@@ -2431,7 +2459,8 @@ func _update_energy_hud() -> void:
 		fill.size.x = 200.0 * t.energy / Supers.MAX_ENERGY
 		var label: Label = _energy_labels[t]
 		var full: bool = t.energy >= Supers.MAX_ENERGY
-		label.text = "%s  %s" % [t.short, "MAX!" if full else "SUPER" if t.energy >= 50.0 else ""]
+		var level := int(t.energy / Supers.SEGMENT)  # whole segments filled
+		label.text = "%s  %s" % [t.short, "MAX!" if full else "LV %d" % level if level > 0 else ""]
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 90.0)
 		label.modulate = Color(1, 1, 0.3).lerp(Color.WHITE, pulse) if full else Color.WHITE
 

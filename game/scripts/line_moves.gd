@@ -6,9 +6,9 @@ extends RefCounted
 ## once the foot meets the ball: lose it in the wind-up and it costs nothing.
 
 const LIST := {
-	"D": {"id": "bulldozer", "title": "BULLDOZER CLEAR!", "cost": 40.0, "anim": "bulldozer_clear", "contact": 0.35},
-	"M": {"id": "laser", "title": "LASER PASS!", "cost": 30.0, "anim": "laser_pass", "contact": 0.35},
-	"G": {"id": "cannon", "title": "CANNON PUNT!", "cost": 30.0, "anim": "cannon_punt", "contact": 0.35},
+	"D": {"id": "bulldozer", "title": "BULLDOZER CLEAR!", "cost": 50.0, "anim": "bulldozer_clear", "contact": 0.35},
+	"M": {"id": "laser", "title": "LASER PASS!", "cost": 50.0, "anim": "laser_pass", "contact": 0.35},
+	"G": {"id": "cannon", "title": "CANNON PUNT!", "cost": 50.0, "anim": "cannon_punt", "contact": 0.35},
 }
 const CHARGE_SPEED := 300.0  # the Bulldozer runs at whoever's in the way, ball at his feet ...
 const CHARGE_REACH := Footballer.REACH + 10.0  # ... and flattens anyone this close

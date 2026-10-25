@@ -22,10 +22,10 @@ const PAGES := [
 		{"name": "Backheel", "input": ["→", "←", "@switch"], "text": "To the teammate behind you.", "anim": "bckheel", "lines": "DMF"},
 	]},
 	{"title": "SHOTS & LINE MOVES", "chaos": true, "rows": [
-		{"super": "fireball", "input": ["↓", "↘", "→", "@shoot"], "text": "Strikers: a flat rocket that bowls over anyone in the way.", "lines": "F"},
-		{"line": "D", "input": ["↓", "↘", "→", "@shoot"], "text": "Defenders: charge with the ball, flattening whoever's in the way, then hoof it upfield."},
-		{"line": "M", "input": ["↓", "↘", "→", "@shoot"], "text": "Midfielders: a flat, fast pass straight to the man. Hard to cut out."},
-		{"line": "G", "input": ["↓", "↘", "→", "@shoot"], "text": "Keepers: from the hands, far upfield, once the box is clear."},
+		{"super": "fireball", "input": ["@special", "+", "@shoot"], "text": "Strikers: a flat rocket that bowls over anyone in the way. Or ↓ → then shoot.", "lines": "F"},
+		{"line": "D", "input": ["@special", "+", "@shoot"], "text": "Defenders: charge with the ball, flattening whoever's in the way, then hoof it upfield. Or ↓ → then shoot."},
+		{"line": "M", "input": ["@special", "+", "@shoot"], "text": "Midfielders: a flat, fast pass straight to the man. Hard to cut out. Or ↓ → then shoot."},
+		{"line": "G", "input": ["@special", "+", "@shoot"], "text": "Keepers: from the hands, far upfield, once the box is clear. Or ↓ → then shoot."},
 		{"super": "banana", "input": ["←", "→", "@shoot"], "text": "Bends hard toward the far post.", "lines": "DMF"},
 		{"super": "thunder", "input": ["hold", "@shoot"], "text": "Hold shoot 0.8 s with a full bar: bicycle kick, slow motion, a ball nobody can hold.", "lines": "DMF"},
 		{"name": "Body check", "cost": Match.BODY_CHECK_COST, "input": ["→", "→", "@shoot"], "text": "Double-tap a direction, then shoot, without the ball: a shoulder charge at the dribbler.", "anim": "bodychk", "lines": "DMF"},
@@ -172,7 +172,7 @@ static func resolve(row: Dictionary) -> Dictionary:
 		r.merge({"name": l.title.trim_suffix("!"), "cost": int(l.cost), "anim": l.anim, "lines": row.line}, true)
 	elif row.has("special"):
 		var c: Dictionary = ChaosActions.MOVES[row.special]
-		r.merge({"name": c.name, "cost": c.cost, "anim": c.anim, "input": ["@special"],
+		r.merge({"name": c.name, "cost": c.cost, "anim": c.anim, "input": ChaosActions.input(ChaosActions.button_for(row.special)),
 			"lines": ChaosActions.LINES.get(row.special, "DMF")}, true)
 	r.merge(row, true)
 	return r

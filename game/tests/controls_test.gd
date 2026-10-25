@@ -155,7 +155,7 @@ func _initialize() -> void:
 	Input.action_release("shoot")
 	await create_timer(0.1).timeout
 	print("body check: animation %s, energy %.0f, events %s" % [barger._anim, m.home.energy, checks])
-	ok = ok and barger._anim in ["bodychk", "stumble"] and m.home.energy <= 80.0 + 1.0 and checks.has("body check")
+	ok = ok and barger._anim in ["bodychk", "stumble"] and m.home.energy <= 100.0 - m.BODY_CHECK_COST + 1.0 and checks.has("body check")
 
 	# skill moves: with the ball, a motion then switch. Double tap = nutmeg, down up = rainbow,
 	# forward back = backheel (Brugge attacks to the right)

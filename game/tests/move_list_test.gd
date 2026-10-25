@@ -1,5 +1,5 @@
 extends SceneTree
-## The pause menu's move list and the special picker filtered by the controlled player's line.
+## The pause menu's move list, filtered by the controlled player's line, and what special + each button does.
 ## godot --headless --path game -s res://tests/move_list_test.gd
 var m: Node
 var failed := 0
@@ -38,27 +38,28 @@ func _initialize() -> void:
 	var actions = m.chaos_actions
 	var h = m.humans[0]
 
-	# the picker offers only what the controlled player's line can do (plus keeper and captain moves)
+	# every special has one button to go with special, and each line gets its own
+	var buttons := {}
+	for button in actions.BUTTON_MOVES:
+		for id in actions.BUTTON_MOVES[button]:
+			buttons[id] = buttons.get(id, 0) + 1
+	check(actions.MOVES.keys().all(func(id): return buttons.get(id, 0) == 1), "Each special on exactly one button: %s" % [buttons])
 	h.controlled.controlled = false
-	h.controlled = by_role(m.home, "D")
-	var for_defender: Array = actions.choices(h)
-	check(for_defender.has("grapple") and not for_defender.has("whirlwind") and not for_defender.has("stepover"), "Defender: grapple, not the midfield moves: %s" % [for_defender])
-	check(for_defender.has("rocket") and for_defender.has("fist") and for_defender.has("captain"), "Keeper and captain moves stay in every list")
-	h.special_index = actions.MOVES.keys().find("whirlwind")
-	check(actions.chosen(h) != "whirlwind" and actions.suits(h, actions.chosen(h)), "A selection the line can't do moves on to one it can")
-	var seen := {}
-	for i in actions.MOVES.size():
-		actions.cycle(h)
-		seen[actions.chosen(h)] = true
-	check(seen.keys().all(func(id): return actions.suits(h, id)) and seen.size() == for_defender.size(), "Cycling visits each of the defender's moves: %s" % [seen.keys()])
+	var d = by_role(m.home, "D")
+	var foe = m.away.players[6]
+	h.controlled = d
+	m.ball.stop_at(d.position + Vector2(20, 0))
+	m.ball.take(foe)
+	foe.position = d.position + Vector2(20, 0)
+	check(actions.pick(h, "shoot") == "grapple", "Defender by the carrier: special + shoot grapples: %s" % actions.pick(h, "shoot"))
 	h.controlled = by_role(m.home, "M")
-	check(actions.choices(h).has("whirlwind") and actions.choices(h).has("stepover") and not actions.choices(h).has("grapple"), "Midfielder's list")
-	h.special_index = actions.MOVES.keys().find("whirlwind")
+	m.ball.release()
+	m.ball.stop_at(h.controlled.feet_front())
+	m.ball.take(h.controlled)
+	check(actions.pick(h, "switch") in ["whirlwind", "stepover"] and actions.pick(h, "shoot") == "line", "Midfielder with the ball: whirlwind (or stepover) and the Laser Pass")
 	actions.update_labels()
 	var strip: String = actions.labels[0].text
-	var count: int = actions.choices(h).size()
-	check(strip.contains("WHIRLWIND TURN 30") and not strip.contains("GRAPPLE") and strip.contains("/%d" % count), "The HUD shows the midfielder's moves around the selected one: %s" % strip)
-	check(strip.get_slice("\n", 0).count("  ·  ") == actions.PICKER_WINDOW - 1, "Three at a time")
+	check(strip.contains("LASER PASS") and not strip.contains("GRAPPLE"), "The HUD shows what the midfielder's buttons do: %s" % strip)
 
 	# the move list: Esc, down to MOVES, Enter
 	press(KEY_ESCAPE)
@@ -78,7 +79,7 @@ func _initialize() -> void:
 	check(list.pages_shown()[list.page].title == "SHOTS & LINE MOVES", "Right: next page")
 	check(list._shown[0].name == "LASER PASS" and list.usable(list._shown[0]), "The midfielder's own line move first: %s" % list._shown[0].name)
 	check(not list.usable(list._shown[-1]), "Other lines' moves last, dimmed")
-	check(list._shown[0].cost == 30 and list._preview.visible, "Cost from LineMoves; its animation previews")
+	check(list._shown[0].cost == 50 and list._preview.visible, "Cost from LineMoves; its animation previews")
 	press(KEY_RIGHT)
 	await process_frame
 	var names: Array = list._shown.map(func(r): return r.name)

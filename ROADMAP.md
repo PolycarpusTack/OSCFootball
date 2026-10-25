@@ -58,7 +58,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 | 5.1 | Instant replay of goals (a buffer of recent positions, no saving) | M |
 | 5.2 | Practice mode: corners, free kicks, penalties, the Chaos moves | M |
 | 5.3 | Stadium and pitch variety (own art; FIFA 96 has 4 stadiums and 4 mowing patterns as reference) | S–M |
-| 5.4 | Settings: volume sliders, key rebinding, HUD toggles | S |
+| 5.4 | Settings: volume sliders, key rebinding, HUD toggles. **Key rebinding done** (title screen C, `controls_menu_test`); gamepad rebinding, volume and HUD toggles open | S |
 
 ## Chaos track: the fighting-game layer
 
@@ -69,7 +69,7 @@ with wind-up, active and recovery windows, and counters. Details in `game/docs/c
 |---|---|---|
 | C.1 | Combo input, energy bar, super-shots (Fireball, Banana Shot, Thunder Strike) | Done |
 | C.2 | Skill moves (nutmeg, rainbow, backheel), Body Check, dodge, Dizzy | Done |
-| C.3 | Eleven Chaos actions on E / R (Ghost Step … Cyclone Scissor), with AI use | Done |
+| C.3 | Eleven Chaos actions (Ghost Step … Cyclone Scissor), with AI use; now hold special + shoot / pass / switch, the play picks the move (no cycling), and the bar in four segments | Done |
 | C.4 | Chaos referee, parts 1–4: view cone, discipline, mood, "Sorry, ref!", Dive, Captain, whistle stun, Bribe | Done |
 | C.5 | Role moves: ↓↘→ per line (Fireball / Bulldozer Clear / Laser Pass / Cannon Punt) and one signature special per line (Grapple Tackle, Stepover Storm, Whirlwind Turn, Rising Fist), in own art | Done (`role_moves_test`) |
 | C.6 | Role-move art in team colours: the kit shader recolours the OSCF kit the line-action art is drawn in (socks follow the shirt). Still one right-facing view, mirrored | Done (`role_moves_test`) |

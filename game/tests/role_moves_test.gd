@@ -130,7 +130,7 @@ func _initialize() -> void:
 	check(not o.busy(), "Flattened once per charge")
 	await past_contact()
 	check(b.holder == null and b.velocity.x * side > 500.0 and b.vz > 200.0 and b.kick_kind == "clear", "Bulldozer clears it high upfield")
-	check(m.home.energy == 60.0 and events.has("bulldozer:" + m.home.short), "Bulldozer costs 40, once it connects")
+	check(m.home.energy == 50.0 and events.has("bulldozer:" + m.home.short), "Bulldozer costs two segments, once it connects")
 	check(m.line_moves._charging.is_empty(), "Charge over after the kick")
 
 	reset()  # aimed back at his own goal, it still goes upfield
@@ -157,7 +157,7 @@ func _initialize() -> void:
 	await past_contact()
 	var to_mate: Vector2 = (mate.position - b.position).normalized()
 	check(b.velocity.length() > 700.0 and b.velocity.normalized().dot(to_mate) > 0.99 and b.vz == 0.0, "Laser Pass: flat, fast, at the mate")
-	check(b.kick_kind == "pass" and m.home.energy == 70.0 and b.power == "", "Laser Pass is a pass (no super), costs 30")
+	check(b.kick_kind == "pass" and m.home.energy == 50.0 and b.power == "", "Laser Pass is a pass (no super), costs two segments")
 
 	# keeper: the Cannon Punt from the hands, once the box is clear
 	reset()
@@ -171,7 +171,7 @@ func _initialize() -> void:
 	m._keeper_held = 0.0
 	check(m.combo_move(k, "fireball", Vector2.ZERO, Vector2(side, 0)), "Keeper's ↓↘→ starts")
 	await past_contact()
-	check(b.holder == null and b.velocity.x * side > 600.0 and b.vz > 300.0 and m.home.energy == 70.0, "Cannon Punt: far upfield, costs 30")
+	check(b.holder == null and b.velocity.x * side > 600.0 and b.vz > 300.0 and m.home.energy == 50.0, "Cannon Punt: far upfield, costs two segments")
 
 	# not without the bar, not in Classic
 	reset()
@@ -191,7 +191,7 @@ func _initialize() -> void:
 	check(actions.unavailable(mf, "grapple") != "", "Only a defender grapples")
 	check(actions.start(d, "grapple", Vector2(side, 0)), "Grapple starts")
 	contact("grapple")
-	check(b.holder == d and actions.stuns.has(o) and m.home.energy == 65.0, "Grapple takes the ball and holds the carrier")
+	check(b.holder == d and actions.stuns.has(o) and m.home.energy == 50.0, "Grapple takes the ball and holds the carrier")
 	reset()
 	d = on_line(m.home, "D", mid)
 	o = on_line(m.away, "M", mid + Vector2(side * 80.0, 0.0), true)

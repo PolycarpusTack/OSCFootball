@@ -4,11 +4,13 @@ extends RefCounted
 ## the goal being attacked: 6 = toward goal, 4 = away, 8 = up the screen, 2 = down,
 ## 5 = neutral. Only changes of direction are recorded.
 
-const WINDOW := 0.7  # seconds a combo's inputs must fit in, ending at the button press
+const WINDOW := 1.0  # seconds a combo's inputs must fit in, ending at the button press
 
 const COMBOS := [
 	["fireball", [2, 3, 6]],  # down, down-forward, forward
 	["fireball", [8, 9, 6]],  # mirrored for players on the other wing
+	["fireball", [2, 6]],  # the diagonal left out: easier on keys
+	["fireball", [8, 6]],
 	["banana", [4, 6]],       # back, forward
 ]
 const SKILL_COMBOS := [  # with the switch button, with the ball

@@ -4,27 +4,35 @@ extends Node2D
 ## All distances are pitch pixels; ball contacts still pass through normal match rules.
 
 const MOVES := {
-	"ghost": {"name": "GHOST STEP", "cost": 20, "wind": 0.12, "active": 0.22, "recovery": 0.25, "anim": "nutmeg", "hint": "carry the ball"},
+	"ghost": {"name": "GHOST STEP", "cost": 25, "wind": 0.12, "active": 0.22, "recovery": 0.25, "anim": "nutmeg", "hint": "carry the ball"},
 	"magnet": {"name": "MAGNET SOLE", "cost": 25, "wind": 0.18, "active": 0.35, "recovery": 0.2, "anim": "mark", "hint": "near a slow loose ball"},
-	"pinball": {"name": "PINBALL PASS", "cost": 40, "wind": 0.22, "active": 0.1, "recovery": 0.3, "anim": "kick", "hint": "carry the ball; aim pass"},
-	"stego": {"name": "STEGO SWEEP", "cost": 30, "wind": 0.25, "active": 0.12, "recovery": 0.4, "anim": "tackle", "hint": "face a nearby carrier"},
+	"pinball": {"name": "PINBALL PASS", "cost": 50, "wind": 0.22, "active": 0.1, "recovery": 0.3, "anim": "kick", "hint": "carry the ball; aim pass"},
+	"stego": {"name": "STEGO SWEEP", "cost": 50, "wind": 0.25, "active": 0.12, "recovery": 0.4, "anim": "tackle", "hint": "face a nearby carrier"},
 	"bass": {"name": "BASS DROP", "cost": 50, "wind": 0.45, "active": 0.1, "recovery": 0.4, "anim": "gpound", "hint": "contest a nearby ball"},
-	"wall": {"name": "PHALANX WALL", "cost": 40, "wind": 0.28, "active": 0.8, "recovery": 0.3, "anim": "mark", "hint": "near an available teammate"},
-	"spring": {"name": "SPRING HEADER", "cost": 30, "wind": 0.2, "active": 0.35, "recovery": 0.3, "anim": "header", "hint": "under an aerial ball"},
-	"boomerang": {"name": "BOOMERANG CROSS", "cost": 40, "wind": 0.28, "active": 0.1, "recovery": 0.35, "anim": "vollkck", "hint": "carry the ball; aim cross"},
-	"rocket": {"name": "ROCKET THROW", "cost": 35, "wind": 0.45, "active": 0.1, "recovery": 0.35, "anim": "glwthrw", "hint": "keeper holding the ball"},
-	"palm": {"name": "PALM BARRAGE", "cost": 40, "wind": 0.12, "active": 0.7, "recovery": 0.4, "anim": "gpunchu", "hint": "keeper faces incoming shot"},
-	"cyclone": {"name": "CYCLONE SCISSOR", "cost": 40, "wind": 0.25, "active": 0.4, "recovery": 0.45, "anim": "bicycle", "hint": "under an aerial ball"},
-	"dive": {"name": "DIVE", "cost": 10, "wind": 0.1, "active": 0.1, "recovery": 0.7, "anim": "fall", "hint": "an opponent right by you"},
-	"captain": {"name": "CAPTAIN", "cost": 30, "wind": 0.3, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "captain near an angry referee"},
+	"wall": {"name": "PHALANX WALL", "cost": 50, "wind": 0.28, "active": 0.8, "recovery": 0.3, "anim": "mark", "hint": "near an available teammate"},
+	"spring": {"name": "SPRING HEADER", "cost": 50, "wind": 0.2, "active": 0.35, "recovery": 0.3, "anim": "header", "hint": "under an aerial ball"},
+	"boomerang": {"name": "BOOMERANG CROSS", "cost": 50, "wind": 0.28, "active": 0.1, "recovery": 0.35, "anim": "vollkck", "hint": "carry the ball; aim cross"},
+	"rocket": {"name": "ROCKET THROW", "cost": 50, "wind": 0.45, "active": 0.1, "recovery": 0.35, "anim": "glwthrw", "hint": "keeper holding the ball"},
+	"palm": {"name": "PALM BARRAGE", "cost": 50, "wind": 0.12, "active": 0.7, "recovery": 0.4, "anim": "gpunchu", "hint": "keeper faces incoming shot"},
+	"cyclone": {"name": "CYCLONE SCISSOR", "cost": 50, "wind": 0.25, "active": 0.4, "recovery": 0.45, "anim": "bicycle", "hint": "under an aerial ball"},
+	"dive": {"name": "DIVE", "cost": 25, "wind": 0.1, "active": 0.1, "recovery": 0.7, "anim": "fall", "hint": "an opponent right by you"},
+	"captain": {"name": "CAPTAIN", "cost": 50, "wind": 0.3, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "captain near an angry referee"},
 	"bribe": {"name": "BRIBE", "cost": 100, "wind": 0.4, "active": 0.1, "recovery": 0.3, "anim": "mark", "hint": "full bar, right by the referee"},
 	# one signature move per line, in their own art (brand/sprites/line_actions)
-	"grapple": {"name": "GRAPPLE TACKLE", "cost": 35, "wind": 0.13, "active": 0.25, "recovery": 0.33, "anim": "grapple_tackle", "hint": "defender, a carrier right by you"},
+	"grapple": {"name": "GRAPPLE TACKLE", "cost": 50, "wind": 0.13, "active": 0.25, "recovery": 0.33, "anim": "grapple_tackle", "hint": "defender, a carrier right by you"},
 	"stepover": {"name": "STEPOVER STORM", "cost": 25, "wind": 0.12, "active": 0.3, "recovery": 0.2, "anim": "stepover_storm", "hint": "midfielder or striker, ball, a man in front"},
-	"whirlwind": {"name": "WHIRLWIND TURN", "cost": 30, "wind": 0.1, "active": 0.45, "recovery": 0.3, "anim": "whirlwind_turn", "hint": "midfielder with the ball"},
-	"fist": {"name": "RISING FIST", "cost": 30, "wind": 0.13, "active": 0.3, "recovery": 0.42, "anim": "rising_fist", "hint": "keeper, a high ball in his box"},
+	"whirlwind": {"name": "WHIRLWIND TURN", "cost": 50, "wind": 0.1, "active": 0.45, "recovery": 0.3, "anim": "whirlwind_turn", "hint": "midfielder with the ball"},
+	"fist": {"name": "RISING FIST", "cost": 50, "wind": 0.13, "active": 0.3, "recovery": 0.42, "anim": "rising_fist", "hint": "keeper, a high ball in his box"},
 }
-const PICKER_WINDOW := 3  # moves the HUD shows: the selected one and its neighbours
+## Hold special and press a button: the first move in that button's list that suits what's
+## happening is the one he does (see pick). Special on its own does the referee's. "line" is
+## his line move (the striker's Fireball, see LineMoves).
+const BUTTON_MOVES := {
+	"shoot": ["line", "fist", "palm", "cyclone", "grapple", "stego", "magnet", "bass"],
+	"pass": ["rocket", "boomerang", "pinball", "spring", "wall"],
+	"switch": ["stepover", "whirlwind", "ghost", "dive"],
+	"": ["captain", "bribe"],
+}
 const KEEPER_MOVES := ["rocket", "palm", "fist"]  # done by the team's keeper, whoever you control
 ## The lines (roles) whose players can do each move; any outfielder otherwise.
 const LINES := {"rocket": "G", "palm": "G", "fist": "G", "captain": "GDMF",
@@ -67,37 +75,50 @@ func _ready() -> void:
 		label.scroll_active = false
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		label.position = Vector2(16 + h.index * 640, 104)
-		label.size = Vector2(600, 0)
-		label.add_theme_font_size_override("normal_font_size", 13)
+		label.size = Vector2(600 if match_game.humans.size() == 2 else 1240, 0)
+		label.add_theme_font_size_override("normal_font_size", 15)
 		label.add_theme_font_size_override("bold_font_size", 15)
 		label.add_theme_color_override("font_outline_color", Color.BLACK)
 		label.add_theme_constant_override("outline_size", 5)
 		layer.add_child(label)
 		labels.append(label)
 
-## The selected move: the one at h.special_index if it suits whoever would do it, else the
-## next one that does (control moves between lines, the selection follows).
-func chosen(h: Human) -> String:
-	var ids: Array = MOVES.keys()
-	for step in ids.size():
-		var id: String = ids[(h.special_index + step) % ids.size()]
-		if suits(h, id):
-			return id
-	return ids[h.special_index]
+## The input for special + `button` ("" for special alone), as MoveList shows inputs.
+static func input(button: String) -> Array:
+	return ["@special"] + (["+", "@" + button] if button != "" else [])
 
-## The move after the current one that suits h's player (R / period / RB).
-func cycle(h: Human) -> void:
-	h.special_index = (MOVES.keys().find(chosen(h)) + 1) % MOVES.size()
-	h.special_index = MOVES.keys().find(chosen(h))
+## The button that does `id` with special (see BUTTON_MOVES).
+static func button_for(id: String) -> String:
+	for button: String in BUTTON_MOVES:
+		if id in BUTTON_MOVES[button]:
+			return button
+	return ""
 
-## The moves h can pick now: those for the controlled player's line, plus the keeper's
-## and the captain's (they do them, whoever h controls).
-func choices(h: Human) -> Array:
-	return MOVES.keys().filter(func(id): return suits(h, id))
+## What special + `button` ("" for special alone) does for h now: a move id, "line", or "" for
+## nothing. Chosen by the situation alone; whether the bar allows it is unavailable()'s say.
+## The keeper's saves only when the ball is coming at him, a Boomerang only for a cross.
+func pick(h: Human, button: String) -> String:
+	var p := h.controlled
+	for id: String in BUTTON_MOVES[button]:
+		if id == "line":
+			if p != null and p.has_ball():
+				return id
+			continue
+		var q := actor(h, id)
+		if q == null or not line_can(q, id) or not fits(q, id):
+			continue
+		if id in ["palm", "fist"] and not keeper_threatened(h.team):
+			continue
+		if id == "boomerang" and not (h.pass_target != null and match_game.is_cross(p, h.pass_target)):
+			continue
+		return id
+	return ""
 
-func suits(h: Human, id: String) -> bool:
-	var p := actor(h, id)
-	return p != null and line_can(p, id)
+## A loose ball near `t`'s keeper, coming toward his goal.
+func keeper_threatened(t: Team) -> bool:
+	var b := match_game.ball
+	var k := t.keeper()
+	return k != null and b.holder == null and b.position.distance_to(k.position) < 110.0 and b.velocity.x * t.side < 0.0
 
 static func line_can(p: Footballer, id: String) -> bool:
 	return p.role in LINES.get(id, "DMF")
@@ -107,8 +128,7 @@ func actor(h: Human, id: String) -> Footballer:
 		return match_game.captain(h.team)
 	return h.team.keeper() if id in KEEPER_MOVES else h.controlled
 
-func activate(h: Human, aim: Vector2) -> bool:
-	var id := chosen(h)
+func activate(h: Human, id: String, aim: Vector2) -> bool:
 	var p := actor(h, id)
 	var why := unavailable(p, id)
 	if why != "":
@@ -140,9 +160,13 @@ func unavailable(p: Footballer, id: String) -> String:
 	var d: Dictionary = MOVES[id]
 	if p.team.energy < d.cost:
 		return "Need %d energy" % d.cost
+	return "" if line_can(p, id) and fits(p, id) else d.hint.capitalize()
+
+## Whether the play suits `p` doing `id` now, his line, the bar and his being free aside.
+func fits(p: Footballer, id: String) -> bool:
 	var b := match_game.ball
 	var near := p.position.distance_to(b.position)
-	var valid := line_can(p, id)
+	var valid := true
 	match id:
 		"ghost", "pinball", "boomerang", "rocket": valid = valid and p.has_ball()
 		"magnet": valid = valid and slow_loose() and near <= 27.0
@@ -167,7 +191,7 @@ func unavailable(p: Footballer, id: String) -> String:
 	if id in ["stego", "bass", "grapple"] and b.holder != null and b.holder.role == "G" \
 			and match_game.in_penalty_area(b.holder.position, b.holder.team):  # nobody challenges a keeper with the ball in his hands
 		valid = false
-	return "" if valid else d.hint.capitalize()
+	return valid
 
 func lock(p: Footballer, anim: String) -> int:
 	p.perform(anim)
@@ -443,7 +467,7 @@ func think_ai() -> void:
 		var p: Footballer = b.holder if b.holder != null and b.holder.team == t else match_game.chaser(t)
 		var ids: Array = []
 		if b.holder == t.keeper(): ids = ["rocket", "line"]  # in that order: a throw to a free mate, else a punt
-		elif b.holder == null and b.position.distance_to(t.keeper().position) < 110.0 and b.velocity.x * t.side < 0.0:
+		elif keeper_threatened(t):
 			p = t.keeper()
 			ids = ["fist"] if b.z > 12.0 else ["palm"]
 		elif p.has_ball():
@@ -473,30 +497,27 @@ func ai_dive_pays(p: Footballer) -> bool:
 	var attacking_half: bool = (p.position.x - Pitch.field_rect().get_center().x) * p.team.side > 0.0
 	return attacking_half and match_game.referee_sees(p.position) and match_game.dive_odds(p) >= AI_DIVE_ODDS
 
-## Each human's picker: a window of the moves his player can pick around the selected one
-## (yellow, pulsing when ready), the others white when ready, grey when not; then how to use it.
+## Each human's specials: what holding special and pressing each button would do now, in his
+## keys; yellow when ready, grey when the bar or the play doesn't allow it yet.
 func update_labels() -> void:
 	for i in labels.size():
 		var h := match_game.humans[i]
-		var id := chosen(h)
-		var all := choices(h)
-		var at := all.find(id)
-		var window := all if all.size() <= PICKER_WINDOW \
-			else range(-PICKER_WINDOW / 2, PICKER_WINDOW / 2 + 1).map(func(k): return all[(at + k + all.size()) % all.size()])
-		var strip := []
-		for c: String in window:
-			var ready := unavailable(actor(h, c), c) == ""
-			var text := "%s %d" % [MOVES[c].name, MOVES[c].cost]
-			if c == id:
-				text = "[b][color=#ffe34d]%s[/color][/b]" % ("[pulse freq=2.0 color=#ffffff60]%s[/pulse]" % text if ready else text)
-			else:
-				text = "[color=%s]%s[/color]" % ["#ffffff" if ready else "#8a8a8a", text]
-			strip.append(text)
-		var why := unavailable(actor(h, id), id)
-		var text := "%s   [color=#bbbbbb]%d/%d[/color]\n[color=#bbbbbb]%s[/color]  %s" % ["  ·  ".join(strip), at + 1, all.size(),
-			"E use · R next · Pad Y / RB" if i == 0 else ", use · . next · Pad Y / RB",
-			"[color=#7dff7d]READY[/color]" if why == "" else "[color=#ff9d6b]%s[/color]" % why]
-		if labels[i].text != text:  # setting it restarts the pulse
+		var pad: bool = match_game.control_hints != null and match_game.control_hints._pad[i]
+		var parts := []
+		for button: String in BUTTON_MOVES:
+			var id := pick(h, button)
+			if id == "":
+				continue
+			var move := {"name": MOVES[id].name, "cost": MOVES[id].cost} if id != "line" else ControlHints.line_move(h.controlled)
+			var ready: bool = h.team.energy >= move.cost and not h.controlled.busy() if id == "line" \
+				else unavailable(actor(h, id), id) == ""
+			var text := "%s %s [color=%s]%d[/color]" % [MoveList.input_bbcode(input(button), i, pad), move.name,
+				"#8fd8ff" if h.team.energy >= move.cost else "#ff8a6b", int(move.cost)]
+			parts.append("[b][color=#ffe34d]%s[/color][/b]" % text if ready
+				else "[color=#8a8a8a]%s[/color]" % text)
+		var text := "  ·  ".join(parts) if not parts.is_empty() \
+			else "[color=#bbbbbb]Hold %s + shoot, pass or switch: specials[/color]" % MoveList.input_bbcode(["@special"], i, pad)
+		if labels[i].text != text:
 			labels[i].text = text
 		labels[i].visible = Match.chaos and not match_game.autoplay
 

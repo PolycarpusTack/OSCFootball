@@ -1,6 +1,6 @@
 extends SceneTree
 ## The prompts along the bottom of a match (ControlHints): what they offer in each situation,
-## in whose buttons, the input trail, "need" notices and the cost ticks on the energy bar.
+## in whose buttons, the input trail, "need" notices, the specials line and the bar's segments.
 ## godot --headless --path game -s res://tests/control_hints_test.gd
 var m: Node
 var hints: Node
@@ -56,9 +56,9 @@ func _initialize() -> void:
 	check(t.has("Shoot (hold: power)") and t.has("Dodge / skill move") and t.has("LASER PASS"), "With the ball: %s" % [t])
 	check(not t.has("THUNDER STRIKE"), "No Thunder prompt without a full bar")
 	var line: String = hints.line_text(h)
-	check(line.contains(" Space ") and line.contains(" X ") and line.contains("#ff8a6b]30"), "Player 1's keys, the cost short of the bar: %s" % line)
+	check(line.contains(" Space ") and line.contains(" X ") and line.contains(" E [/bgcolor] + ") and line.contains("#ff8a6b]50"), "Player 1's keys, the cost short of the bar: %s" % line)
 	m.home.energy = 100.0
-	check(texts(h).has("THUNDER STRIKE") and hints.line_text(h).contains("#8fd8ff]30"), "Full bar: Thunder offered, the cost affordable")
+	check(texts(h).has("THUNDER STRIKE") and hints.line_text(h).contains("#8fd8ff]50"), "Full bar: Thunder offered, the cost affordable")
 
 	# without the ball: slide, switch, body check
 	m.ball.stop_at(mid + Vector2(300, 0))
@@ -107,23 +107,37 @@ func _initialize() -> void:
 	# a combo short of energy says what it needs
 	m.home.energy = 10.0
 	hints.combo_short(h, mf, "fireball")
-	check(hints.line_text(h).contains("LASER PASS: NEED 30"), "Short combo: %s" % hints.line_text(h))
+	check(hints.line_text(h).contains("LASER PASS: NEED 50"), "Short combo: %s" % hints.line_text(h))
 	hints._process(2.0)
 	check(not hints.line_text(h).contains("NEED"), "The notice goes")
 	m.home.energy = 80.0
 	hints.combo_short(h, mf, "banana")
 	check(not hints.line_text(h).contains("NEED"), "No notice when it was affordable")
 
-	# cost ticks on the energy bar: the line move's and the selected special's
-	h.special_index = m.chaos_actions.MOVES.keys().find("whirlwind")
-	hints._process(0.0)
-	var ticks: Array = hints._ticks[0]
-	var bar_y: float = m._energy_bars[m.home].position.y
-	check(ticks[0].visible and absf(ticks[0].position.x - (14.0 + 60.0 - 1.0)) < 0.5 and absf(ticks[0].position.y - (bar_y - 2.0)) < 0.5, "Laser Pass tick at 30")
-	check(absf(ticks[1].position.x - (14.0 + 60.0 - 1.0)) < 0.5, "Whirlwind tick at 30")
-	h.special_index = m.chaos_actions.MOVES.keys().find("bass")
-	hints._process(0.0)
-	check(absf(ticks[1].position.x - (14.0 + 100.0 - 1.0)) < 0.5, "Bass Drop tick at 50")
+	# the specials line: what E + each button does now, ready ones bright; the bar in segments
+	var supers = load("res://scripts/supers.gd")  # loaded, not named: the autoloads aren't up when a test compiles
+	var line_moves = load("res://scripts/line_moves.gd")
+	m.home.energy = supers.SEGMENT
+	m.chaos_actions.update_labels()
+	var specials: String = m.chaos_actions.labels[0].text
+	check(specials.contains("LASER PASS [color=#ff8a6b]50") and specials.contains(" E [/bgcolor] + [bgcolor=#ffffff38] Space "), "Special + shoot: the line move, short: %s" % specials)
+	var dribble: String = m.chaos_actions.pick(h, "switch")
+	check(dribble == "whirlwind" and specials.contains("WHIRLWIND TURN"), "Special + switch for a midfielder: %s" % dribble)
+	m.home.energy = 100.0
+	m.chaos_actions.update_labels()
+	check(m.chaos_actions.labels[0].text.contains("[b][color=#ffe34d]"), "Affordable specials light up")
+	for id in m.chaos_actions.MOVES:
+		check(fmod(m.chaos_actions.MOVES[id].cost, supers.SEGMENT) == 0.0, "%s costs whole segments" % id)
+	for l in line_moves.LIST:
+		check(fmod(line_moves.LIST[l].cost, supers.SEGMENT) == 0.0, "%s costs whole segments" % l)
+	for kind in supers.LIST:
+		check(fmod(supers.cost(kind), supers.SEGMENT) == 0.0, "%s costs whole segments" % kind)
+	check(fmod(m.BODY_CHECK_COST, supers.SEGMENT) == 0.0, "Body check costs whole segments")
+	m._update_energy_hud()
+	check(m._energy_labels[m.home].text.ends_with("MAX!"), "Full bar: MAX!")
+	m.home.energy = 60.0
+	m._update_energy_hud()
+	check(m._energy_labels[m.home].text.ends_with("LV 2"), "60: two segments: %s" % m._energy_labels[m.home].text)
 
 	m.state = 2  # a goal: nothing to prompt
 	check(texts(h).is_empty(), "No prompts outside play")

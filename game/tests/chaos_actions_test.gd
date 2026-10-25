@@ -61,7 +61,7 @@ func _initialize() -> void:
 	reset()
 	b.take(p)
 	check(actions.start(p, "ghost", Vector2.RIGHT), "Ghost activation")
-	check(m.home.energy == 80, "Ghost energy charged once")
+	check(m.home.energy == 100 - actions.MOVES.ghost.cost, "Ghost energy charged once")
 	check(not actions.start(p, "ghost", Vector2.RIGHT), "Cannot stack activations")
 	contact("ghost")
 	check(b.holder == null and b.velocity.x > 200 and p.position.x > 500, "Ghost exposes ball and moves player")
@@ -205,36 +205,53 @@ func _initialize() -> void:
 	contact("ghost")
 	check(b.holder == p and actions.active.is_empty(), "Interrupted animation cancels action")
 
-	check(InputMap.has_action("special") and InputMap.has_action("p2_cycle_special"), "Both players have special controls")
+	check(InputMap.has_action("special") and InputMap.has_action("p2_special") and not InputMap.has_action("p2_cycle_special"), "Both players have a special button, nothing to cycle")
 	m.humans[0].controlled = p
 	check(actions.actor(m.humans[0], "palm") == k, "Outfield control routes keeper action to keeper")
 
-	# Exercise input routing rather than calling start(): both keyboards and role routing.
+	# Exercise input routing rather than calling start(): special held, then a button.
 	reset()
 	var h = m.humans[0]
 	h.controlled = p
-	h.special_index = actions.MOVES.keys().find("ghost")
 	b.take(p)
+	var dribble: String = actions.pick(h, "switch")
+	check(dribble == ("whirlwind" if p.role == "M" else "ghost"), "Special + switch with the ball, nobody in front: %s" % dribble)
+	check(actions.pick(h, "shoot") == "line" and actions.pick(h, "") == "", "Special + shoot is the line move; alone, nothing to do here")
 	Input.action_press("special")
+	Input.action_press("switch")
 	m._human_input(h, p)
+	Input.action_release("switch")
 	Input.action_release("special")
-	check(actions.active.size() == 1 and m.home.energy == 80, "P1 E starts selected move")
+	check(actions.active.size() == 1 and actions.active[0].id == dribble and m.home.energy == 100 - actions.MOVES[dribble].cost, "P1 E + Q starts the dribble special")
+	check(not p.dodging(), "... and not a dodge")
 	await process_frame
 	reset()
 	h = m.humans[1]
 	h.controlled = o
-	h.special_index = actions.MOVES.keys().find("pinball")
 	b.take(o)
 	Input.action_press("p2_special")
+	Input.action_press("p2_pass")
 	m._human_input(h, o)
+	Input.action_release("p2_pass")
 	Input.action_release("p2_special")
-	check(actions.active.size() == 1 and m.away.energy == 60, "P2 comma starts own selected move")
+	check(actions.active.size() == 1 and actions.active[0].id == "pinball" and m.away.energy == 100 - actions.MOVES.pinball.cost, "P2 comma + Right Shift: Pinball Pass")
 	await process_frame
 	reset()
-	m.humans[0].special_index = actions.MOVES.keys().find("rocket")
-	b.take(k)
 	Input.action_press("special")
 	m._human_input(m.humans[0], p)
+	check(actions.active.is_empty(), "Special held alone does nothing yet")
+	await process_frame
+	Input.action_release("special")
+	m._human_input(m.humans[0], p)
+	check(actions.active.is_empty(), "Let go alone with nothing for the referee: nothing")
+	await process_frame
+	reset()
+	b.take(k)
+	check(actions.pick(m.humans[0], "pass") == "rocket", "Keeper holding it: special + pass is his throw")
+	Input.action_press("special")
+	Input.action_press("pass")
+	m._human_input(m.humans[0], p)
+	Input.action_release("pass")
 	Input.action_release("special")
 	check(actions.active.size() == 1 and actions.active[0].p == k, "Keeper action routes through field player's input")
 	contact("rocket")
@@ -288,7 +305,7 @@ func _initialize() -> void:
 	check(actions.active.is_empty(), "AI keeper doesn't throw it through an opponent")
 
 	# the AI dives in the attacking half, with the referee watching and calm enough to fool
-	# (10 energy: the dive is all it can afford)
+	# (one segment: a dive, or another one-segment move; it should get round to the dive)
 	reset()
 	var diver = m.home.players[9]
 	var att: int = m.home.side
@@ -298,13 +315,13 @@ func _initialize() -> void:
 	b.take(diver)
 	m.referee.position = diver.position + Vector2(0.0, -Pitch.m(5.0))  # right by him: he sees it
 	m.ref_mood.clear()
-	m.home.energy = 10.0
 	m.away.energy = 0.0
 	for tries in 50:  # it only takes some of its chances
+		m.home.energy = actions.MOVES.dive.cost
 		actions.think_ai()
-		if not actions.active.is_empty():
+		if not actions.active.is_empty() and actions.active[0].id == "dive":
 			break
-		actions.cooldown.clear()
+		actions.clear()
 	check(actions.active.size() == 1 and actions.active[0].id == "dive", "AI dives near goal with a calm referee watching")
 	reset()
 	diver.position = Pitch.field_rect().get_center() + Vector2(att * Pitch.m(25.0), 0.0)
@@ -349,7 +366,7 @@ func _initialize() -> void:
 	var holder = m.home.players[9]
 	m.referee.position = cap.position + Vector2(Pitch.m(10.0), 0.0)
 	m.away.energy = 0.0
-	m.home.energy = 20.0
+	m.home.energy = 20.0  # short of anything
 	m.ball.stop_at(holder.feet_front())
 	m.ball.take(holder)
 	m.ref_mood[m.home] = 25.0
@@ -357,7 +374,7 @@ func _initialize() -> void:
 		actions.think_ai()
 		actions.cooldown.clear()
 	check(actions.active.is_empty() and m.home.energy == 20.0, "AI keeps its energy back for the captain")
-	m.home.energy = 30.0
+	m.home.energy = actions.MOVES.captain.cost
 	actions.think_ai()
 	check(actions.active.size() == 1 and actions.active[0].id == "captain", "... and sends him once it can")
 	m.ref_mood.clear()
