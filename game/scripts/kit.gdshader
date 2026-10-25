@@ -2,7 +2,7 @@ shader_type canvas_item;
 // Draws FIFA 96 player sprites stored as palette indices (see build_godot_assets.py)
 // and recolours the kit slots: 1 shirt, 2 shirt second colour, 3 shorts, 4 socks, 5 boots,
 // and, when set for the player, 6 skin and 7 hair.
-// With own_art it draws our RGBA art instead (brand/sprites/line_actions), drawn in the OSCF
+// With own_art it draws our RGBA art instead (e.g. brand/sprites/line_actions), drawn in the OSCF
 // kit, and recolours it by colour: white shirt and socks, blue shorts, green keeper shirt;
 // and, when set for the player, its skin like slot 6.
 

@@ -36,8 +36,8 @@ Rocket Throw, **Palm Barrage** (rapid keeper parries) and **Cyclone Scissor**
 striker's **Fireball**, a defender's **Bulldozer Clear** (charges, flattening whoever's in the
 way, then hoofs it upfield; 40 energy), a midfielder's **Laser Pass** (flat, fast, straight to
 the man; 30) and the keeper's **Cannon Punt** (from the hands, far upfield, once the box is
-clear; 30). The role moves play our own art (`brand/sprites/line_actions`), recoloured to
-each team's kit.
+clear; 30). The role moves look like the rest of the match: in the Pixel view each plays the
+nearest FIFA 96 animation, in the Rendered view its own Blender animation, in each team's kit.
 
 **P1: E to use, R to cycle. P2: comma to use, period to cycle. Gamepad: Y / RB.**
 R cycles only the moves your player's line can do (plus the keeper's and the captain's).
@@ -385,12 +385,16 @@ Match options (PLAYERS) or the pause menu, mid-match: **Pixel** draws the player
 (`tools/blender/`, see the scripts' notes). They're palette-indexed like FIFA 96's, with their
 own palette (`assets/sprites/oscf_rendered/palette.png`), so the kit shader colours them the
 same way: stripes, second colours, and the skin and hair from a player's photo. Rendered so
-far: run, jog, stand and kick, on FIFA 96's frame timings; every other animation falls back
-to FIFA 96's (`Anims.rendered()`, `Footballer.art_for()`). To re-render:
+far: run, jog, stand and kick; the specials' animations (volley, bicycle kick, tackle, header,
+nutmeg, marking, fall, and the keeper's ground pound, throw and punch), all on FIFA 96's frame
+timings; and the eight Chaos line moves, on their drawn art's timings. Every other animation
+falls back to FIFA 96's (`Anims.rendered()`, `Footballer.art_for()`). To re-render:
 
 ```
 blender -b -P tools/blender/footballer.py -- /tmp/renders
-tools/.venv/bin/python -I tools/blender/pack_sprites.py /tmp/renders game/assets/sprites/oscf_rendered run jog xstandd kick
+tools/.venv/bin/python -I tools/blender/pack_sprites.py /tmp/renders game/assets/sprites/oscf_rendered run jog xstandd kick \
+  vollkck bicycle tackle header nutmeg mark fall gpound glwthrw gpunchu power_strike bulldozer_clear \
+  grapple_tackle laser_pass whirlwind_turn cannon_punt rising_fist stepover_storm
 ```
 
 ## Chaos modifiers (Chaos Football only)

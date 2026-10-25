@@ -75,31 +75,36 @@ func _initialize() -> void:
 	var events := []
 	m.event.connect(func(kind, t): events.append("%s:%s" % [kind, t.short]))
 
-	# the own art loads as animations, drawn in the team's colours (C.6)
+	# the line moves: in Pixel a FIFA 96 stand-in in the palette kit, in Rendered the Blender
+	# art in its own; either way as long as the drawn art (the move's timing)
 	for anim in ["power_strike", "bulldozer_clear", "laser_pass", "cannon_punt", "grapple_tackle", "stepover_storm", "whirlwind_turn", "rising_fist"]:
-		check(anims.has(anim) and anims.own_art(anim), "%s loads as own art" % anim)
-	check(absf(anims.length_seconds("power_strike") - 0.85) < 0.01, "Line-action length counts the last frame's own duration: %.2f" % anims.length_seconds("power_strike"))
-	check(not anims.own_art("run"), "FIFA 96 animations keep the kit shader")
+		check(anims.has(anim) and not anims.own_art(anim), "%s loads, drawn with the kit shader" % anim)
+	check(absf(anims.length_seconds("power_strike") - 0.85) < 0.01, "Line-move length is the drawn art's: %.2f" % anims.length_seconds("power_strike"))
+	check(absf(anims.length_seconds("stepover_storm") - 0.61) < 0.01, "Stepover Storm keeps its 0.61 s: %.2f" % anims.length_seconds("stepover_storm"))
 	reset()
 	var d = on_line(m.home, "D", mid)
 	d.perform("bulldozer_clear")
 	d._physics_process(0.0)
-	var art: ShaderMaterial = d._sprite.material
-	check(art != null and art.get_shader_parameter("own_art") and art.get_shader_parameter("white_is_kit")
-		and art.get_shader_parameter("shirt") == m.home.outfield_material.get_shader_parameter("shirt"),
-		"Own-art animation recoloured to the team's kit")
+	check(d._sprite.material == d._kit and (d._sprite.texture as AtlasTexture).atlas.resource_path.ends_with("players/divehed.png"),
+		"Pixel: Bulldozer Clear plays FIFA 96's diving header in the team's kit")
 	d._action_left = 0.0
 	d._physics_process(0.0)
-	check(d._sprite.material is ShaderMaterial and not d._sprite.material.get_shader_parameter("own_art"),
-		"Back to the palette kit shader for the players' animations")
+	m.get_script().rendered = true
+	d.perform("bulldozer_clear")
+	d._physics_process(0.0)
+	check(d._sprite.material == d._rendered_kit and (d._sprite.texture as AtlasTexture).atlas.resource_path.ends_with("oscf_rendered/bulldozer_clear.png"),
+		"Rendered: Bulldozer Clear plays its Blender art in the team's kit")
+	check(absf(anims.length_seconds("power_strike") - 0.85) < 0.01, "Rendered line move as long as the drawn art: %.2f" % anims.length_seconds("power_strike"))
+	d._action_left = 0.0
+	d._physics_process(0.0)
 	var g = m.home.keeper()
 	g.perform("cannon_punt")
 	g._physics_process(0.0)
-	check(g._sprite.material.get_shader_parameter("own_art") and not g._sprite.material.get_shader_parameter("white_is_kit")
-		and g._sprite.material.get_shader_parameter("shirt") == m.home.keeper_material.get_shader_parameter("shirt"),
-		"Keeper's own art in the keeper kit, gloves left white")
+	check(g._sprite.material == g._rendered_kit and g._rendered_kit.get_shader_parameter("shirt") == m.home.keeper_material.get_shader_parameter("shirt"),
+		"Keeper's Cannon Punt in the keeper kit")
 	g._action_left = 0.0
 	g._physics_process(0.0)
+	m.get_script().rendered = false
 
 	# striker: ↓↘→ is still the Fireball, wound up with the Power Strike
 	reset()

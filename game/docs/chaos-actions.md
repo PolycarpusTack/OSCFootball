@@ -85,12 +85,15 @@ Custom drawn animation sheets and final tuning can replace these prototype visua
 The project's existing ignore rules exclude `assets/`; these local concept files
 must be included separately when sharing the project, just like the other assets.
 
-The line moves and the four signature specials play the own art in
-`brand/sprites/line_actions` (loaded by `Anims`). It has one right-facing view, mirrored
-for the left. It's drawn in the OSCF kit, and the kit shader's `own_art` mode
-(`Team.own_art_material`) recolours that by colour to the player's team: the white shirt and
-socks to the shirt, the blue shorts to the shorts, the keeper's green to his shirt. The socks
-follow the shirt, and the keeper's white gloves stay white.
+The line moves and the four signature specials are drawn like the rest of the match, so a
+special doesn't swap the player for a different-looking one. In the Rendered view they're
+Blender animations (`tools/blender/footballer.py`, all five drawn directions); in the Pixel
+view each plays the nearest FIFA 96 animation (`Anims.PIXEL_LINE_MOVES`: Power Strike the
+shot, Bulldozer Clear the diving header, Grapple Tackle the push, Laser Pass the kick,
+Whirlwind Turn the rainbow flick, Cannon Punt the volley, Rising Fist the keeper's punch,
+Stepover Storm the dummy). Either way a move lasts as long as its drawn art in
+`brand/sprites/line_actions` (`manifest.json`), which its timing is tuned to; that art itself
+is no longer shown in a match.
 
 Hits show in the effects sheet (`Effects`, art in `assets/sprites/oscf_roles/effects`): an
 impact burst when a super, line move, body check, Grapple or Bulldozer connects; dust when a

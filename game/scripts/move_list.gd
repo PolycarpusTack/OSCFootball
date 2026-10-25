@@ -64,8 +64,8 @@ var pad := false  # show the gamepad's buttons, not the keyboard's
 var role := ""  # the controlled player's line; "" highlights everything
 var outfield_kit: Material  # what the preview wears: an outfielder's kit ...
 var keeper_kit: Material  # ... or a keeper's
-var outfield_art: Material  # the same kits for our own art (Team.own_art_material)
-var keeper_art: Material
+var outfield_rendered: Material  # the same kits for the Rendered player art (Team.rendered_material)
+var keeper_rendered: Material
 var _tabs := RichTextLabel.new()
 var _rows := VBoxContainer.new()
 var _text := Label.new()
@@ -126,8 +126,8 @@ func open(player_role: String, kit_team: Team, use_pad: bool) -> void:
 	role = player_role
 	outfield_kit = kit_team.outfield_material if kit_team else null
 	keeper_kit = kit_team.keeper_material if kit_team else null
-	outfield_art = Team.own_art_material(outfield_kit, false) if kit_team else null
-	keeper_art = Team.own_art_material(keeper_kit, true) if kit_team else null
+	outfield_rendered = Team.rendered_material(outfield_kit) if kit_team else null
+	keeper_rendered = Team.rendered_material(keeper_kit) if kit_team else null
 	pad = use_pad
 	page = 0
 	pick = 0
@@ -224,8 +224,8 @@ func _refresh() -> void:
 	_preview.visible = r.anim != "" and Anims.has(r.anim)
 	if _preview.visible:
 		var keeper: bool = r.lines == "G"
-		if Anims.own_art(r.anim):
-			_preview.material = keeper_art if keeper else outfield_art
+		if Anims.rendered(r.anim):
+			_preview.material = keeper_rendered if keeper else outfield_rendered
 		else:
 			_preview.material = keeper_kit if keeper else outfield_kit
 

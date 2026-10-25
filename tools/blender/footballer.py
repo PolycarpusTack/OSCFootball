@@ -1,4 +1,4 @@
-"""A low-poly footballer's animations (ANIMS: run, jog, stand, kick), on the spot, rendered from
+"""A low-poly footballer's animations (ANIMS: run, jog, stand, kick and the specials), on the spot, rendered from
 the game's five drawn directions (away, up-right, right, down-right, toward the camera) at 4x
 the sprite size.
 
@@ -26,8 +26,8 @@ from mathutils import Vector
 
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = ARGS[0] if ARGS else "/tmp/footballer"
-CELL = 256  # render size; the sprite is a quarter of it
-ORTHO = 2.56  # metres across the render: 1.8 m tall comes out about 44 px at 64 px
+CELL = 320  # render size; the sprite is a quarter of it. Room above for the jumps.
+ORTHO = 3.2  # metres across the render: 1.8 m tall comes out about 44 px at 80 px
 ELEVATION = math.radians(24.0)  # the match camera looks down about this much
 DIRECTIONS = {0: 90.0, 2: 45.0, 4: 0.0, 6: -45.0, 8: -90.0}  # drawn dir: heading (deg, 0 = screen right)
 
@@ -203,11 +203,13 @@ def _stride(j, phase, swing, fold, lean, arms, elbow):
     j["head"].rotation_euler.x = -0.5 * lean
 
 
-def _ground(j):
-    """Down (or up) until the lowest boot stands on the ground, where the sprite's anchor is."""
+def _ground(j, lift=0.0):
+    """Down (or up) until the lowest point of the body touches the ground, where the sprite's
+    anchor is, then `lift` metres up for a jump. Standing, that's a boot; diving, the chest."""
     bpy.context.view_layer.update()
-    low = min((b.matrix_world @ Vector(c)).z for b in (j["bootL"], j["bootR"]) for c in b.bound_box)
-    j["pelvis"].location.z -= low
+    low = min((o.matrix_world @ v.co).z for o in bpy.context.scene.objects if o.type == "MESH"
+              for v in o.data.vertices)
+    j["pelvis"].location.z += lift - low
     bpy.context.view_layer.update()
 
 
@@ -258,6 +260,219 @@ def kick(j, i, n):
     j["torso"].rotation_euler.z = -0.45 * swing  # the shoulders turn against the leg
 
 
+def keyed(table):
+    """A pose from a table, one entry a frame: joint name -> its rotation in radians (x alone, or
+    (x, y, z) with None to leave an axis), "outL"/"outR" -> how far that arm is lifted sideways
+    (_out), "lift" -> metres off the ground. x swings a hip, shoulder or elbow forward, folds a
+    knee back when negative and tilts the torso or the pelvis (the whole body) back; the
+    pelvis's z turns the whole body round, its y rolls it (diving, along its length)."""
+    def pose(j, i, n):
+        for side in ("L", "R"):
+            _out(j, side, 0.12)
+        lift = 0.0
+        for name, v in table[i].items():
+            if name == "lift":
+                lift = v
+            elif name.startswith("out"):
+                _out(j, name[3:], v)
+            else:
+                for axis, a in enumerate(v if isinstance(v, tuple) else (v,)):
+                    if a is not None:
+                        j[name].rotation_euler[axis] = a
+        return lift
+    return pose
+
+
+# The specials, as keyed() tables. Drawn facing right: the right leg is the kicking leg.
+# A low ready stance: the left foot forward, knees bent, fists up.
+READY = {"hipL": 0.4, "kneeL": -0.6, "hipR": -0.35, "kneeR": -0.5, "torso": -0.15,
+         "shoulderL": 0.5, "shoulderR": 0.3, "elbowL": 1.6, "elbowR": 1.6, "outL": 0.35, "outR": 0.35}
+# Crouched to spring: both knees deep, arms back.
+CROUCH = {"hipL": 0.9, "kneeL": -1.6, "hipR": 0.7, "kneeR": -1.5, "torso": -0.5, "ankleL": -0.4,
+          "ankleR": -0.4, "shoulderL": -0.6, "shoulderR": -0.6, "elbowL": 0.4, "elbowR": 0.4}
+
+POWER_STRIKE = keyed([
+    READY,
+    {**READY, "hipR": -0.9, "kneeR": -1.4, "torso": 0.1, "shoulderL": -0.7, "shoulderR": -0.7, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.2, "kneeL": -0.4, "hipR": -0.6, "kneeR": -1.8, "torso": -0.1, "shoulderL": 0.6, "shoulderR": 0.6, "elbowL": 1.0, "elbowR": 1.0},
+    {"hipL": -0.1, "kneeL": -0.3, "hipR": 1.5, "kneeR": -0.05, "ankleR": -0.4, "torso": 0.25,
+     "shoulderL": 1.5, "shoulderR": 1.5, "elbowL": 0.1, "elbowR": 0.1, "outL": 0.15, "outR": 0.15},
+    {"hipL": 0.0, "kneeL": -0.4, "hipR": 0.9, "kneeR": -0.4, "torso": 0.1, "shoulderL": 1.2, "shoulderR": 1.2, "elbowL": 0.3, "elbowR": 0.3},
+    READY,
+])
+
+BULLDOZER_CLEAR = keyed([
+    READY,
+    CROUCH,
+    {"pelvis": -0.7, "hipL": -0.2, "kneeL": -0.8, "hipR": -0.5, "kneeR": -0.3, "shoulderL": 2.6, "shoulderR": 2.4, "elbowL": 0.2, "elbowR": 0.2, "lift": 0.35},
+    {"pelvis": (-1.5, 0.9, 0.0), "hipL": 0.0, "hipR": -0.1, "kneeL": -0.2, "kneeR": -0.4, "shoulderL": 2.9, "shoulderR": 2.9, "lift": 0.45},
+    {"pelvis": (-1.55, 2.6, 0.0), "hipL": 0.1, "hipR": 0.0, "kneeL": -0.3, "kneeR": -0.2, "shoulderL": 2.9, "shoulderR": 2.9, "lift": 0.15},
+    {"pelvis": -0.6, "hipL": 1.4, "kneeL": -2.0, "hipR": -0.6, "kneeR": -0.3, "torso": -0.3, "shoulderL": 1.4, "shoulderR": 0.6, "elbowL": 0.2, "elbowR": 0.3},
+])
+
+GRAPPLE_TACKLE = keyed([
+    {**READY, "shoulderL": 1.3, "shoulderR": 1.3, "elbowL": 0.6, "elbowR": 0.6, "outL": 0.5, "outR": 0.5},
+    {**READY, "torso": -0.4, "hipL": 0.7, "kneeL": -0.9, "shoulderL": 1.5, "shoulderR": 1.5, "elbowL": 1.2, "elbowR": 1.2, "outL": 0.2, "outR": 0.2},
+    {"pelvis": (None, None, 1.4), "hipL": 0.3, "kneeL": -0.5, "hipR": -0.3, "kneeR": -0.5, "torso": 0.1,
+     "shoulderL": 1.5, "shoulderR": 1.5, "elbowL": 1.3, "elbowR": 1.3, "outL": 0.2, "outR": 0.2},
+    {"pelvis": (None, None, 2.9), "hipL": -0.3, "kneeL": -0.5, "hipR": 0.4, "kneeR": -0.5, "torso": 0.15,
+     "shoulderL": 1.5, "shoulderR": 1.5, "elbowL": 1.3, "elbowR": 1.3, "outL": 0.2, "outR": 0.2},
+    {"pelvis": (None, None, 4.6), "hipL": 0.3, "kneeL": -0.4, "hipR": -0.2, "kneeR": -0.4,
+     "shoulderL": 1.0, "shoulderR": 1.0, "elbowL": 0.2, "elbowR": 0.2, "outL": 1.0, "outR": 1.0},
+    READY,
+])
+
+LASER_PASS = keyed([
+    READY,
+    {**READY, "hipL": 0.6, "kneeL": -0.9, "hipR": -0.7, "kneeR": -0.4, "torso": -0.3,
+     "shoulderL": -0.8, "shoulderR": -0.8, "elbowL": 0.3, "elbowR": 0.3},
+    {"hipL": 0.1, "kneeL": -0.5, "hipR": -0.8, "kneeR": -1.5, "torso": -0.2, "shoulderL": 0.4, "shoulderR": 0.2, "elbowL": 1.2, "elbowR": 1.2},
+    {"hipL": -0.2, "kneeL": -0.4, "hipR": 1.25, "kneeR": -0.05, "ankleR": -0.3, "torso": 0.15,
+     "shoulderL": 1.6, "shoulderR": 1.6, "elbowL": 0.0, "elbowR": 0.0, "outL": 0.1, "outR": 0.1},
+    {"hipL": 0.0, "kneeL": -0.4, "hipR": 0.8, "kneeR": -0.5, "torso": 0.05, "shoulderL": 1.0, "shoulderR": 0.6, "elbowL": 0.5, "elbowR": 0.5, "outL": 0.6, "outR": 0.6},
+    READY,
+])
+
+WHIRLWIND_TURN = keyed([
+    READY,
+    {"hipL": 1.3, "kneeL": -2.0, "hipR": 0.6, "kneeR": -1.4, "torso": -0.2, "shoulderL": 1.0, "shoulderR": 0.6, "elbowL": 1.2, "elbowR": 1.2, "lift": 0.3},
+    {"pelvis": (0.3, None, 1.6), "hipL": 1.2, "kneeL": -1.8, "hipR": (0.2, -1.3, None), "kneeR": 0.0, "outL": 1.3, "outR": 1.3, "lift": 0.4},
+    {"pelvis": (0.3, None, 3.6), "hipL": 1.2, "kneeL": -1.8, "hipR": (0.2, -1.3, None), "kneeR": 0.0, "outL": 1.3, "outR": 1.3, "lift": 0.35},
+    {"pelvis": (None, None, 6.0), "hipL": 0.5, "kneeL": -1.2, "hipR": 0.8, "kneeR": -1.5, "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 1.0, "elbowR": 1.0, "lift": 0.1},
+    READY,
+])
+
+# The keeper: arms crossed at the chest, a sweeping punt.
+CROSSED = {"shoulderL": 1.3, "shoulderR": 1.3, "elbowL": 1.7, "elbowR": 1.7, "outL": -0.25, "outR": -0.25}
+CANNON_PUNT = keyed([
+    {**READY, **CROSSED},
+    {**READY, **CROSSED, "hipL": 0.6, "kneeL": -1.0, "hipR": -0.5, "kneeR": -0.8, "torso": -0.35},
+    {"hipL": 0.3, "kneeL": -0.5, "hipR": -0.9, "kneeR": -1.4, "torso": 0.1, "shoulderL": 0.4, "shoulderR": 0.4, "elbowL": 0.2, "elbowR": 0.2, "outL": 1.4, "outR": 1.4},
+    {"hipL": -0.1, "kneeL": -0.2, "hipR": 1.9, "kneeR": 0.0, "ankleR": -0.4, "torso": 0.4, "shoulderL": 0.6, "shoulderR": 0.2, "outL": 1.3, "outR": 1.3},
+    {"hipL": 0.0, "kneeL": -0.3, "hipR": 1.0, "kneeR": -0.6, "torso": 0.2, "shoulderL": 0.8, "shoulderR": 0.4, "outL": 1.0, "outR": 1.0},
+    READY,
+])
+
+RISING_FIST = keyed([
+    READY,
+    {**CROUCH, "shoulderR": 0.4, "elbowR": 2.0, "shoulderL": 0.3, "elbowL": 1.8},
+    {"hipL": 0.9, "kneeL": -1.5, "hipR": -0.1, "kneeR": -0.3, "torso": 0.0, "shoulderR": 3.0, "elbowR": 0.1, "shoulderL": 0.5, "elbowL": 1.5, "lift": 0.45},
+    {"pelvis": 0.35, "hipL": 1.1, "kneeL": -1.8, "hipR": 0.3, "kneeR": -1.2, "torso": 0.3, "head": 0.3, "shoulderR": 3.1, "elbowR": 0.0,
+     "shoulderL": 1.8, "elbowL": 0.2, "outL": 0.6, "lift": 0.65},
+    {"hipL": 0.5, "kneeL": -1.0, "hipR": 0.3, "kneeR": -0.9, "torso": 0.1, "shoulderR": 1.6, "elbowR": 0.8, "shoulderL": 0.8, "elbowL": 0.8, "lift": 0.25},
+    {**READY, "hipL": 0.7, "kneeL": -1.2, "hipR": 0.4, "kneeR": -1.1, "torso": -0.3},
+])
+
+# Low, quick stepovers: the free leg swings round over the ball, outward and back.
+_LOW = {"torso": -0.25, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 1.4, "elbowR": 1.4, "outL": 0.5, "outR": 0.5}
+STEPOVER_STORM = keyed([
+    {**_LOW, "hipL": 0.3, "kneeL": -0.7, "hipR": -0.2, "kneeR": -0.6},
+    {**_LOW, "hipL": 0.0, "kneeL": -0.6, "hipR": (0.9, -0.8, None), "kneeR": -1.3},
+    {**_LOW, "hipL": 0.1, "kneeL": -0.6, "hipR": (0.4, -1.1, None), "kneeR": -0.9, "torso": (-0.25, 0.25, None)},
+    {**_LOW, "hipR": 0.0, "kneeR": -0.6, "hipL": (0.9, 0.8, None), "kneeL": -1.3},
+    {**_LOW, "hipR": 0.1, "kneeR": -0.6, "hipL": (0.4, 1.1, None), "kneeL": -0.9, "torso": (-0.25, -0.25, None)},
+    {**_LOW, "hipL": 0.3, "kneeL": -0.7, "hipR": -0.2, "kneeR": -0.6},
+])
+
+# Specials borrowed from FIFA 96's animation names, on FIFA 96's frame timing.
+VOLLEY = keyed([
+    {"hipL": 0.5, "kneeL": -0.8, "hipR": -0.4, "kneeR": -0.6, "torso": -0.1, "shoulderL": -0.4, "shoulderR": 0.5, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.6, "kneeL": -1.4, "hipR": (-0.2, -0.9, None), "kneeR": -1.6, "torso": (0.2, 0.3, None), "outL": 1.2, "outR": 0.8, "lift": 0.2},
+    {"pelvis": (0.2, 0.35, -0.6), "hipL": 0.2, "kneeL": -0.6, "hipR": (1.3, -1.0, None), "kneeR": -0.1, "outL": 1.4, "outR": 1.0, "lift": 0.2},
+    {"pelvis": (0.1, 0.2, -1.2), "hipL": 0.1, "kneeL": -0.5, "hipR": (0.9, -0.4, None), "kneeR": -0.5, "outL": 1.1, "outR": 0.9, "lift": 0.05},
+    {"hipL": 0.2, "kneeL": -0.5, "hipR": 0.4, "kneeR": -0.6, "torso": -0.1, "shoulderL": 0.3, "shoulderR": -0.2, "elbowL": 0.6, "elbowR": 0.6},
+])
+
+BICYCLE = keyed([
+    {"hipL": 0.4, "kneeL": -0.9, "hipR": 0.3, "kneeR": -0.9, "torso": -0.2, "shoulderL": -0.3, "shoulderR": -0.3},
+    {"pelvis": 0.6, "hipL": 1.2, "kneeL": -1.2, "hipR": 0.2, "kneeR": -0.4, "outL": 1.0, "outR": 1.0, "lift": 0.35},
+    {"pelvis": 1.3, "hipL": 0.6, "kneeL": -0.5, "hipR": 1.4, "kneeR": -1.2, "outL": 1.3, "outR": 1.3, "lift": 0.7},
+    {"pelvis": 2.1, "hipL": 0.2, "kneeL": -0.3, "hipR": 1.9, "kneeR": -0.1, "ankleR": -0.4, "outL": 1.4, "outR": 1.4, "lift": 0.8},
+    {"pelvis": 2.3, "hipL": 1.6, "kneeL": -0.2, "hipR": 0.5, "kneeR": -0.6, "outL": 1.4, "outR": 1.4, "lift": 0.6},
+    {"pelvis": 1.7, "hipL": 1.0, "kneeL": -0.8, "hipR": 0.8, "kneeR": -0.8, "shoulderL": -0.8, "shoulderR": -0.8, "outL": 0.6, "outR": 0.6, "lift": 0.25},
+    {"pelvis": 1.5, "hipL": 0.6, "kneeL": -0.9, "hipR": 0.3, "kneeR": -0.5, "shoulderL": -0.4, "shoulderR": -0.4, "elbowL": 1.0, "elbowR": 1.0, "outL": 0.7, "outR": 0.7},
+])
+
+TACKLE = keyed([
+    {"hipL": 0.4, "kneeL": -0.7, "hipR": -0.4, "kneeR": -0.6, "torso": -0.2, "shoulderL": -0.4, "shoulderR": 0.4, "elbowL": 0.8, "elbowR": 0.8},
+    {"hipL": -0.3, "kneeL": -1.3, "hipR": 1.3, "kneeR": -0.1, "ankleR": 0.3, "torso": -0.3, "outL": 0.7, "outR": 0.6, "shoulderL": 0.5, "shoulderR": -0.3},
+    {"hipL": -0.4, "kneeL": -1.5, "hipR": 1.5, "kneeR": 0.0, "ankleR": 0.4, "torso": -0.35, "outL": 0.8, "outR": 0.7, "shoulderL": 0.6, "shoulderR": -0.4},
+    {"hipL": 0.2, "kneeL": -0.9, "hipR": 0.6, "kneeR": -0.6, "torso": -0.2, "shoulderL": 0.2, "shoulderR": 0.2, "elbowL": 0.8, "elbowR": 0.8},
+])
+
+HEADER = keyed([
+    {"hipL": 0.4, "kneeL": -0.8, "hipR": 0.3, "kneeR": -0.8, "torso": -0.2, "shoulderL": -0.4, "shoulderR": -0.4, "elbowL": 0.6, "elbowR": 0.6},
+    {**CROUCH},
+    {"hipL": 0.1, "kneeL": -0.3, "hipR": -0.1, "kneeR": -0.4, "torso": 0.3, "head": 0.3, "shoulderL": 1.0, "shoulderR": 1.0, "elbowL": 1.2, "elbowR": 1.2, "outL": 0.6, "outR": 0.6, "lift": 0.35},
+    {"hipL": 0.0, "kneeL": -0.8, "hipR": -0.2, "kneeR": -1.0, "torso": -0.5, "head": -0.4, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 0.8, "elbowR": 0.8, "outL": 0.9, "outR": 0.9, "lift": 0.45},
+    {"hipL": 0.1, "kneeL": -0.6, "hipR": 0.0, "kneeR": -0.7, "torso": -0.3, "head": -0.2, "shoulderL": 0.4, "shoulderR": 0.4, "outL": 0.8, "outR": 0.8, "lift": 0.3},
+    {"hipL": 0.3, "kneeL": -0.4, "hipR": 0.2, "kneeR": -0.4, "torso": -0.1, "shoulderL": 0.4, "shoulderR": 0.4, "outL": 0.6, "outR": 0.6, "lift": 0.1},
+    {"hipL": 0.6, "kneeL": -1.0, "hipR": 0.5, "kneeR": -1.0, "torso": -0.3, "shoulderL": 0.2, "shoulderR": 0.2, "elbowL": 0.6, "elbowR": 0.6},
+])
+
+# The sole drags the ball back, then the other foot pokes it through, then away.
+NUTMEG = keyed([
+    {"hipL": 0.1, "kneeL": -0.3, "hipR": -0.1, "kneeR": -0.3, "torso": -0.1, "elbowL": 0.5, "elbowR": 0.5},
+    {"hipL": 0.0, "kneeL": -0.4, "hipR": 0.6, "kneeR": -0.5, "ankleR": 0.5, "torso": -0.1, "outL": 0.4, "outR": 0.3, "elbowL": 0.5, "elbowR": 0.5},
+    {"hipL": 0.0, "kneeL": -0.5, "hipR": 0.1, "kneeR": -0.9, "ankleR": 0.5, "torso": -0.15, "outL": 0.5, "outR": 0.4, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.0, "kneeL": -0.5, "hipR": -0.4, "kneeR": -1.2, "torso": -0.2, "outL": 0.5, "outR": 0.4, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.4, "kneeL": -0.6, "hipR": -0.3, "kneeR": -0.5, "torso": -0.2, "outL": 0.4, "outR": 0.5, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": (0.5, 0.3, None), "kneeL": -0.3, "hipR": 0.0, "kneeR": -0.6, "torso": -0.25, "outL": 0.6, "outR": 0.5, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.1, "kneeL": -0.5, "hipR": 0.4, "kneeR": -0.7, "torso": -0.25, "shoulderL": 0.4, "shoulderR": -0.4, "elbowL": 0.9, "elbowR": 0.9},
+    {"hipL": -0.4, "kneeL": -0.9, "hipR": 0.6, "kneeR": -0.5, "torso": -0.3, "shoulderL": 0.6, "shoulderR": -0.6, "elbowL": 1.2, "elbowR": 1.2},
+    {"hipL": 0.6, "kneeL": -0.6, "hipR": -0.5, "kneeR": -1.0, "torso": -0.3, "shoulderL": -0.6, "shoulderR": 0.6, "elbowL": 1.2, "elbowR": 1.2},
+])
+
+# Jockeying: low, side-on, small shuffles; a loop.
+MARK = keyed([
+    {"hipL": (0.3, 0.15, None), "kneeL": -0.7, "hipR": (-0.2, -0.15, None), "kneeR": -0.7, "torso": -0.3, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 0.9, "elbowR": 0.9, "outL": 0.6, "outR": 0.6},
+    {"hipL": (0.3, 0.3, None), "kneeL": -0.8, "hipR": (-0.2, -0.05, None), "kneeR": -0.6, "torso": -0.3, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 0.9, "elbowR": 0.9, "outL": 0.65, "outR": 0.55},
+    {"hipL": (0.3, 0.15, None), "kneeL": -0.7, "hipR": (-0.2, -0.15, None), "kneeR": -0.7, "torso": -0.3, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 0.9, "elbowR": 0.9, "outL": 0.6, "outR": 0.6},
+    {"hipL": (0.3, 0.05, None), "kneeL": -0.6, "hipR": (-0.2, -0.3, None), "kneeR": -0.8, "torso": -0.3, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 0.9, "elbowR": 0.9, "outL": 0.55, "outR": 0.65},
+])
+
+FALL = keyed([
+    {"hipL": 0.5, "kneeL": -0.5, "hipR": -0.6, "kneeR": -1.2, "torso": -0.3, "shoulderL": 0.8, "shoulderR": -0.4, "outL": 0.6, "outR": 0.6},
+    {"pelvis": -0.5, "hipL": 0.3, "kneeL": -0.3, "hipR": -0.7, "kneeR": -0.9, "shoulderL": 1.4, "shoulderR": 1.0, "outL": 0.8, "outR": 0.8, "lift": 0.1},
+    {"pelvis": -1.0, "hipL": 0.1, "kneeL": -0.3, "hipR": -0.5, "kneeR": -0.7, "shoulderL": 1.8, "shoulderR": 1.7, "elbowL": 0.4, "elbowR": 0.4, "outL": 0.5, "outR": 0.5, "lift": 0.15},
+    {"pelvis": -1.4, "hipL": 0.0, "kneeL": -0.4, "hipR": -0.2, "kneeR": -0.6, "shoulderL": 2.2, "shoulderR": 2.1, "elbowL": 0.9, "elbowR": 0.9, "outL": 0.4, "outR": 0.4},
+    {"pelvis": -1.55, "hipL": 0.0, "kneeL": -0.3, "hipR": 0.0, "kneeR": -0.5, "head": 0.6, "shoulderL": 2.6, "shoulderR": 2.5, "elbowL": 1.4, "elbowR": 1.4, "outL": 0.5, "outR": 0.5},
+    {"pelvis": -1.55, "hipL": 0.0, "kneeL": -0.8, "hipR": 0.0, "kneeR": -0.3, "head": 0.7, "shoulderL": 2.5, "shoulderR": 2.7, "elbowL": 1.5, "elbowR": 1.2, "outL": 0.5, "outR": 0.5},
+])
+
+# The keeper's ground pound: up, and both fists down on the turf.
+GPOUND = keyed([
+    {"hipL": 0.4, "kneeL": -0.8, "hipR": 0.3, "kneeR": -0.8, "torso": -0.2, "shoulderL": 0.5, "shoulderR": 0.5, "elbowL": 1.2, "elbowR": 1.2},
+    {**CROUCH},
+    {"hipL": 0.1, "kneeL": -0.3, "hipR": 0.0, "kneeR": -0.3, "torso": 0.15, "shoulderL": 3.0, "shoulderR": 3.0, "elbowL": 0.3, "elbowR": 0.3, "outL": 0.2, "outR": 0.2, "lift": 0.35},
+    {"hipL": 0.8, "kneeL": -1.3, "hipR": 0.7, "kneeR": -1.3, "torso": 0.05, "shoulderL": 3.1, "shoulderR": 3.1, "elbowL": 0.2, "elbowR": 0.2, "outL": 0.15, "outR": 0.15, "lift": 0.4},
+    {"hipL": 1.2, "kneeL": -2.0, "hipR": 1.1, "kneeR": -2.0, "torso": -0.6, "shoulderL": 1.2, "shoulderR": 1.2, "elbowL": 0.2, "elbowR": 0.2, "outL": 0.15, "outR": 0.15},
+    {"hipL": 1.3, "kneeL": -2.2, "hipR": 1.2, "kneeR": -2.2, "torso": -0.9, "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 0.1, "elbowR": 0.1, "outL": 0.15, "outR": 0.15},
+    {"hipL": 1.3, "kneeL": -2.2, "hipR": 1.2, "kneeR": -2.2, "torso": -0.9, "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 0.1, "elbowR": 0.1, "outL": 0.15, "outR": 0.15},
+    {"hipL": 0.4, "kneeL": -0.8, "hipR": 0.3, "kneeR": -0.8, "torso": -0.3, "shoulderL": 0.5, "shoulderR": 0.5, "elbowL": 1.0, "elbowR": 1.0},
+])
+
+# The keeper rolls the ball out underarm with the right hand.
+GLWTHRW = keyed([
+    {"hipL": 0.1, "kneeL": -0.3, "hipR": -0.1, "kneeR": -0.3, "torso": -0.1, "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 1.4, "elbowR": 1.4, "outL": -0.1, "outR": -0.1},
+    {"hipL": 0.5, "kneeL": -0.6, "hipR": -0.4, "kneeR": -0.5, "torso": -0.2, "shoulderL": 0.9, "shoulderR": -1.2, "elbowL": 0.6, "elbowR": 0.3},
+    {"hipL": 0.9, "kneeL": -1.4, "hipR": -0.6, "kneeR": -0.6, "torso": -0.7, "shoulderL": 0.6, "shoulderR": -0.3, "elbowL": 0.5, "elbowR": 0.2},
+    {"hipL": 0.9, "kneeL": -1.5, "hipR": -0.7, "kneeR": -0.5, "torso": -0.75, "shoulderL": 0.4, "shoulderR": 0.9, "elbowL": 0.5, "elbowR": 0.1},
+    {"hipL": 0.8, "kneeL": -1.2, "hipR": -0.5, "kneeR": -0.6, "torso": -0.6, "shoulderL": 0.3, "shoulderR": 1.4, "elbowL": 0.5, "elbowR": 0.1},
+    {"hipL": 0.3, "kneeL": -0.5, "hipR": -0.2, "kneeR": -0.4, "torso": -0.2, "shoulderL": 0.2, "shoulderR": 0.4, "elbowL": 0.6, "elbowR": 0.6},
+])
+
+# The keeper punches a high ball away with both fists.
+GPUNCHU = keyed([
+    {"hipL": 0.4, "kneeL": -0.8, "hipR": 0.3, "kneeR": -0.8, "torso": -0.2, "shoulderL": 0.6, "shoulderR": 0.6, "elbowL": 1.6, "elbowR": 1.6},
+    {**CROUCH, "shoulderL": 0.5, "shoulderR": 0.5, "elbowL": 2.0, "elbowR": 2.0},
+    {"hipL": 0.6, "kneeL": -1.2, "hipR": 0.0, "kneeR": -0.3, "torso": 0.1, "shoulderL": 2.9, "shoulderR": 2.9, "elbowL": 0.1, "elbowR": 0.1, "outL": 0.05, "outR": 0.05, "lift": 0.45},
+    {"pelvis": 0.15, "hipL": 0.8, "kneeL": -1.5, "hipR": 0.2, "kneeR": -0.6, "torso": 0.15, "shoulderL": 3.1, "shoulderR": 3.1, "elbowL": 0.0, "elbowR": 0.0, "outL": 0.05, "outR": 0.05, "lift": 0.55},
+    {"hipL": 0.5, "kneeL": -0.9, "hipR": 0.3, "kneeR": -0.8, "shoulderL": 1.8, "shoulderR": 1.8, "elbowL": 0.6, "elbowR": 0.6, "outL": 0.5, "outR": 0.5, "lift": 0.2},
+    {"hipL": 0.5, "kneeL": -1.0, "hipR": 0.4, "kneeR": -1.0, "torso": -0.3, "shoulderL": 0.5, "shoulderR": 0.5, "elbowL": 1.2, "elbowR": 1.2},
+])
+
+
 # name in the game: pose, frames, start tick of each frame (FIFA 96's timing for the same
 # animation, so loops and the kick's contact time stay what the game is tuned to)
 ANIMS = {
@@ -265,6 +480,25 @@ ANIMS = {
     "jog": (jog, 12, [1, 4, 6, 8, 11, 14, 16, 19, 21, 23, 26, 29]),
     "xstandd": (stand, 1, [1]),
     "kick": (kick, 5, [4, 7, 10, 13, 18]),
+    "vollkck": (VOLLEY, 5, [6, 12, 16, 20, 25]),
+    "bicycle": (BICYCLE, 7, [6, 16, 20, 26, 33, 37, 41]),
+    "tackle": (TACKLE, 4, [6, 12, 18, 21]),
+    "header": (HEADER, 7, [5, 10, 19, 23, 26, 30, 33]),
+    "nutmeg": (NUTMEG, 9, [1, 6, 11, 16, 20, 25, 29, 39, 45]),
+    "mark": (MARK, 4, [5, 10, 15, 20]),
+    "fall": (FALL, 6, [5, 8, 10, 13, 22, 30]),
+    "gpound": (GPOUND, 8, [6, 12, 18, 23, 29, 35, 41, 52]),
+    "glwthrw": (GLWTHRW, 6, [4, 10, 15, 21, 29, 36]),
+    "gpunchu": (GPUNCHU, 6, [6, 9, 12, 19, 24, 27]),
+    # the Chaos line moves, on their drawn art's timing (brand/sprites/line_actions/manifest.json)
+    "power_strike": (POWER_STRIKE, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
+    "bulldozer_clear": (BULLDOZER_CLEAR, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
+    "grapple_tackle": (GRAPPLE_TACKLE, 6, [0, 3.9, 7.5, 9.9, 12.3, 15.3]),
+    "laser_pass": (LASER_PASS, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
+    "whirlwind_turn": (WHIRLWIND_TURN, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
+    "cannon_punt": (CANNON_PUNT, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
+    "rising_fist": (RISING_FIST, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
+    "stepover_storm": (STEPOVER_STORM, 6, [0, 4.5, 6.3, 8.1, 9.9, 11.7]),
 }
 
 
@@ -307,8 +541,7 @@ def main():
             j["root"].rotation_euler.z = math.radians(heading - 90.0)
             for f in range(frames):
                 _rest(j)
-                pose(j, f, frames)
-                _ground(j)
+                _ground(j, pose(j, f, frames) or 0.0)
                 s.render.filepath = os.path.join(out, "%d_%02d.png" % (d, f))
                 bpy.ops.render.render(write_still=True)
         with open(os.path.join(out, "origin.json"), "w") as fh:

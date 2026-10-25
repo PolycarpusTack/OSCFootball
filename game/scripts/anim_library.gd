@@ -1,10 +1,13 @@
 extends Node
 ## Player animations from FIFA 96, built by tools/build_godot_assets.py, and the referee's
-## own art ("ref_*", RGBA, drawn without the kit shader), built by tools/pack_oscf_referee.gd,
-## and the Chaos line moves' own art (brand/sprites/line_actions, one right-facing view).
+## own art ("ref_*", RGBA, drawn without the kit shader), built by tools/pack_oscf_referee.gd.
 ## With the Rendered player art (Match.rendered) the animations rendered by tools/blender
 ## (assets/sprites/oscf_rendered, palette-indexed with their own palette) stand in for the
 ## FIFA 96 ones of the same name; the rest stay FIFA 96's.
+## The Chaos line moves (brand/sprites/line_actions/manifest.json) are rendered too; in the
+## Pixel view each plays the nearest FIFA 96 animation (PIXEL_LINE_MOVES) instead, so a
+## special looks like the rest of the match. Either way it lasts as long as its drawn art,
+## which the move's timing is tuned to.
 ##
 ## The original draws five directions (away, up-right, right, down-right,
 ## toward camera); the three left-facing ones are the right-facing frames
@@ -15,6 +18,11 @@ const REFEREE_DIR := "res://assets/sprites/oscf_roles/referee/"
 const LINE_ACTIONS_DIR := "res://brand/sprites/line_actions/"
 const RENDERED_DIR := "res://assets/sprites/oscf_rendered/"
 const LINE_ACTIONS_FPS := 10.0  # the manifest's frame durations are weights at this rate
+const PIXEL_LINE_MOVES := {
+	"power_strike": "shoot", "bulldozer_clear": "divehed", "grapple_tackle": "push",
+	"laser_pass": "kick", "whirlwind_turn": "rainbow", "cannon_punt": "vollkck",
+	"rising_fist": "gpunchu", "stepover_storm": "dummyrf",
+}
 const TICKS_PER_SECOND := 30.0
 const DRAWN_DIR := [0, 2, 4, 6, 8, 6, 4, 2]
 const FACING_VECTORS := [
@@ -32,7 +40,7 @@ var _rendered := {}  # anim name -> { drawn direction -> frames }, the Rendered 
 func _ready() -> void:
 	_load(SHEET_DIR)
 	_load(REFEREE_DIR, true)
-	_load_line_actions()
+	_load_line_actions()  # before the Rendered art: it times its stand-ins on FIFA 96's frames
 	_rendered = _read(RENDERED_DIR)
 
 
@@ -64,25 +72,21 @@ func _read(dir: String) -> Dictionary:
 	return out
 
 
-## The line moves: one strip of 192-px cells per move, feet at the manifest's origin, drawn
-## facing right (the left-facing directions mirror it; every other one shows it as is).
+## The line moves for the Pixel view: their FIFA 96 stand-in, its frames spread over the
+## length of the drawn art (the sum of the manifest's frame durations).
 func _load_line_actions() -> void:
 	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(LINE_ACTIONS_DIR + "manifest.json"))
-	var cell: Array = manifest.cell_size
-	var origin: Array = manifest.origin
 	for anim: String in manifest.moves:
-		var sheet: Texture2D = load(LINE_ACTIONS_DIR + anim + "_192.png")
-		var frames := []
-		var t := 0.0
-		for i in manifest.moves[anim].duration.size():
-			var tex := AtlasTexture.new()
-			tex.atlas = sheet
-			tex.region = Rect2(i * cell[0], 0, cell[0], cell[1])
-			frames.append({"tex": tex, "ax": origin[0], "ay": origin[1], "w": cell[0], "t": t})
-			t += manifest.moves[anim].duration[i] / LINE_ACTIONS_FPS * TICKS_PER_SECOND
-		_anims[anim] = {4: frames}
-		_lengths[anim] = t
-		_own_art[anim] = true
+		var length := 0.0
+		for d: float in manifest.moves[anim].duration:
+			length += d / LINE_ACTIONS_FPS * TICKS_PER_SECOND
+		var standin: String = PIXEL_LINE_MOVES[anim]
+		var stretch := length / _length_ticks(standin)
+		var dirs := {}
+		for d: int in _anims[standin]:
+			dirs[d] = _anims[standin][d].map(func(f): return f.merged({"t": f.t * stretch}, true))
+		_anims[anim] = dirs
+		_lengths[anim] = length
 
 
 func own_art(anim: String) -> bool:

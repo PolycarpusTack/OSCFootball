@@ -70,10 +70,11 @@ godot --headless --path . --editor --quit
 
 ## In the match
 
-All eight now play in Chaos matches: see "Line moves" and the signature specials in
-`docs/chaos-actions.md`. `Anims` loads the `_192.png` strips from `manifest.json` (feet at the
-origin, frame durations from the weights). The rest of this section describes the art as
-delivered.
+All eight play in Chaos matches (see "Line moves" and the signature specials in
+`docs/chaos-actions.md`), but not in this art: it didn't match the players around it. The
+Rendered view plays Blender versions, the Pixel view the nearest FIFA 96 animation. Only the
+timing comes from here: each move lasts the sum of its frame durations in `manifest.json`.
+The rest of this section describes the art as delivered.
 
 ## Integration boundary
 
