@@ -1,13 +1,15 @@
 extends SceneTree
 ## The player art: Pixel draws FIFA 96's sprites; Rendered draws the animations rendered by
-## tools/blender (run, jog, stand, kick, the specials' and the Chaos line moves) through their
+## tools/blender (the everyday ones, the specials' and the Chaos line moves) through their
 ## own palette in the player's kit, and falls back to FIFA 96's for the rest. In Pixel the line
 ## moves play a FIFA 96 stand-in. The match options and the pause menu switch it.
 ## godot --headless --path game -s res://tests/rendered_test.gd
 
 const RENDERED := ["run", "jog", "xstandd", "kick", "vollkck", "bicycle", "tackle", "header", "nutmeg",
 	"mark", "fall", "gpound", "glwthrw", "gpunchu", "power_strike", "bulldozer_clear", "grapple_tackle",
-	"laser_pass", "whirlwind_turn", "cannon_punt", "rising_fist", "stepover_storm"]
+	"laser_pass", "whirlwind_turn", "cannon_punt", "rising_fist", "stepover_storm", "walk", "shoot", "slide",
+	"throwin", "jump", "chest", "stumble", "push", "bodychk", "divehed", "ghdsa", "ghdsb", "gldsa", "gldsb",
+	"glwctch", "gmdctch", "gjmctch", "gdkick"]
 
 var m: Node
 var match_script: GDScript  # Match; the class can't be named here
@@ -42,9 +44,9 @@ func _initialize() -> void:
 		ok = ok and anims.rendered(anim) and "oscf_rendered/" in d.sheet and "oscf_rendered/" in d.palette and kit_kept
 
 	# not rendered yet: FIFA 96's frames with FIFA 96's palette
-	var slide := _drawn(p, "slide")
-	print("rendered, slide (not rendered yet): %s, palette %s" % [slide.sheet, slide.palette])
-	ok = ok and not anims.rendered("slide") and "players/" in slide.sheet and "players/" in slide.palette
+	var celebration := _drawn(p, "aeropla")
+	print("rendered, aeropla (not rendered yet): %s, palette %s" % [celebration.sheet, celebration.palette])
+	ok = ok and not anims.rendered("aeropla") and "players/" in celebration.sheet and "players/" in celebration.palette
 
 	# every rendered animation has the five drawn directions and FIFA 96's length
 	for anim in RENDERED:

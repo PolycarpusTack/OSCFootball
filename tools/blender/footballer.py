@@ -198,9 +198,9 @@ def _stride(j, phase, swing, fold, lean, arms, elbow):
         j["shoulder" + side].rotation_euler.x = -arms * math.sin(p)
         j["elbow" + side].rotation_euler.x = elbow
         _out(j, side, 0.08)
-    j["torso"].rotation_euler.x = lean
+    j["torso"].rotation_euler.x = -lean  # +x tilts back
     j["torso"].rotation_euler.z = 0.12 * swing * math.sin(phase)
-    j["head"].rotation_euler.x = -0.5 * lean
+    j["head"].rotation_euler.x = 0.5 * lean  # keeps the eyes up
 
 
 def _ground(j, lift=0.0):
@@ -473,6 +473,166 @@ GPUNCHU = keyed([
 ])
 
 
+# Everyday play, on FIFA 96's frame timing.
+def walk(j, i, n):
+    _stride(j, i / n * math.tau, swing=0.35, fold=0.5, lean=0.04, arms=0.3, elbow=0.3)
+
+
+SHOOT = keyed([
+    {"hipL": 0.6, "kneeL": -0.5, "hipR": -0.6, "kneeR": -1.2, "torso": -0.2, "shoulderL": -0.5, "shoulderR": 0.6, "elbowL": 0.8, "elbowR": 0.8},
+    {"hipL": 0.2, "kneeL": -0.4, "hipR": -1.0, "kneeR": -2.0, "torso": 0.1, "outL": 1.0, "outR": 0.8, "shoulderL": 0.5, "shoulderR": -0.4},
+    {"hipL": 0.1, "kneeL": -0.4, "hipR": -0.3, "kneeR": -1.8, "torso": 0.1, "outL": 1.1, "outR": 0.9, "shoulderL": 0.4, "shoulderR": -0.3},
+    {"hipL": 0.1, "kneeL": -0.35, "hipR": 0.6, "kneeR": -0.3, "ankleR": -0.3, "torso": 0.0, "outL": 1.1, "outR": 1.0, "shoulderL": -0.1, "shoulderR": 0.1},
+    {"hipL": 0.0, "kneeL": -0.2, "hipR": 1.6, "kneeR": -0.1, "ankleR": -0.4, "torso": 0.25, "outL": 1.0, "outR": 1.0, "shoulderL": -0.6, "shoulderR": 0.6, "lift": 0.05},
+    {"hipL": 0.1, "kneeL": -0.5, "hipR": 0.9, "kneeR": -0.6, "torso": 0.1, "outL": 0.7, "outR": 0.7, "shoulderL": -0.3, "shoulderR": 0.3},
+    {"hipL": 0.2, "kneeL": -0.4, "hipR": 0.2, "kneeR": -0.5, "torso": -0.05, "outL": 0.3, "outR": 0.3, "elbowL": 0.5, "elbowR": 0.5},
+])
+
+SLIDE = keyed([
+    {"hipL": 0.6, "kneeL": -0.6, "hipR": -0.5, "kneeR": -1.1, "torso": -0.3, "shoulderL": -0.6, "shoulderR": 0.6, "elbowL": 1.0, "elbowR": 1.0},
+    {"pelvis": 0.5, "hipL": -0.2, "kneeL": -1.4, "hipR": 0.8, "kneeR": -0.2, "torso": -0.2, "shoulderL": -0.6, "outL": 0.7, "outR": 0.7},
+    {"pelvis": (1.2, 0.3, None), "hipL": -0.3, "kneeL": -1.6, "hipR": 0.3, "kneeR": -0.05, "torso": -0.45, "shoulderL": -0.9, "shoulderR": -0.4, "outL": 0.6, "outR": 0.9},
+    {"pelvis": (1.25, 0.3, None), "hipL": -0.3, "kneeL": -1.6, "hipR": 0.25, "kneeR": -0.05, "torso": -0.5, "shoulderL": -1.0, "shoulderR": -0.3, "outL": 0.6, "outR": 1.0},
+    {"pelvis": 0.4, "hipL": 1.4, "kneeL": -2.2, "hipR": -0.6, "kneeR": -1.6, "torso": -0.4, "shoulderL": 0.5, "shoulderR": -0.3, "elbowL": 0.4},
+])
+
+# Both hands bring the ball from behind the head.
+THROWIN = keyed([
+    {"hipL": 0.2, "kneeL": -0.2, "hipR": -0.2, "kneeR": -0.2, "shoulderL": 1.2, "shoulderR": 1.2, "elbowL": 0.6, "elbowR": 0.6, "outL": 0.2, "outR": 0.2},
+    {"hipL": 0.4, "kneeL": -0.3, "hipR": -0.3, "kneeR": -0.4, "torso": 0.35, "shoulderL": 2.8, "shoulderR": 2.8, "elbowL": 0.9, "elbowR": 0.9, "outL": 0.2, "outR": 0.2},
+    {"hipL": 0.4, "kneeL": -0.5, "hipR": -0.3, "kneeR": -0.5, "torso": 0.45, "shoulderL": 2.7, "shoulderR": 2.7, "elbowL": 1.2, "elbowR": 1.2, "outL": 0.2, "outR": 0.2},
+    {"hipL": 0.3, "kneeL": -0.4, "hipR": -0.4, "kneeR": -0.4, "torso": -0.1, "shoulderL": 2.9, "shoulderR": 2.9, "elbowL": 0.4, "elbowR": 0.4, "outL": 0.15, "outR": 0.15},
+    {"hipL": 0.3, "kneeL": -0.4, "hipR": -0.4, "kneeR": -0.5, "torso": -0.35, "shoulderL": 2.0, "shoulderR": 2.0, "elbowL": 0.1, "elbowR": 0.1, "outL": 0.15, "outR": 0.15},
+    {"hipL": 0.2, "kneeL": -0.3, "hipR": -0.2, "kneeR": -0.3, "torso": -0.1, "shoulderL": 0.4, "shoulderR": 0.4, "elbowL": 0.4, "elbowR": 0.4},
+])
+
+# A hop over a lunging tackle.
+JUMP = keyed([
+    {"hipL": 0.5, "kneeL": -1.0, "hipR": 0.3, "kneeR": -1.0, "torso": -0.35, "shoulderL": -0.5, "shoulderR": -0.5, "elbowL": 0.5, "elbowR": 0.5},
+    {"hipL": 0.2, "kneeL": -0.3, "hipR": -0.3, "kneeR": -0.4, "torso": -0.1, "shoulderL": 0.9, "shoulderR": 0.6, "elbowL": 0.9, "elbowR": 0.9, "lift": 0.1},
+    {"hipL": 1.3, "kneeL": -2.0, "hipR": 1.0, "kneeR": -2.0, "torso": -0.2, "shoulderL": 1.2, "shoulderR": 1.0, "elbowL": 0.8, "elbowR": 0.8, "outL": 0.6, "outR": 0.6, "lift": 0.45},
+    {"hipL": 1.2, "kneeL": -1.8, "hipR": 0.8, "kneeR": -1.8, "torso": -0.15, "shoulderL": 1.0, "shoulderR": 0.9, "elbowL": 0.8, "elbowR": 0.8, "outL": 0.8, "outR": 0.8, "lift": 0.5},
+    {"hipL": 0.5, "kneeL": -0.7, "hipR": 0.2, "kneeR": -0.6, "torso": -0.1, "shoulderL": 0.6, "shoulderR": 0.5, "outL": 0.7, "outR": 0.7, "lift": 0.2},
+    {"hipL": 0.6, "kneeL": -1.1, "hipR": 0.3, "kneeR": -1.0, "torso": -0.3, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 0.6, "elbowR": 0.6, "outL": 0.4, "outR": 0.4},
+])
+
+# Leaning back to take the ball on the chest, arms out, then it drops to the feet.
+CHEST = keyed([
+    {"hipL": 0.2, "kneeL": -0.3, "hipR": -0.1, "kneeR": -0.3, "torso": 0.15, "outL": 0.6, "outR": 0.6, "elbowL": 0.5, "elbowR": 0.5},
+    {"hipL": 0.3, "kneeL": -0.6, "hipR": -0.1, "kneeR": -0.6, "torso": 0.45, "head": -0.3, "outL": 0.9, "outR": 0.9, "elbowL": 0.4, "elbowR": 0.4},
+    {"hipL": 0.3, "kneeL": -0.5, "hipR": -0.1, "kneeR": -0.5, "torso": 0.3, "head": 0.2, "outL": 0.8, "outR": 0.8, "elbowL": 0.4, "elbowR": 0.4},
+    {"hipL": 0.2, "kneeL": -0.3, "hipR": -0.1, "kneeR": -0.3, "torso": -0.1, "head": 0.3, "outL": 0.4, "outR": 0.4, "elbowL": 0.5, "elbowR": 0.5},
+])
+
+# Tripped: lurches forward, arms flung out, and catches himself.
+STUMBLE = keyed([
+    {"hipL": 0.4, "kneeL": -0.4, "hipR": -0.7, "kneeR": -1.3, "torso": -0.3, "shoulderL": 0.4, "shoulderR": -0.4, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": -0.2, "kneeL": -0.5, "hipR": -0.9, "kneeR": -1.5, "torso": -0.6, "head": 0.3, "shoulderL": 1.4, "shoulderR": 1.1, "outL": 0.9, "outR": 0.9},
+    {"hipL": -0.4, "kneeL": -0.6, "hipR": 0.6, "kneeR": -0.8, "torso": -0.75, "head": 0.4, "shoulderL": 1.8, "shoulderR": 1.5, "outL": 1.0, "outR": 1.0},
+    {"hipL": 0.7, "kneeL": -1.0, "hipR": -0.5, "kneeR": -0.6, "torso": -0.65, "head": 0.4, "shoulderL": 1.2, "shoulderR": 1.6, "outL": 1.1, "outR": 0.8},
+    {"hipL": -0.3, "kneeL": -0.6, "hipR": 0.6, "kneeR": -0.9, "torso": -0.5, "head": 0.3, "shoulderL": 0.8, "shoulderR": 0.6, "outL": 0.9, "outR": 0.9},
+    {"hipL": 0.5, "kneeL": -0.7, "hipR": -0.3, "kneeR": -0.7, "torso": -0.35, "head": 0.2, "shoulderL": 0.2, "shoulderR": 0.4, "outL": 0.6, "outR": 0.6},
+    {"hipL": 0.2, "kneeL": -0.4, "hipR": -0.1, "kneeR": -0.4, "torso": -0.15, "outL": 0.3, "outR": 0.3, "elbowL": 0.5, "elbowR": 0.5},
+])
+
+# Two-handed shove.
+PUSH = keyed([
+    {"hipL": 0.4, "kneeL": -0.5, "hipR": -0.4, "kneeR": -0.6, "torso": -0.15, "shoulderL": 0.4, "shoulderR": 0.4, "elbowL": 1.4, "elbowR": 1.4},
+    {"hipL": 0.6, "kneeL": -0.8, "hipR": -0.4, "kneeR": -0.5, "torso": -0.25, "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 1.7, "elbowR": 1.7, "outL": 0.2, "outR": 0.2},
+    {"hipL": 0.7, "kneeL": -0.9, "hipR": -0.6, "kneeR": -0.3, "torso": -0.4, "shoulderL": 1.5, "shoulderR": 1.5, "elbowL": 0.4, "elbowR": 0.4, "outL": 0.15, "outR": 0.15},
+    {"hipL": 0.7, "kneeL": -0.9, "hipR": -0.7, "kneeR": -0.2, "torso": -0.5, "shoulderL": 1.6, "shoulderR": 1.6, "elbowL": 0.05, "elbowR": 0.05, "outL": 0.15, "outR": 0.15},
+    {"hipL": 0.6, "kneeL": -0.8, "hipR": -0.5, "kneeR": -0.4, "torso": -0.35, "shoulderL": 1.3, "shoulderR": 1.3, "elbowL": 0.3, "elbowR": 0.3, "outL": 0.2, "outR": 0.2},
+    {"hipL": 0.4, "kneeL": -0.6, "hipR": -0.3, "kneeR": -0.5, "torso": -0.2, "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 0.9, "elbowR": 0.9},
+    {"hipL": 0.2, "kneeL": -0.4, "hipR": -0.2, "kneeR": -0.4, "torso": -0.1, "shoulderL": 0.3, "shoulderR": 0.3, "elbowL": 0.6, "elbowR": 0.6},
+])
+
+# Shoulder barge: turns side-on and drives the left shoulder in.
+BODYCHK = keyed([
+    {"hipL": 0.5, "kneeL": -0.6, "hipR": -0.5, "kneeR": -0.9, "torso": -0.2, "shoulderL": -0.4, "shoulderR": 0.4, "elbowL": 0.8, "elbowR": 0.8},
+    {"pelvis": (None, None, 0.6), "hipL": 0.4, "kneeL": -0.7, "hipR": -0.4, "kneeR": -0.7, "torso": (-0.3, -0.2, None), "shoulderL": 0.2, "shoulderR": 0.2, "elbowL": 1.5, "elbowR": 1.2},
+    {"pelvis": (None, None, 0.9), "hipL": 0.5, "kneeL": -0.8, "hipR": -0.5, "kneeR": -0.5, "torso": (-0.4, -0.35, None), "shoulderL": 0.1, "shoulderR": 0.3, "elbowL": 1.7, "elbowR": 1.3, "outL": 0.1},
+    {"pelvis": (None, None, 1.0), "hipL": 0.6, "kneeL": -0.9, "hipR": -0.7, "kneeR": -0.3, "torso": (-0.45, -0.45, None), "shoulderL": 0.1, "shoulderR": 0.4, "elbowL": 1.8, "elbowR": 1.3, "outL": 0.1, "lift": 0.05},
+    {"pelvis": (None, None, 0.8), "hipL": 0.5, "kneeL": -0.8, "hipR": -0.5, "kneeR": -0.6, "torso": (-0.35, -0.3, None), "shoulderL": 0.2, "shoulderR": 0.4, "elbowL": 1.4, "elbowR": 1.2},
+    {"pelvis": (None, None, 0.4), "hipL": 0.4, "kneeL": -0.6, "hipR": -0.3, "kneeR": -0.6, "torso": (-0.2, -0.1, None), "shoulderL": 0.2, "shoulderR": 0.3, "elbowL": 1.0, "elbowR": 1.0},
+    {"hipL": 0.2, "kneeL": -0.4, "hipR": -0.1, "kneeR": -0.4, "torso": -0.1, "elbowL": 0.6, "elbowR": 0.6},
+])
+
+# Diving header: launches flat, head first, and lands on the chest.
+DIVEHED = keyed([
+    {**CROUCH, "shoulderL": -0.3, "shoulderR": -0.3},
+    {"pelvis": -0.9, "hipL": -0.3, "kneeL": -0.6, "hipR": -0.5, "kneeR": -0.3, "head": -0.4, "shoulderL": -0.6, "shoulderR": -0.6, "outL": 0.5, "outR": 0.5, "lift": 0.35},
+    {"pelvis": -1.45, "hipL": -0.1, "kneeL": -0.3, "hipR": -0.2, "kneeR": -0.4, "head": -0.6, "shoulderL": -0.4, "shoulderR": -0.4, "outL": 0.6, "outR": 0.6, "lift": 0.45},
+    {"pelvis": -1.5, "hipL": 0.0, "kneeL": -0.4, "hipR": 0.0, "kneeR": -0.6, "head": -0.5, "shoulderL": 2.2, "shoulderR": 2.2, "elbowL": 0.8, "elbowR": 0.8, "outL": 0.4, "outR": 0.4},
+    {"pelvis": -1.55, "hipL": 0.0, "kneeL": -0.5, "hipR": 0.0, "kneeR": -0.3, "head": -0.6, "shoulderL": 2.6, "shoulderR": 2.5, "elbowL": 1.3, "elbowR": 1.3, "outL": 0.5, "outR": 0.5},
+])
+
+# The keeper: a set stance, gloves up.
+SET = {"hipL": (0.3, 0.15, None), "kneeL": -0.7, "hipR": (0.3, -0.15, None), "kneeR": -0.7, "torso": -0.3,
+       "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 0.8, "elbowR": 0.8, "outL": 0.5, "outR": 0.5}
+
+
+def dive(side, high):
+    """A keeper's dive to his left (side -1) or right (+1), high (arms over the head) or low (along
+    the ground): set, push off, stretched in the air, down on his side, and lying there."""
+    s = side
+    turn = 0.6 * s  # turned forward into the dive, so it reads across the screen, not into it
+    reach = 2.9 if high else 2.2
+    up = 0.55 if high else 0.25
+    out = "out" + ("L" if s < 0 else "R")
+    away = "out" + ("R" if s < 0 else "L")
+    push = "hip" + ("R" if s < 0 else "L")  # the leg he pushes off with
+    knee = "knee" + push[3]
+    return keyed([
+        SET,
+        {**SET, push: (0.4, 0.4 * -s, None), knee: -1.3, "torso": (-0.3, 0.2 * s, None)},
+        {"pelvis": (None, 0.5 * s, turn * 0.5), push: (0.1, 0.3 * -s, None), knee: -0.2, "torso": -0.1,
+         "shoulderL": reach - 0.6, "shoulderR": reach - 0.6, out: 0.9, away: 0.3, "lift": 0.1},
+        {"pelvis": (None, 1.25 * s, turn), "torso": -0.05, "kneeL": -0.2, "kneeR": -0.4,
+         "shoulderL": reach, "shoulderR": reach, "elbowL": 0.1, "elbowR": 0.1, out: 0.2, away: 0.2, "lift": up},
+        {"pelvis": (None, 1.45 * s, turn), "kneeL": -0.4, "kneeR": -0.5,
+         "shoulderL": reach, "shoulderR": reach, "elbowL": 0.3, "elbowR": 0.3, out: 0.3, away: 0.2, "lift": up * 0.5},
+        {"pelvis": (None, 1.55 * s, turn), "kneeL": -0.7, "kneeR": -0.4, "hipL": 0.3, "hipR": 0.3,
+         "shoulderL": reach - 0.3, "shoulderR": reach - 0.3, "elbowL": 0.6, "elbowR": 0.6, out: 0.4, away: 0.3},
+        {"pelvis": (None, 1.55 * s, turn), "kneeL": -1.0, "kneeR": -0.6, "hipL": 0.5, "hipR": 0.4,
+         "shoulderL": 1.6, "shoulderR": 1.6, "elbowL": 1.4, "elbowR": 1.4, out: 0.2, away: 0.2},
+        {"pelvis": (None, 1.55 * s, turn), "kneeL": -1.2, "kneeR": -0.8, "hipL": 0.7, "hipR": 0.5,
+         "shoulderL": 1.3, "shoulderR": 1.3, "elbowL": 1.8, "elbowR": 1.8, out: 0.1, away: 0.1},
+    ])
+
+
+# Catches: the game draws the ball in his hands.
+GLWCTCH = keyed([  # a low ball scooped up
+    SET,
+    {**SET, "torso": -0.7, "kneeL": -0.9, "kneeR": -0.9, "shoulderL": 0.6, "shoulderR": 0.6, "elbowL": 0.2, "elbowR": 0.2, "outL": 0.15, "outR": 0.15},
+    {**SET, "torso": -0.75, "kneeL": -1.0, "kneeR": -1.0, "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 1.0, "elbowR": 1.0, "outL": 0.1, "outR": 0.1},
+    {**SET, "torso": -0.3, "kneeL": -0.6, "kneeR": -0.6, "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 1.9, "elbowR": 1.9, "outL": -0.1, "outR": -0.1},
+])
+GMDCTCH = keyed([  # at the chest
+    SET,
+    {**SET, "torso": -0.1, "shoulderL": 1.4, "shoulderR": 1.4, "elbowL": 0.4, "elbowR": 0.4, "outL": 0.2, "outR": 0.2},
+    {**SET, "torso": 0.1, "shoulderL": 1.2, "shoulderR": 1.2, "elbowL": 1.5, "elbowR": 1.5, "outL": 0.0, "outR": 0.0},
+    {**SET, "torso": -0.15, "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 1.9, "elbowR": 1.9, "outL": -0.1, "outR": -0.1},
+])
+GJMCTCH = keyed([  # jumping for a high ball
+    SET,
+    {**CROUCH, "shoulderL": 0.4, "shoulderR": 0.4},
+    {"hipL": 0.7, "kneeL": -1.2, "hipR": 0.0, "kneeR": -0.3, "torso": 0.1, "shoulderL": 2.9, "shoulderR": 2.9, "elbowL": 0.2, "elbowR": 0.2, "outL": 0.1, "outR": 0.1, "lift": 0.45},
+    {"hipL": 0.8, "kneeL": -1.4, "hipR": 0.2, "kneeR": -0.6, "torso": 0.1, "shoulderL": 3.0, "shoulderR": 3.0, "elbowL": 0.5, "elbowR": 0.5, "outL": 0.0, "outR": 0.0, "lift": 0.5},
+    {"hipL": 0.5, "kneeL": -0.9, "hipR": 0.3, "kneeR": -0.8, "torso": -0.1, "shoulderL": 1.6, "shoulderR": 1.6, "elbowL": 1.4, "elbowR": 1.4, "outL": 0.0, "outR": 0.0, "lift": 0.2},
+    {**SET, "torso": -0.2, "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 1.9, "elbowR": 1.9, "outL": -0.1, "outR": -0.1},
+])
+
+# The keeper's drop kick: ball held out, dropped, volleyed high upfield.
+GDKICK = keyed([
+    {"hipL": 0.3, "kneeL": -0.3, "hipR": -0.3, "kneeR": -0.4, "shoulderL": 1.3, "shoulderR": 1.3, "elbowL": 0.4, "elbowR": 0.4, "outL": 0.1, "outR": 0.1},
+    {"hipL": 0.5, "kneeL": -0.5, "hipR": -0.5, "kneeR": -0.9, "torso": 0.05, "shoulderL": 1.4, "shoulderR": 1.4, "elbowL": 0.2, "elbowR": 0.2, "outL": 0.1, "outR": 0.1},
+    {"hipL": 0.2, "kneeL": -0.4, "hipR": -0.8, "kneeR": -1.6, "torso": 0.15, "shoulderL": 0.6, "shoulderR": 0.4, "outL": 1.2, "outR": 1.2},
+    {"hipL": -0.1, "kneeL": -0.2, "hipR": 1.9, "kneeR": -0.05, "ankleR": -0.4, "torso": 0.45, "shoulderL": 0.8, "shoulderR": 0.2, "outL": 1.2, "outR": 1.2, "lift": 0.05},
+    {"hipL": 0.0, "kneeL": -0.3, "hipR": 1.3, "kneeR": -0.4, "torso": 0.3, "shoulderL": 0.6, "shoulderR": 0.3, "outL": 1.0, "outR": 1.0},
+    {"hipL": 0.1, "kneeL": -0.5, "hipR": 0.5, "kneeR": -0.7, "torso": 0.05, "outL": 0.6, "outR": 0.6, "elbowL": 0.5, "elbowR": 0.5},
+    {"hipL": 0.2, "kneeL": -0.3, "hipR": -0.1, "kneeR": -0.3, "torso": -0.05, "outL": 0.3, "outR": 0.3, "elbowL": 0.5, "elbowR": 0.5},
+])
+
 # name in the game: pose, frames, start tick of each frame (FIFA 96's timing for the same
 # animation, so loops and the kick's contact time stay what the game is tuned to)
 ANIMS = {
@@ -490,6 +650,25 @@ ANIMS = {
     "gpound": (GPOUND, 8, [6, 12, 18, 23, 29, 35, 41, 52]),
     "glwthrw": (GLWTHRW, 6, [4, 10, 15, 21, 29, 36]),
     "gpunchu": (GPUNCHU, 6, [6, 9, 12, 19, 24, 27]),
+    "walk": (walk, 12, [1, 4, 6, 8, 11, 14, 16, 19, 21, 23, 26, 29]),
+    "shoot": (SHOOT, 7, [4, 7, 10, 13, 16, 19, 22]),
+    "slide": (SLIDE, 5, [5, 9, 12, 18, 24]),
+    "throwin": (THROWIN, 6, [1, 5, 14, 21, 24, 34]),
+    "jump": (JUMP, 6, [4, 8, 12, 19, 23, 26]),
+    "chest": (CHEST, 4, [8, 15, 21, 25]),
+    "stumble": (STUMBLE, 7, [1, 4, 7, 13, 21, 26, 29]),
+    "push": (PUSH, 7, [4, 6, 8, 13, 15, 17, 19]),
+    "bodychk": (BODYCHK, 7, [6, 12, 18, 24, 27, 30, 41]),
+    "divehed": (DIVEHED, 5, [6, 10, 14, 22, 27]),
+    # the keeper's dives: a to his left, b to his right (FIFA 96 draws them per direction)
+    "ghdsa": (dive(-1, True), 8, [4, 6, 9, 14, 18, 20, 24, 27]),
+    "ghdsb": (dive(1, True), 8, [4, 6, 9, 14, 18, 20, 24, 27]),
+    "gldsa": (dive(-1, False), 8, [4, 6, 9, 14, 18, 20, 24, 27]),
+    "gldsb": (dive(1, False), 8, [4, 6, 9, 14, 18, 20, 24, 27]),
+    "glwctch": (GLWCTCH, 4, [6, 9, 12, 16]),
+    "gmdctch": (GMDCTCH, 4, [6, 9, 12, 16]),
+    "gjmctch": (GJMCTCH, 6, [7, 12, 17, 21, 25, 30]),
+    "gdkick": (GDKICK, 7, [6, 12, 17, 22, 27, 32, 37]),
     # the Chaos line moves, on their drawn art's timing (brand/sprites/line_actions/manifest.json)
     "power_strike": (POWER_STRIKE, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
     "bulldozer_clear": (BULLDOZER_CLEAR, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
