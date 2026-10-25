@@ -386,18 +386,21 @@ Match options (PLAYERS) or the pause menu, mid-match: **Pixel** draws the player
 own palette (`assets/sprites/oscf_rendered/palette.png`), so the kit shader colours them the
 same way: stripes, second colours, and the skin and hair from a player's photo. Rendered so
 far: walk, jog, run, stand, kick, shot, slide, throw-in, jump, chest control, stumble, push,
-body check and diving header; the keeper's high and low dives both ways, catches and drop kick;
+body check, diving header, back-heel and rainbow flick; the goal celebrations; the keeper's
+high and low dives both ways, catches and drop kick;
 the specials' animations (volley, bicycle kick, tackle, header, nutmeg, marking, fall, and the
 keeper's ground pound, throw and punch), all on FIFA 96's frame timings; and the eight Chaos
-line moves, on their drawn art's timings. Every other animation (the celebrations, some skills)
-falls back to FIFA 96's (`Anims.rendered()`, `Footballer.art_for()`). To re-render:
+line moves, on their drawn art's timings. Every other animation falls back to FIFA 96's
+(`Anims.rendered()`, `Footballer.art_for()`); none of those is played on a player yet, bar
+`dummyrf`, Stepover Storm's Pixel stand-in. To re-render:
 
 ```
 blender -b -P tools/blender/footballer.py -- /tmp/renders
 tools/.venv/bin/python -I tools/blender/pack_sprites.py /tmp/renders game/assets/sprites/oscf_rendered run jog xstandd kick \
   vollkck bicycle tackle header nutmeg mark fall gpound glwthrw gpunchu power_strike bulldozer_clear \
   grapple_tackle laser_pass whirlwind_turn cannon_punt rising_fist stepover_storm walk shoot slide \
-  throwin jump chest stumble push bodychk divehed ghdsa ghdsb gldsa gldsb glwctch gmdctch gjmctch gdkick
+  throwin jump chest stumble push bodychk divehed ghdsa ghdsb gldsa gldsb glwctch gmdctch gjmctch gdkick \
+  bckheel rainbow aeropla victrun celdnce celdnc2 celdpnc duckflp vctflip
 ```
 
 ## Chaos modifiers (Chaos Football only)

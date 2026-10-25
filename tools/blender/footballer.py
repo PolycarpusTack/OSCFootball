@@ -633,6 +633,106 @@ GDKICK = keyed([
     {"hipL": 0.2, "kneeL": -0.3, "hipR": -0.1, "kneeR": -0.3, "torso": -0.05, "outL": 0.3, "outR": 0.3, "elbowL": 0.5, "elbowR": 0.5},
 ])
 
+# Skill moves.
+BCKHEEL = keyed([  # steps past the ball and flicks it back with the right heel
+    {"hipL": 0.4, "kneeL": -0.5, "hipR": -0.4, "kneeR": -0.7, "torso": -0.15, "shoulderL": -0.4, "shoulderR": 0.4, "elbowL": 0.7, "elbowR": 0.7},
+    {"hipL": 0.1, "kneeL": -0.4, "hipR": 0.5, "kneeR": -0.6, "torso": -0.1, "outL": 0.6, "outR": 0.5, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.0, "kneeL": -0.4, "hipR": -0.2, "kneeR": -1.5, "torso": -0.2, "outL": 0.7, "outR": 0.6, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.0, "kneeL": -0.4, "hipR": -0.7, "kneeR": -1.0, "ankleR": 0.4, "torso": -0.3, "outL": 0.8, "outR": 0.7, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.2, "kneeL": -0.5, "hipR": -0.2, "kneeR": -0.6, "torso": -0.15, "outL": 0.4, "outR": 0.4, "elbowL": 0.7, "elbowR": 0.7},
+])
+
+RAINBOW = keyed([  # the ball between the feet, rolled up the left calf with the right heel and over the head
+    {"hipL": 0.4, "kneeL": -0.6, "hipR": -0.4, "kneeR": -0.8, "torso": -0.2, "shoulderL": -0.4, "shoulderR": 0.4, "elbowL": 0.8, "elbowR": 0.8},
+    {"hipL": 0.2, "kneeL": -0.3, "hipR": 0.1, "kneeR": -0.4, "torso": -0.1, "outL": 0.6, "outR": 0.6, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.05, "kneeL": -0.2, "hipR": (-0.1, 0.15, None), "kneeR": -0.9, "torso": -0.05, "outL": 0.7, "outR": 0.7, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.0, "kneeL": -0.2, "hipR": (-0.5, 0.2, None), "kneeR": -1.7, "ankleR": 0.5, "torso": 0.05, "outL": 0.9, "outR": 0.8, "elbowL": 0.5, "elbowR": 0.5},
+    {"hipL": 0.1, "kneeL": -0.3, "hipR": -0.7, "kneeR": -2.0, "ankleR": 0.6, "torso": 0.1, "head": 0.3, "outL": 1.0, "outR": 0.9, "elbowL": 0.5, "elbowR": 0.5, "lift": 0.1},
+    {"hipL": 0.3, "kneeL": -0.6, "hipR": -0.2, "kneeR": -1.0, "torso": 0.0, "head": 0.3, "outL": 0.8, "outR": 0.8, "elbowL": 0.5, "elbowR": 0.5, "lift": 0.05},
+    {"hipL": 0.5, "kneeL": -0.6, "hipR": -0.4, "kneeR": -0.7, "torso": -0.15, "outL": 0.5, "outR": 0.5, "elbowL": 0.7, "elbowR": 0.7},
+    {"hipL": -0.3, "kneeL": -0.9, "hipR": 0.6, "kneeR": -0.5, "torso": -0.25, "shoulderL": 0.5, "shoulderR": -0.5, "elbowL": 1.0, "elbowR": 1.0},
+])
+
+
+# Goal celebrations.
+def aeroplane(j, i, n):
+    """Running, arms out like wings, banking from side to side."""
+    _stride(j, i / n * math.tau, swing=0.7, fold=1.4, lean=0.2, arms=0.0, elbow=0.05)
+    for side in ("L", "R"):
+        _out(j, side, 1.35)
+    j["torso"].rotation_euler.y = 0.22 * math.sin(i / n * math.tau)
+
+
+def victory_run(j, i, n):
+    """Running with both fists up."""
+    _stride(j, i / n * math.tau, swing=0.75, fold=1.5, lean=0.15, arms=0.0, elbow=0.4)
+    for side in ("L", "R"):
+        j["shoulder" + side].rotation_euler.x = 2.8 + 0.15 * math.sin(i / n * math.tau)
+        _out(j, side, 0.35)
+
+
+_DANCE = {"hipL": (0.1, 0.1, None), "kneeL": -0.4, "hipR": (0.1, -0.1, None), "kneeR": -0.4, "torso": -0.05}
+CELDNCE = keyed([  # a fist pumped at the sky, the weight rocking foot to foot
+    {**_DANCE, "shoulderR": 2.9, "elbowR": 0.6, "shoulderL": 0.3, "elbowL": 1.4},
+    {**_DANCE, "kneeL": -0.7, "pelvis": (None, 0.1, None), "shoulderR": 2.4, "elbowR": 1.6, "shoulderL": 0.4, "elbowL": 1.5},
+    {**_DANCE, "shoulderR": 3.0, "elbowR": 0.3, "shoulderL": 0.3, "elbowL": 1.4},
+    {**_DANCE, "kneeR": -0.7, "pelvis": (None, -0.1, None), "shoulderR": 2.4, "elbowR": 1.6, "shoulderL": 0.4, "elbowL": 1.5},
+    {**_DANCE, "shoulderR": 3.0, "elbowR": 0.3, "shoulderL": 0.3, "elbowL": 1.4},
+    {**_DANCE, "kneeL": -0.7, "pelvis": (None, 0.1, None), "shoulderR": 2.4, "elbowR": 1.6, "shoulderL": 0.4, "elbowL": 1.5},
+    {**_DANCE, "shoulderR": 3.0, "elbowR": 0.2, "shoulderL": 0.5, "elbowL": 1.2, "outR": 0.5},
+])
+
+CELDNC2 = keyed([  # knees bobbing, elbows out, a shuffle side to side
+    {"hipL": 0.4, "kneeL": -0.6, "hipR": -0.3, "kneeR": -0.5, "torso": -0.2, "shoulderL": 0.5, "shoulderR": 0.5, "elbowL": 1.5, "elbowR": 1.5},
+    {**_DANCE, "kneeL": -0.9, "kneeR": -0.9, "hipL": 0.4, "hipR": 0.4, "torso": -0.3, "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 1.8, "elbowR": 1.8, "outL": 0.8, "outR": 0.8},
+    {**_DANCE, "pelvis": (None, None, 0.4), "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 1.7, "elbowR": 1.7, "outL": 0.7, "outR": 0.7},
+    {**_DANCE, "kneeL": -0.9, "kneeR": -0.9, "hipL": 0.4, "hipR": 0.4, "torso": -0.3, "pelvis": (None, None, 0.2), "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 1.8, "elbowR": 1.8, "outL": 0.8, "outR": 0.8},
+    {**_DANCE, "pelvis": (None, None, -0.4), "shoulderL": 0.9, "shoulderR": 0.9, "elbowL": 1.7, "elbowR": 1.7, "outL": 0.7, "outR": 0.7},
+    {**_DANCE, "kneeL": -0.9, "kneeR": -0.9, "hipL": 0.4, "hipR": 0.4, "torso": -0.3, "pelvis": (None, None, -0.2), "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 1.8, "elbowR": 1.8, "outL": 0.8, "outR": 0.8},
+    {**_DANCE, "shoulderL": 1.4, "shoulderR": 1.4, "elbowL": 0.6, "elbowR": 0.6, "outL": 0.6, "outR": 0.6},
+    {**_DANCE, "shoulderL": 0.5, "shoulderR": 0.5, "elbowL": 1.2, "elbowR": 1.2, "outL": 0.4, "outR": 0.4},
+])
+
+# Down on one knee: a fist pumped, then both fists hammering the turf, and up again.
+_KNEEL = {"hipL": 1.4, "kneeL": -1.5, "hipR": -0.2, "kneeR": -2.1, "ankleR": 0.6}
+CELDPNC = keyed([
+    {"hipL": 0.5, "kneeL": -0.8, "hipR": 0.3, "kneeR": -0.9, "torso": -0.3, "shoulderL": 0.4, "shoulderR": 0.4, "elbowL": 1.2, "elbowR": 1.2},
+    {**_KNEEL, "torso": 0.0, "shoulderR": 1.5, "elbowR": 1.8, "shoulderL": 0.3, "elbowL": 1.0},
+    {**_KNEEL, "torso": 0.1, "shoulderR": 3.0, "elbowR": 0.2, "shoulderL": 0.3, "elbowL": 1.0},
+    {**_KNEEL, "torso": 0.0, "shoulderR": 1.6, "elbowR": 1.9, "shoulderL": 0.4, "elbowL": 1.0},
+    {**_KNEEL, "torso": -0.8, "shoulderL": 1.6, "shoulderR": 1.6, "elbowL": 0.3, "elbowR": 0.3, "outL": 0.3, "outR": 0.3},
+    {**_KNEEL, "torso": -0.6, "shoulderL": 2.3, "shoulderR": 2.3, "elbowL": 1.2, "elbowR": 1.2, "outL": 0.3, "outR": 0.3},
+    {**_KNEEL, "torso": -0.85, "shoulderL": 1.5, "shoulderR": 1.5, "elbowL": 0.2, "elbowR": 0.2, "outL": 0.3, "outR": 0.3},
+    {"hipL": 0.9, "kneeL": -1.2, "hipR": -0.1, "kneeR": -1.2, "torso": -0.5, "shoulderL": 0.8, "shoulderR": 0.8, "elbowL": 0.6, "elbowR": 0.6},
+    {"hipL": 0.3, "kneeL": -0.4, "hipR": 0.0, "kneeR": -0.4, "torso": -0.1, "shoulderR": 2.9, "elbowR": 0.3, "shoulderL": 0.4, "elbowL": 0.8},
+])
+
+# Squatting low, flapping elbows like wings, waddling.
+_SQUAT = {"hipL": (1.2, 0.25, None), "kneeL": -2.0, "hipR": (1.2, -0.25, None), "kneeR": -2.0, "torso": -0.4, "head": 0.3,
+          "shoulderL": -0.3, "shoulderR": -0.3, "elbowL": 2.2, "elbowR": 2.2}
+DUCKFLP = keyed([
+    {**_SQUAT, "outL": 0.4, "outR": 0.4},
+    {**_SQUAT, "outL": 1.5, "outR": 1.5, "pelvis": (None, 0.12, None)},
+    {**_SQUAT, "outL": 0.4, "outR": 0.4},
+    {**_SQUAT, "outL": 1.5, "outR": 1.5, "pelvis": (None, -0.12, None)},
+    {**_SQUAT, "outL": 0.4, "outR": 0.4},
+    {**_SQUAT, "outL": 1.5, "outR": 1.5, "pelvis": (None, 0.12, None)},
+    {**_SQUAT, "outL": 0.4, "outR": 0.4},
+    {**_SQUAT, "outL": 1.5, "outR": 1.5, "pelvis": (None, -0.12, None)},
+    {**_SQUAT, "outL": 0.4, "outR": 0.4},
+    {**_SQUAT, "outL": 1.5, "outR": 1.5},
+])
+
+VCTFLIP = keyed([  # a front handspring, landed with both arms up
+    {**CROUCH, "shoulderL": 1.0, "shoulderR": 1.0, "elbowL": 0.2, "elbowR": 0.2},
+    {"pelvis": -1.9, "hipL": 0.3, "kneeL": -0.4, "hipR": -0.4, "kneeR": -0.2, "shoulderL": 2.9, "shoulderR": 2.9, "elbowL": 0.0, "elbowR": 0.0, "outL": 0.2, "outR": 0.2},
+    {"pelvis": -3.0, "hipL": 0.1, "kneeL": -0.3, "hipR": -0.3, "kneeR": -0.2, "shoulderL": 3.0, "shoulderR": 3.0, "elbowL": 0.0, "elbowR": 0.0, "outL": 0.25, "outR": 0.25},
+    {"pelvis": -4.3, "hipL": -0.3, "kneeL": -0.6, "hipR": -0.5, "kneeR": -0.6, "shoulderL": 2.6, "shoulderR": 2.6, "elbowL": 0.2, "elbowR": 0.2, "lift": 0.35},
+    {"pelvis": -5.6, "hipL": 0.6, "kneeL": -1.0, "hipR": 0.4, "kneeR": -0.9, "torso": 0.1, "shoulderL": 2.9, "shoulderR": 2.9, "elbowL": 0.2, "elbowR": 0.2, "lift": 0.2},
+    {"hipL": 0.8, "kneeL": -1.4, "hipR": 0.6, "kneeR": -1.4, "torso": -0.4, "shoulderL": 1.0, "shoulderR": 1.0, "elbowL": 0.6, "elbowR": 0.6, "outL": 0.6, "outR": 0.6},
+    {"hipL": 0.1, "kneeL": -0.2, "hipR": -0.1, "kneeR": -0.2, "torso": 0.1, "shoulderL": 2.8, "shoulderR": 2.8, "elbowL": 0.3, "elbowR": 0.3, "outL": 0.5, "outR": 0.5},
+])
+
 # name in the game: pose, frames, start tick of each frame (FIFA 96's timing for the same
 # animation, so loops and the kick's contact time stay what the game is tuned to)
 ANIMS = {
@@ -669,6 +769,15 @@ ANIMS = {
     "gmdctch": (GMDCTCH, 4, [6, 9, 12, 16]),
     "gjmctch": (GJMCTCH, 6, [7, 12, 17, 21, 25, 30]),
     "gdkick": (GDKICK, 7, [6, 12, 17, 22, 27, 32, 37]),
+    "bckheel": (BCKHEEL, 5, [6, 12, 16, 20, 25]),
+    "rainbow": (RAINBOW, 8, [5, 9, 13, 17, 22, 25, 28, 34]),
+    "aeropla": (aeroplane, 6, [1, 6, 11, 16, 21, 26]),
+    "victrun": (victory_run, 6, [1, 6, 11, 16, 21, 26]),
+    "celdnce": (CELDNCE, 7, [8, 13, 16, 18, 20, 23, 33]),
+    "celdnc2": (CELDNC2, 8, [5, 14, 20, 24, 27, 32, 34, 37]),
+    "celdpnc": (CELDPNC, 9, [5, 9, 13, 15, 19, 21, 26, 29, 32]),
+    "duckflp": (DUCKFLP, 10, [18, 22, 26, 31, 36, 40, 44, 49, 54, 58]),
+    "vctflip": (VCTFLIP, 7, [7, 18, 22, 27, 31, 38, 45]),
     # the Chaos line moves, on their drawn art's timing (brand/sprites/line_actions/manifest.json)
     "power_strike": (POWER_STRIKE, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
     "bulldozer_clear": (BULLDOZER_CLEAR, 6, [0, 4.5, 8.1, 10.5, 15, 18]),
