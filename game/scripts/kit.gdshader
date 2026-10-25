@@ -3,7 +3,8 @@ shader_type canvas_item;
 // and recolours the kit slots: 1 shirt, 2 shirt second colour, 3 shorts, 4 socks, 5 boots,
 // and, when set for the player, 6 skin and 7 hair.
 // With own_art it draws our RGBA art instead (brand/sprites/line_actions), drawn in the OSCF
-// kit, and recolours it by colour: white shirt and socks, blue shorts, green keeper shirt.
+// kit, and recolours it by colour: white shirt and socks, blue shorts, green keeper shirt;
+// and, when set for the player, its skin and dark-brown hair like slots 6 and 7.
 
 uniform sampler2D palette : filter_nearest, repeat_disable;
 uniform vec3 shirt = vec3(0.8, 0.1, 0.1);
@@ -43,6 +44,14 @@ vec4 own_art_colour(vec4 t) {
 		kit = shirt2; full = 0.8;
 	}
 	if (kit.r < 0.0) {
+		// skin and hair, shaded around the art's own mid-tones (value 0.84 and 0.16)
+		if (hue >= 5.0 && hue <= 45.0 && h.y > 0.25) {
+			bool is_hair = h.z < 0.32;
+			if (is_hair ? has_hair : has_skin) {
+				float g = min(0.5 * h.z / (is_hair ? 0.16 : 0.84), 1.0);
+				return vec4(min((is_hair ? hair : skin) * (0.35 + 1.3 * g), vec3(1.0)), t.a);
+			}
+		}
 		return t;
 	}
 	float shade = min(h.z / full, 1.2);

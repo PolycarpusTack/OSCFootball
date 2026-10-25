@@ -29,7 +29,8 @@ func _initialize() -> void:
 				return
 			poses.append(source.get_region(bounds))
 			regions.append(bounds)
-		var factor := 48.0 / float(regions[0].size.y)
+		var factor := float(manifest.standing_height) / float(regions[0].size.y)
+		var lift_scale := float(manifest.standing_height) / 48.0  # the lifts were measured at 48 px
 		var sheet := Image.create(CELL * 6, CELL, false, Image.FORMAT_RGBA8)
 		sheet.fill(Color.TRANSPARENT)
 		var details := []
@@ -38,7 +39,7 @@ func _initialize() -> void:
 			var size := Vector2i(maxi(1, roundi(pose.get_width() * factor)), maxi(1, roundi(pose.get_height() * factor)))
 			pose.resize(size.x, size.y, Image.INTERPOLATE_BILINEAR)
 			var anchor_x: float = spec.get("anchor_x", [0.5, 0.5, 0.5, 0.5, 0.5, 0.5])[i]
-			var at := ORIGIN - Vector2i(roundi(size.x * anchor_x), size.y + int(spec.lift[i]))
+			var at := ORIGIN - Vector2i(roundi(size.x * anchor_x), size.y + roundi(float(spec.lift[i]) * lift_scale))
 			if at.x < 0 or at.y < 0 or at.x + size.x > CELL or at.y + size.y > CELL:
 				fail("Pose exceeds atlas cell: %s %d" % [id, i])
 				return

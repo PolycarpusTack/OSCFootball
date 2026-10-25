@@ -37,7 +37,7 @@ do not enable gameplay hitboxes.
 - `laser_pass_v2_prompt.txt`: the final Laser Pass refinement prompt. The initial
   `laser_pass.png` remains as a draft; the resource uses **v2**.
 
-The normal body is approximately 48 pixels tall. Large cells leave safe room for
+The ready stance is packed `standing_height` (40) pixels tall, the size of the FIFA 96 and Rendered run frames; the shader also recolours its skin and hair per player. Large cells leave safe room for
 wide poses and jumps; they do not mean 192-pixel-tall players. For a non-centred
 `AnimatedSprite2D`, use offset **(-96, -168)**. Horizontal mirroring uses the same
 centred x anchor. The drawings have a right-facing three-quarter base view, with
