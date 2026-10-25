@@ -60,6 +60,28 @@ func _initialize() -> void:
 		print("%s: directions %s, %.2f s (pixel %.2f s)" % [anim, dirs, length, pixel_length])
 		ok = ok and dirs == [0, 2, 4, 6, 8] and is_equal_approx(length, pixel_length)
 
+	# a keeper's dive: facing the ball in both arts; Rendered, down to the side the dive goes
+	var keeper = m.home.keeper()
+	var ball_at: Vector2 = m.ball.position
+	for rendered in [true, false]:
+		match_script.rendered = rendered
+		for side in [-1.0, 1.0]:
+			keeper._action_left = 0.0
+			keeper.position = ball_at - Vector2(100.0, 0.0)  # the ball to his right on screen: he faces right
+			keeper.velocity = Vector2.ZERO
+			keeper.dive(Vector2(0.0, side), true)  # up the screen is his left
+			keeper._physics_process(0.05)
+			var anim: String = keeper._anim
+			var good: bool
+			if rendered:
+				good = keeper.facing == 2 and anim == ("ghdsa" if side < 0.0 else "ghdsb")
+			else:  # FIFA 96's dives all go to his left
+				good = anim.begins_with("ghds") and keeper.facing == 2
+			print("%s dive %s: %s, facing %d" % ["rendered" if rendered else "pixel", "up" if side < 0.0 else "down", anim, keeper.facing])
+			ok = ok and good
+	keeper._action_left = 0.0
+	match_script.rendered = true
+
 	# the match options switch it
 	var options = load("res://scripts/match_options.gd").new()
 	root.add_child(options)

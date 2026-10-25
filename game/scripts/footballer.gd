@@ -186,7 +186,7 @@ func _physics_process(delta: float) -> void:
 		touch_cooldown = maxf(touch_cooldown, 0.1)
 	velocity = velocity.move_toward(w * top, accel() * delta)
 	position += velocity * delta
-	if velocity.length() > 10.0:
+	if velocity.length() > 10.0 and not diving():  # a keeper dives sideways, still facing the ball
 		facing = Anims.facing_from(velocity)
 	elif wish.length() > 0.1 and not busy():
 		facing = Anims.facing_from(wish)
@@ -469,11 +469,22 @@ func sliding() -> bool:
 	return _anim == "slide" and busy()
 
 
-## Goalkeeper dive along `dir` (pitch direction), high or low.
+## Goalkeeper dive along `dir` (pitch direction), high or low. He faces the ball and keeps
+## that facing through the dive (see _physics_process), going down to his left or right.
+## The Rendered art has a dive each way (a left, b right). FIFA 96 only drew dives to the
+## left (a and b two of them), mostly sideways into the screen; it plays one of those.
 func dive(dir: Vector2, high: bool) -> void:
 	if busy():
 		return
-	_play_action(("ghds" if high else "glds") + ("a" if randf() < 0.5 else "b"))
+	var to_ball := ball.position - position
+	if to_ball.length() > 1.0:
+		facing = Anims.facing_from(to_ball)
+	var anim := "ghds" if high else "glds"
+	if Anims.rendered(anim + "b"):
+		anim += "a" if dir.dot(Anims.FACING_VECTORS[(facing + 6) % 8]) >= 0.0 else "b"  # (facing + 6): his left
+	else:
+		anim += "a" if randf() < 0.5 else "b"
+	_play_action(anim)
 	velocity = dir.normalized() * 320.0
 
 
