@@ -82,6 +82,17 @@ func _initialize() -> void:
 	keeper._action_left = 0.0
 	match_script.rendered = true
 
+	# the F1 animation viewer draws the Rendered art through its own palette too
+	var viewer = load("res://scripts/anim_viewer.gd").new()
+	root.add_child(viewer)
+	await process_frame
+	viewer._index = viewer._names.find("kick")
+	viewer._process(0.0)
+	var viewer_palette: Texture2D = viewer._sprites[2].material.get_shader_parameter("palette")
+	print("viewer, rendered kick: palette %s, label '%s'" % [viewer_palette.resource_path, viewer._label.text.get_slice("\n", 0)])
+	ok = ok and "oscf_rendered/" in viewer_palette.resource_path and "[Rendered]" in viewer._label.text
+	viewer.queue_free()
+
 	# the match options switch it
 	var options = load("res://scripts/match_options.gd").new()
 	root.add_child(options)

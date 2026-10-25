@@ -1,5 +1,6 @@
 extends Node2D
-## Browse every extracted player animation in all 8 directions.
+## Browse every extracted player animation in all 8 directions, in the player art in use
+## (Pixel or Rendered, Match.rendered).
 ## Up/Down: animation, Left/Right: speed, Esc/F1: back to the pitch.
 
 var _names: Array = []
@@ -10,6 +11,7 @@ var _sprites: Array[Sprite2D] = []
 var _label := Label.new()
 var _kit: ShaderMaterial
 var _own_kit: ShaderMaterial
+var _rendered_kit: ShaderMaterial
 
 
 func _ready() -> void:
@@ -17,6 +19,7 @@ func _ready() -> void:
 	_names.sort()
 	_kit = Team.from_league("Club Brugge").outfield_material
 	_own_kit = Team.own_art_material(_kit, false)
+	_rendered_kit = Team.rendered_material(_kit)
 	for facing in 8:
 		var s := Sprite2D.new()
 		s.centered = false
@@ -35,12 +38,12 @@ func _process(delta: float) -> void:
 	for facing in 8:
 		var f := Anims.frame_at(anim, facing, _time)
 		var own: Material = null if anim.begins_with("ref_") else _own_kit  # the referee's art isn't recoloured
-		_sprites[facing].material = own if Anims.own_art(anim) else _kit
+		_sprites[facing].material = own if Anims.own_art(anim) else _rendered_kit if Anims.rendered(anim) else _kit
 		_sprites[facing].texture = f.tex
 		_sprites[facing].offset = f.offset
 		_sprites[facing].flip_h = f.flip
-	_label.text = "%s   (%d/%d)   speed x%.2f   %.2fs\nUp/Down: animation   Left/Right: speed   Esc: back" % [
-		anim, _index + 1, _names.size(), _speed, Anims.length_seconds(anim)]
+	_label.text = "%s%s   (%d/%d)   speed x%.2f   %.2fs\nUp/Down: animation   Left/Right: speed   Esc: back" % [
+		anim, "  [Rendered]" if Anims.rendered(anim) else "", _index + 1, _names.size(), _speed, Anims.length_seconds(anim)]
 
 
 func _unhandled_input(event: InputEvent) -> void:
