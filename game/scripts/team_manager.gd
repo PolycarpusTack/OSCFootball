@@ -7,8 +7,9 @@ extends Control
 ##
 ## SQUAD page: ↑/↓ (W/S, d-pad) choose a player; SPACE (A) picks him and SPACE on another swaps
 ## the two, so a reserve can go into the XI or onto the bench; ←/→ (A/D, gamepad Y) change the
-## stats shown. TACTICS page: ↑/↓ choose a formation, SPACE (A) plays it, B (gamepad X) shows the
-## shape with or without the ball. TAB (LB/RB) switches page, ENTER (Start) is done, ESC (gamepad
+## stats shown. TACTICS page: ↑/↓ choose a formation or one of the Team Instructions below them,
+## SPACE (A) plays the formation, ←/→ change the instruction, B (gamepad X) shows the shape with or
+## without the ball. TAB (LB/RB) switches page, ENTER (Start) is done, ESC (gamepad
 ## B) goes back. EA's 1-99 ratings are shown out of 50.
 
 const OPTIONS := "res://scenes/match_options.tscn"
@@ -54,6 +55,9 @@ var _row := 0
 var _picked := -1  # row picked for a swap
 var _tactic_row := 0
 var _with_ball := false
+var _tactics: Array = []  # the 4 Tactic Slots (Lineup.tactics); the first is the sheet's own
+var _slot := 0  # the slot the TACTICS page edits (keys 1-4)
+var _instructions := {}  # the edited slot's instructions: Team.INSTRUCTIONS key -> level
 var _dyn: Control  # everything that changes, rebuilt on each refresh
 
 
@@ -108,6 +112,8 @@ func _open(side: int) -> void:
 	_picked = -1
 	_page = 0
 	_tactic_row = Team.FORMATIONS.keys().find(_formation)
+	_tactics = Lineup.tactics(saved, _formation)
+	_pick_slot(0)
 	_refresh()
 
 
@@ -120,7 +126,8 @@ func _set_order(sheet: Dictionary) -> void:
 
 
 func _sheet() -> Dictionary:
-	return {"xi": _order.slice(0, 11), "bench": _order.slice(11, 11 + Lineup.BENCH)}
+	return {"xi": _order.slice(0, 11), "bench": _order.slice(11, 11 + Lineup.BENCH),
+		"instructions": _tactics[0].instructions.duplicate(), "tactics": _tactics.duplicate(true)}
 
 
 func _entry(row: int) -> Dictionary:
@@ -159,10 +166,15 @@ func _swap(a: int, b: int) -> void:
 
 func _select() -> void:
 	if _page == 1:
+		if _tactic_row >= Team.FORMATIONS.size():
+			return  # an instruction: ←/→
 		var f: String = Team.FORMATIONS.keys()[_tactic_row]
-		if f != _formation:
+		if _slot > 0:  # another slot's formation: the XI is lined up in it when it's switched to
+			_tactics[_slot].formation = f
+		elif f != _formation:
 			var xi := Lineup.refit(_squad, _order.slice(0, 11), f)
 			_formation = f
+			_tactics[0].formation = f
 			for i in 11:
 				_order[i] = xi[i]
 	elif _picked < 0:
@@ -178,7 +190,7 @@ func _move(step: int) -> void:
 	if _page == 0:
 		_row = clampi(_row + step, 0, _order.size() - 1)
 	else:
-		_tactic_row = clampi(_tactic_row + step, 0, Team.FORMATIONS.size() - 1)
+		_tactic_row = clampi(_tactic_row + step, 0, Team.FORMATIONS.size() + Team.INSTRUCTIONS.size() - 1)
 	_refresh()
 
 
@@ -193,6 +205,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_B: _toggle_ball()
 			KEY_TAB: _switch_page()
 			KEY_SPACE: _select()
+			KEY_1, KEY_2, KEY_3, KEY_4:
+				if _page == 1:
+					_pick_slot(event.physical_keycode - KEY_1)
 		if event.echo:
 			return
 		match event.physical_keycode:
@@ -215,6 +230,19 @@ func _change_view(step: int) -> void:
 	if _page == 0:
 		_view = (_view + step + VIEWS.size()) % VIEWS.size()
 		_refresh()
+	elif _tactic_row >= Team.FORMATIONS.size():  # the instruction's level, one up or down
+		var key: String = Team.INSTRUCTIONS.keys()[_tactic_row - Team.FORMATIONS.size()]
+		var levels: Array = Team.INSTRUCTIONS[key]
+		_instructions[key] = levels[clampi(levels.find(_instructions[key]) + step, 0, levels.size() - 1)]
+		_refresh()
+
+
+## The TACTICS page edits Tactic Slot `i` from now on.
+func _pick_slot(i: int) -> void:
+	_slot = i
+	_instructions = _tactics[i].instructions  # the same Dictionary: edits go to the slot
+	if is_inside_tree():
+		_refresh()
 
 
 func _toggle_ball() -> void:
@@ -231,12 +259,7 @@ func _switch_page() -> void:
 
 func _label(text: String, font_size: int, colour: Color, pos: Vector2, width := 0.0,
 		align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", colour)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 5)
+	var l := UiText.label(text, font_size, colour, 5)
 	l.position = pos
 	if width > 0.0:
 		l.size.x = width
@@ -287,8 +310,9 @@ func _header() -> void:
 			_rect(Vector2(x - 8, 28), Vector2(132, 34), Color(YELLOW, 0.22))
 		_label(PAGES[i], 22, YELLOW if on else GREY, Vector2(x, 30), 116, HORIZONTAL_ALIGNMENT_CENTER)
 		x += 150
-	var hint := "↑/↓ choose   SPACE pick / swap   ←/→ stats   TAB tactics   ENTER done   ESC back" if _page == 0 \
-		else "↑/↓ formation   SPACE play it   B with / without the ball   TAB squad   ENTER done   ESC back"
+	var hint := UiText.hint([["↑/↓", "choose"], ["SPACE", "pick / swap"], ["←/→", "stats"], ["TAB", "tactics"], ["ENTER", "done"],
+		["ESC", "back"]]) if _page == 0 else UiText.hint([["1-4", "tactic slot"], ["↑/↓", "choose"], ["SPACE", "play the formation"],
+		["←/→", "instruction"], ["B", "with / without the ball"], ["TAB", "squad"], ["ENTER", "done"], ["ESC", "back"]])
 	_label(hint, 15, GREY, Vector2(0, 690), 1280, HORIZONTAL_ALIGNMENT_CENTER)
 
 
@@ -402,29 +426,48 @@ func _card(e: Dictionary, row: int) -> void:
 
 
 func _tactics_page() -> void:
-	_label("FORMATION", 16, YELLOW, Vector2(60, 100))
+	for i in Team.TACTICS.size():  # the Tactic Slots, the edited one lit
+		var x := 450.0 + i * 200
+		if i == _slot:
+			_rect(Vector2(x, 68), Vector2(190, 24), Color(YELLOW, 0.25))
+		_label("%d  %s" % [i + 1, Team.TACTICS[i]], 15, YELLOW if i == _slot else GREY, Vector2(x, 70), 190,
+			HORIZONTAL_ALIGNMENT_CENTER)
+	var formation: String = _tactics[_slot].formation
+	_label("FORMATION", 16, YELLOW, Vector2(60, 96))
 	var names: Array = Team.FORMATIONS.keys()
 	for i in names.size():
-		var y := 132.0 + i * 46
+		var y := 120.0 + i * 34
 		if i == _tactic_row:
-			_rect(Vector2(52, y), Vector2(280, 40), Color(YELLOW, 0.25))
-		var playing: bool = names[i] == _formation
-		_label(names[i], 28, YELLOW if playing else Color.WHITE, Vector2(70, y))
+			_rect(Vector2(52, y), Vector2(280, 32), Color(YELLOW, 0.25))
+		var playing: bool = names[i] == formation
+		_label(names[i], 22, YELLOW if playing else Color.WHITE, Vector2(70, y))
 		if playing:
-			_label("PLAYING", 13, YELLOW, Vector2(200, y + 12))
-	var y0 := 132.0 + names.size() * 46 + 24
-	_label("SHAPE", 16, YELLOW, Vector2(60, y0))
-	_label("WITH THE BALL" if _with_ball else "WITHOUT THE BALL", 22, Color.WHITE, Vector2(60, y0 + 26))
-	_label("B: show the other", 13, GREY, Vector2(60, y0 + 56))
-	_label("With the ball the side spreads\nwide and pushes up; without it,\nit stays narrow and deep and\nslides across toward the ball.",
-		13, GREY, Vector2(60, y0 + 90))
+			_label("PLAYING", 13, YELLOW, Vector2(200, y + 8))
+	var y0 := 120.0 + names.size() * 34 + 14
+	_label("INSTRUCTIONS", 16, YELLOW, Vector2(60, y0))
+	var keys: Array = Team.INSTRUCTIONS.keys()
+	for i in keys.size():
+		var y := y0 + 26 + i * 28
+		var row := names.size() + i
+		if row == _tactic_row:
+			_rect(Vector2(52, y - 2), Vector2(280, 26), Color(YELLOW, 0.25))
+		var level: String = _instructions[keys[i]]
+		_label(keys[i].to_upper(), 15, GREY, Vector2(60, y))
+		var arrows := "◀  %s  ▶" if row == _tactic_row else "%s"
+		_label(arrows % level.to_upper(), 15, Color.WHITE if level == "normal" else YELLOW, Vector2(160, y), 170,
+			HORIZONTAL_ALIGNMENT_CENTER)
+	var y1 := y0 + 26 + keys.size() * 28 + 14
+	_label("SHAPE", 16, YELLOW, Vector2(60, y1))
+	_label("WITH THE BALL" if _with_ball else "WITHOUT THE BALL", 18, Color.WHITE, Vector2(60, y1 + 24))
+	_label("B: show the other", 13, GREY, Vector2(60, y1 + 50))
 	var view := PitchView.new()
 	view.position = Vector2(370, 96)
 	view.size = Vector2(880, 572)
 	view.shirt = _shirt
-	var slots: Array = Team.FORMATIONS[_formation]
+	var slots: Array = Team.FORMATIONS[formation]
+	var xi: Array = _order.slice(0, 11) if formation == _formation else Lineup.refit(_squad, _order.slice(0, 11), formation)
 	for i in 11:
-		var e := _entry(i)
+		var e: Dictionary = _by_id[int(xi[i])]
 		view.players.append({
 			"at": slots[i].attack if _with_ball else slots[i].defend,
 			"ghost": slots[i].defend if _with_ball else slots[i].attack,

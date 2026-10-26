@@ -87,6 +87,21 @@ const INDOOR_FORMATIONS := {
 }
 const INDOOR_FORMATION := "1-2-1"
 const CATCH_UP := 0.5  # the catch-up modifier: energy gains x1.5 a goal behind, x2 two or more
+## Team Instructions (ADR-003): each one's levels, low to high, "normal" (today's play) in the
+## middle. The AI reads them as steps from normal (instruction()); the offside trap is a high
+## line that also steps up on a through ball.
+## The Tactic Slots (EPIC G), switched in the match on keys 1-4.
+const TACTICS := ["BALANCED", "ATTACK", "DEFEND", "ALL OUT"]
+const INSTRUCTIONS := {
+	"mentality": ["defensive", "normal", "attacking"],
+	"width": ["narrow", "normal", "wide"],
+	"line": ["deep", "normal", "high", "offside trap"],
+	"passing": ["short", "normal", "direct"],
+	"tempo": ["slow", "normal", "fast"],
+	"pressing": ["stand off", "normal", "high"],
+	"tackling": ["easy", "normal", "hard"],
+	"shooting": ["patient", "normal", "on sight"],
+}
 
 var name: String
 var short: String
@@ -102,6 +117,12 @@ var subbed_off: Array[Footballer] = []  # parked off the pitch like a sent-off p
 var colour: Color  # main shirt colour, for the HUD
 var outfield_material: ShaderMaterial
 var keeper_material: ShaderMaterial
+var instructions := {}  # INSTRUCTIONS key -> its level
+var tactics: Array = []  # the 4 Tactic Slots (TACTICS, Lineup.tactics): {"formation", "instructions"}
+var tactic := 0  # the slot being played
+var tactic_left := 0.0  # seconds before another slot can be switched to (Match.TACTIC_COOLDOWN)
+var pending_formation := ""  # a switched-to slot's formation, taken up at the next stoppage
+
 
 
 func _init(team_name: String, abbreviation: String, kit: Dictionary, keeper_kit: Dictionary) -> void:
@@ -110,6 +131,8 @@ func _init(team_name: String, abbreviation: String, kit: Dictionary, keeper_kit:
 	colour = kit.shirt
 	outfield_material = make_material(kit)
 	keeper_material = make_material(keeper_kit)
+	for key in INSTRUCTIONS:
+		instructions[key] = "normal"
 
 
 static func make_material(kit: Dictionary) -> ShaderMaterial:
@@ -136,6 +159,28 @@ static func rendered_material(kit: ShaderMaterial) -> ShaderMaterial:
 	var m := kit.duplicate() as ShaderMaterial
 	m.set_shader_parameter("palette", RENDERED_PALETTE)
 	return m
+
+
+## Sets the instructions in `levels` (a saved team sheet's); keys or levels that aren't ones are
+## left alone.
+func instruct(levels: Dictionary) -> void:
+	for key in INSTRUCTIONS:
+		if levels.get(key) in INSTRUCTIONS[key]:
+			instructions[key] = levels[key]
+
+
+## `levels` with every instruction: the valid levels kept, the rest "normal" (a sheet from the
+## save, a hand-edited file).
+static func checked_instructions(levels: Dictionary) -> Dictionary:
+	var out := {}
+	for key in INSTRUCTIONS:
+		out[key] = levels[key] if levels.get(key) in INSTRUCTIONS[key] else "normal"
+	return out
+
+
+## How far `key` is set from normal: -1, 0 or +1 (the offside trap +2).
+func instruction(key: String) -> int:
+	return INSTRUCTIONS[key].find(instructions[key]) - INSTRUCTIONS[key].find("normal")
 
 
 ## Pitch position (pixels) for a formation spot, seen from this team's end.

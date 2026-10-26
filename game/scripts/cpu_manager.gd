@@ -4,7 +4,7 @@ extends RefCounted
 ## which of their players hurts it) and at stoppages, CM3's way, now and then takes a look: how
 ## hard to go at it (score, men on the pitch, territory, strength, the clock), which formation
 ## (that style, and the human's wing or middle play), who to bring on (tired or out of place
-## players), and who man-marks the human's danger man. (A keeper sent off is the match's
+## players), the side's instructions for that style, and who man-marks the human's danger man. (A keeper sent off is the match's
 ## business, for both sides: Match._cover_goal.) Its decisions go up on the banner.
 ## The style sum follows CM3's computer manager (see the CM3 research notes); the numbers are ours.
 
@@ -17,6 +17,12 @@ const WINGS := 0.65  # share of that time down the flanks: play wing-backs (5-3-
 const MIDDLE := 0.5  # ... through the middle: pack it (4-5-1)
 const SUBS_PER_LOOK := 2
 const SUB_GAIN := 3.0  # how much better (rating x fit x freshness) a sub has to be
+const STYLE_INSTRUCTIONS := {  # Team.INSTRUCTIONS per style; the rest "normal"
+	"attack": {"mentality": "attacking", "tempo": "fast"},
+	"normal": {},
+	"defend": {"mentality": "defensive"},
+	"sit back": {"mentality": "defensive", "line": "deep"},
+}
 
 var team: Team
 var style := "normal"  # attack, normal, defend or sit back
@@ -61,7 +67,7 @@ func tick(delta: float) -> void:
 
 
 func minute() -> float:
-	return _m.clock / _m.half_seconds * 45.0
+	return _m.minute()
 
 
 ## Called at every stoppage, before the substitutions waiting for it are made: the lines for the
@@ -77,6 +83,7 @@ func at_stoppage() -> Array:
 	if f[0] != team.formation and Team.FORMATIONS.has(team.formation):  # indoors it keeps its shape
 		_m.change_formation(team, f[0])
 		_note(lines, "%s GO %s\n%s" % [team.short, f[0], f[1]])
+	_instruct(lines)
 	_pick_subs(now)
 	_mark(lines)
 	return lines
@@ -116,6 +123,18 @@ func _choose_style(now: float) -> void:
 		style = "normal"
 	else:
 		style = "attack"
+
+
+## The instructions for the style; the ones it changes go on the banner.
+func _instruct(lines: Array) -> void:
+	var changes := []
+	for key in Team.INSTRUCTIONS:
+		var level: String = STYLE_INSTRUCTIONS[style].get(key, "normal")
+		if team.instructions[key] != level:
+			team.instructions[key] = level
+			changes.append("%s %s" % [key, level])
+	if not changes.is_empty():
+		_note(lines, ("%s INSTRUCTIONS\n%s" % [team.short, ", ".join(changes)]).to_upper())
 
 
 ## [formation, why] for the style and what it has seen of the human's attacking.

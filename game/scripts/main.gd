@@ -33,7 +33,12 @@ const KEEPER_MAX_HOLD := 6.0  # ... or this many seconds (the six-second rule)
 const FOUL_MISS := 0.4  # a slide that misses the ball takes the man this often
 # chance of a yellow and of a straight red for a foul, before aggression (0.7 → 1.3x)
 const CARD_ODDS := {"behind": [0.45, 0.1], "front": [0.12, 0.0]}
+const INJURY := {"behind": 0.12, "front": 0.04, "body check": 0.03}  # a man taken down is hurt this often (x aggression)
+const INJURY_UNSEEN := 1.5  # ... and more when the Chaos referee didn't see it: nothing holds them back
+const SEVERE := 0.25  # of injuries, the ones that send him off
+const WORN_OUT := 0.25  # condition below which a human is told a man may need substituting
 const OFF_PITCH := Vector2(-500.0, -500.0)  # where a sent-off player waits out the match
+const TACTIC_COOLDOWN := 5.0  # seconds before a side can switch Tactic Slot again
 const SUB_BANNER := 2.5  # seconds the substitutions and the CPU manager's news stay up
 # Chaos referee: a discipline meter per player, filled by what the referee sees (see offence)
 const DISCIPLINE := {"foul from behind": 45.0, "foul": 30.0, "body check": 20.0, "chaos": 20.0}
@@ -104,14 +109,19 @@ static var home_club := "Club Brugge"  # player 1's club (data/league.json); tea
 static var away_club := "Anderlecht"  # the AI's or player 2's club
 static var home_formation := Team.DEFAULT_FORMATION  # a key of Team.FORMATIONS
 static var away_formation := Team.DEFAULT_FORMATION
-static var home_sheet := {}  # {"xi", "bench"} from the team management screen (Lineup); {} plays the default XI
+static var home_sheet := {}  # {"xi", "bench", "instructions"} from the team management screen (Lineup); {} plays the default XI
 static var away_sheet := {}
 # match options screen (match_options.gd); kept between matches like the above
 static var half_minutes := 3  # real minutes per half; the clock shows 45 match minutes (ASSUMED default length)
 static var offside_on := true  # the option; indoors there's no offside either way (see offside_rule)
 static var fouls_on := true  # off: a slide never takes the man (no free kicks or penalties from fouls)
 static var cards_on := true
+static var injuries_on := true  # off: fouls and body checks never hurt anyone
+static var replays_on := true  # an instant replay after a goal (never on autoplay)
 static var knockout := false  # level at full time: extra time (golden goal), then penalties
+static var competition: Competition = null  # the cup this match is a tie of (CupScreen); null for a one-off
+static var competition_fixture := {}  # that tie, from the cup's current round
+static var _knockout_before := false  # the match option, put back when the competition is left
 static var rendered := false  # player art: Pixel (FIFA 96's sprites) or Rendered (ours, tools/blender; see AnimLibrary)
 ## How hard the referee is (match options): his card odds in Classic and how fast the
 ## discipline meter fills in Chaos, times this. [name, factor]; strictness is the index.
@@ -156,6 +166,10 @@ var _restart_taken := false  # the taker has started the throw / kick; play on o
 var _keeper_held := 0.0  # seconds a keeper has held the ball in his box
 var _offside: Array[Footballer] = []  # in an offside position when the last kick was played
 var _banner_left := 0.0
+var _pause: PauseMenu
+var replay: Replay
+var _replayed := false  # this goal's instant replay has been shown
+var _latest = null  # [[match minute, "LATEST: ..."]]: goals in the round's other fixtures still to come
 var _potato_left := HOT_POTATO  # the holder's time left with the ball (hot potato)
 var stadium := Stadium.new()
 var _crowd := AudioStreamPlayer.new()
@@ -163,6 +177,7 @@ var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_next := 0
 var _score_label := Label.new()  # "BRU  0 - 0  AND", between the two crests
 var _clock_label := Label.new()
+var _tactic_label := Label.new()  # the human sides' Tactic Slots, after the clock
 var _ticker := Label.new()  # the commentary line, along the top
 var _banner := Label.new()
 var _player_labels: Array[Label] = []  # each human's controlled player's name, as in FIFA 96
@@ -217,6 +232,9 @@ func _ready() -> void:
 	var squads := _load_squads()
 	for t in [home, away]:
 		var squad: Array = squads.get(t.name, [])
+		if competition:  # suspended players aren't picked (Season)
+			var out := competition.unavailable(t.name)
+			squad = squad.filter(func(e): return not e.name in out)
 		var names := squad
 		var formation := home_formation if t == home else away_formation
 		var sheet := home_sheet if t == home else away_sheet
@@ -228,6 +246,8 @@ func _ready() -> void:
 			names = Lineup.entries(squad, picked.xi)
 			t.bench = Lineup.entries(squad, picked.bench)
 		t.formation = formation
+		t.instruct(sheet.get("instructions", {}))
+		t.tactics = Lineup.tactics(sheet, formation)
 		var slots: Array = Team.slots_of(formation)
 		for i in slots.size():
 			var p := _new_player(t, slots[i], names[i] if i < names.size() else {"number": i + 1})
@@ -264,7 +284,10 @@ func _ready() -> void:
 	_mood_meter.draw.connect(_draw_mood_meter)
 	add_child(_mood_meter)
 	add_child(DebugOverlay.new(self))
-	add_child(PauseMenu.new())
+	_pause = PauseMenu.new()
+	add_child(_pause)
+	replay = Replay.new(self)
+	add_child(replay)
 	stats = MatchStats.new(self)
 	commentary = Commentary.new(self)  # after stats: a hat-trick is read off its goals
 	if not human_for(away):
@@ -396,9 +419,15 @@ func _stoppage_news() -> String:
 			lines.append(text)
 	if cpu:
 		lines.append_array(cpu.at_stoppage())
+	_injury_subs()
 	var subs := _make_subs()
 	if subs != "":
 		lines.append(subs)
+	for t in [home, away]:  # after the subs: a sub waiting for slot i still takes the man he was meant to
+		if t.pending_formation != "" and t.pending_formation != t.formation:
+			change_formation(t, t.pending_formation)
+			lines.append("%s: %s" % [t.short, t.formation])
+		t.pending_formation = ""
 	return "\n".join(lines)
 
 
@@ -483,6 +512,29 @@ func swap_slots(t: Team, a: int, b: int) -> void:
 	t.players[b] = p
 
 
+## A badly hurt man goes off: a side no human plays gets the best man on its bench for his slot
+## (CpuManager._value); a human gets the substitutions screen. Once per injury; with no subs
+## left he plays on, limping.
+func _injury_subs() -> void:
+	for t in [home, away]:
+		var slots: Array = Team.slots_of(t.formation)
+		for i in t.players.size():
+			var p: Footballer = t.players[i]
+			if p.injury < 2 or p.sent_off or p.injury_seen or t.subs_left - t.pending.size() <= 0:
+				continue
+			p.injury_seen = true
+			if human_for(t) and not autoplay:
+				_pause.open_subs()
+				continue
+			var best: Dictionary = {}
+			for e in t.bench:
+				if (e.position == "GK") == (p.role == "G") and (best.is_empty() \
+						or CpuManager._value(e, slots[i].pos) > CpuManager._value(best, slots[i].pos)):
+					best = e
+			if not best.is_empty():
+				request_sub(t, i, best)
+
+
 ## Substitutions waiting for the next stoppage made: each sub takes his man's place (slot,
 ## position on the pitch), the man is parked off it for good. The banner text, or "".
 func _make_subs() -> String:
@@ -524,6 +576,7 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	replay.record()
 	chaos_actions.tick(delta)
 	line_moves.tick()
 	_update_hud()
@@ -532,6 +585,7 @@ func _physics_process(delta: float) -> void:
 	_ticker.visible = commentary.line != ""
 	_referee_follows()
 	_sorry_ref(delta)
+	_tactic_keys(delta)
 	if _banner_left > 0.0:
 		_banner_left -= delta
 		if _banner_left <= 0.0:
@@ -548,6 +602,10 @@ func _physics_process(delta: float) -> void:
 				for p in t.players:
 					if not p.busy():
 						p.wish = Vector2.ZERO
+			if _state_left <= 0.0 and not _replayed and replays_on and not autoplay:
+				_replayed = true
+				replay.play_clip(replay.highlights[-1] if not replay.highlights.is_empty() else replay.frames.slice(-180), 0.5, true)
+				return
 			if _state_left <= 0.0:
 				if half > 2:  # golden goal
 					_full_time("GOLDEN GOAL")
@@ -578,6 +636,8 @@ func _physics_process(delta: float) -> void:
 					p.wear(delta / half_seconds * 45.0)
 			if cpu:
 				cpu.tick(delta)
+			_latest_scores()
+			_sub_alerts()
 			if _referee_temper(delta) or _watch_advantage(delta) or _late_whistle(delta):
 				return
 			for t in [home, away]:
@@ -613,10 +673,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	var focus := ball.position
-	if humans.size() == 1 and humans[0].controlled:  # two players: just follow the ball
-		focus = focus.lerp(humans[0].controlled.position, 0.25)
-	stadium.follow(focus, delta)
+	stadium.follow(camera_focus(), delta)
 	for t in [home, away]:
 		for p in t.players:
 			p.place(stadium.to_screen(p.position))
@@ -625,6 +682,14 @@ func _process(delta: float) -> void:
 	_aim_arrows.queue_redraw()
 	_mood_meter.queue_redraw()
 	_update_energy_hud()
+
+
+## Where the camera looks: the ball, a little toward the one human's man (two players: the ball).
+func camera_focus() -> Vector2:
+	var focus := ball.position
+	if humans.size() == 1 and humans[0].controlled:
+		focus = focus.lerp(humans[0].controlled.position, 0.25)
+	return focus
 
 
 ## The human (player 1 or 2) playing `t`, or null for an AI side.
@@ -920,11 +985,13 @@ func _resolve_possession(delta: float) -> void:
 			continue
 		var from_behind: bool = Anims.FACING_VECTORS[o.facing].dot(Anims.FACING_VECTORS[holder.facing]) > 0.5
 		if o.sliding() and from_behind and fouls_on:
+			_maybe_injure(o, holder, "behind")
 			_foul(o, holder)
 			return
 		if o.sliding() and randf() > o.skill("slidingTackle", 0.55, 1.0):
 			o.touch_cooldown = 0.6  # missed: one try per slide
 			if fouls_on and randf() < FOUL_MISS:  # took the man instead
+				_maybe_injure(o, holder, "front")
 				_foul(o, holder, false)
 				return
 			continue
@@ -1035,6 +1102,7 @@ func _body_check_hits(o: Footballer, holder: Footballer) -> void:
 		flash("BODY CHECK!", 1.0)
 		effects.play("impact_burst", holder.position, Pitch.m(1.0))
 		knock_down(holder, "stumble")
+		_maybe_injure(o, holder, "body check")
 		event.emit("body check won", o.team)
 	else:
 		knock_down(o, "stumble")  # bounced off him
@@ -1274,6 +1342,20 @@ func _saved(k: Footballer) -> void:
 	event.emit("save", k.team)
 	play_sfx("ooh", -4.0)
 	k.team.gain(Supers.GAIN.save)
+
+
+## Chance that `by` taking a man down (`kind`: "behind", "front", "body check") hurts him: the
+## kind, the fouler's aggression, and more when the referee didn't see it (`unseen`).
+func injure_odds(by: Footballer, kind: String, unseen: bool) -> float:
+	return INJURY[kind] * by.skill("aggression", 0.7, 1.3) * (INJURY_UNSEEN if unseen else 1.0)
+
+
+## `by` took `victim` down: maybe he's hurt, a knock or (SEVERE of them) badly (the option).
+func _maybe_injure(by: Footballer, victim: Footballer, kind: String) -> void:
+	if not injuries_on or victim.injury == 2 or randf() >= injure_odds(by, kind, not referee_sees(victim.position)):
+		return
+	victim.injury = 2 if randf() < SEVERE else 1
+	event.emit("injury", victim.team)
 
 
 ## Slide tackle that took the player, not the ball: a free kick where it happened (a penalty
@@ -1980,7 +2062,10 @@ func _show_full_time(heading: String, result: String) -> void:
 			24, Color(1, 0.85, 0.2)))
 	for entry in commentary.report.slice(0, 8):  # the goals and red cards, in order
 		column.add_child(_screen_label(entry, 16, Color(0.9, 0.9, 0.9)))
-	column.add_child(_screen_label("SPACE: BACK TO THE TITLE", 16, Color(0.8, 0.8, 0.8)))
+	var keys := [["SPACE", "back to the " + ("title" if competition == null else "table" if competition is Season else "cup")]]
+	if not replay.highlights.is_empty():
+		keys.append(["H", "highlights"])
+	column.add_child(_screen_label(UiText.hint(keys), 16, Color(0.8, 0.8, 0.8)))
 	_full_time_panel.visible = true
 
 
@@ -2268,6 +2353,7 @@ func _check_goal() -> void:
 	ball.stop_at(Vector2(clampf(x, -14.0, field.size.x + 14.0), ball.position.y))
 	state = State.GOAL
 	_state_left = 3.5
+	_replayed = false
 	flash("%s\n%s" % ["GOLDEN GOAL!" if half > 2 else "GOAL!", scorers.name], 3.5)
 	opponent(scorers).gain(Supers.GAIN.conceded)
 	play_sfx("roar")
@@ -2348,6 +2434,9 @@ func _add_hud() -> void:
 	row.add_child(_score_label)
 	row.add_child(_crest(away))
 	row.add_child(_clock_label)
+	_tactic_label.add_theme_font_size_override("font_size", 14)
+	_tactic_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
+	row.add_child(_tactic_label)
 	for i in (2 if chaos else 0):  # energy bars: Chaos only
 		var t: Team = [home, away][i]
 		var y := 56.0 + i * 22.0
@@ -2442,6 +2531,10 @@ func _update_hud() -> void:
 	var minutes := clock / half_seconds * 45.0  # match time: 45 minutes a half
 	_score_label.text = " %s  %d - %d  %s " % [home.short, home.score, away.score, away.short]
 	_clock_label.text = "    %02d:%02d " % [int(minutes), int(fmod(minutes, 1.0) * 60.0)]
+	var tactics := []
+	for h in humans:
+		tactics.append(("%s " % h.team.short if humans.size() > 1 else "") + Team.TACTICS[h.team.tactic])
+	_tactic_label.text = "" if autoplay else "  ".join(tactics) + " "
 	for i in humans.size():
 		var p := humans[i].controlled
 		_player_labels[i].text = p.display_name if p and not autoplay else ""
@@ -2467,9 +2560,148 @@ func _update_energy_hud() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if state == State.FULL_TIME and (event.is_action_pressed("shoot") or event.is_action_pressed("p2_shoot")):
-		get_tree().change_scene_to_file("res://scenes/title.tscn")
+		_leave_full_time()
+	elif state == State.FULL_TIME and event is InputEventKey and event.pressed and event.physical_keycode == KEY_H:
+		var all := []
+		for h in replay.highlights:
+			all.append_array(h)
+		_full_time_panel.visible = false  # the pitch, under it, is where they play
+		replay.play_clip(all, 1.0, true, func(): _full_time_panel.visible = true)
 	if event.is_action_pressed("anim_viewer"):
 		get_tree().change_scene_to_file("res://scenes/anim_viewer.tscn")
+
+
+## Shoot on the full-time screen: back to the title, or in a cup, the result goes back to it and
+## the bracket shows.
+func _leave_full_time() -> void:
+	if competition:
+		competition.finish(competition_fixture, competition_result(competition_fixture))
+		get_tree().change_scene_to_file(SeasonScreen.SCENE if competition is Season else CupScreen.SCENE)
+		return
+	get_tree().change_scene_to_file("res://scenes/title.tscn")
+
+
+## `c` becomes the competition being played; the knockout option is kept to put back.
+static func enter_competition(c: Competition) -> void:
+	if competition == null:
+		_knockout_before = knockout
+	competition = c
+
+
+## Sets up fixture `f` of `c` for the human: his club at home, his saved team sheet, the CPU's
+## default one; `ko`: a knockout match (a cup tie).
+static func play_fixture(c: Competition, f: Dictionary, ko: bool) -> void:
+	var mine: String = f.home if f.home in c.humans else f.away
+	enter_competition(c)
+	competition_fixture = f
+	players = 1
+	home_club = mine
+	away_club = f.away if mine == f.home else f.home
+	home_sheet = Lineup.load_saved(mine)
+	away_sheet = {}
+	knockout = ko
+
+
+## Out of the competition (to the title): the knockout option as it was.
+static func leave_competition() -> void:
+	if competition == null:
+		return
+	competition = null
+	competition_fixture = {}
+	knockout = _knockout_before
+
+
+## This match as the Result of fixture `f` (ResultSim's shape), its home and away as in the fixture:
+## the clubs on the pitch may be the other way round (the human always plays at home here).
+func competition_result(f: Dictionary) -> Dictionary:
+	var side_of := func(t: Team) -> String: return "home" if t.name == f.home else "away"
+	var r := {"home": f.home, "away": f.away, "home_goals": 0, "away_goals": 0, "scorers": [], "cards": [],
+		"extra_time": half > 2, "pens": [], "winner": ""}
+	for t in [home, away]:
+		r[side_of.call(t) + "_goals"] = t.score
+	for s in stats.scorers:
+		var p: Footballer = s[0]
+		var credited: Team = opponent(p.team) if s[2] else p.team
+		r.scorers.append({"side": side_of.call(credited), "name": p.display_name, "minute": int(s[1]) + 1, "own_goal": s[2]})
+	for c in stats.cards:
+		r.cards.append({"side": side_of.call(c[0].team), "name": c[0].display_name, "colour": c[1], "minute": int(c[2]) + 1})
+	if not shootout.is_empty():
+		var by := {}
+		for t in [home, away]:
+			by[side_of.call(t)] = shootout.get(t, []).count(true)
+		r.pens = [by.home, by.away]
+	var w := match_winner()
+	r.winner = w.name if w else ""
+	r.injuries = []  # a knock is over by the next fixture; a bad one keeps him out 1-3
+	for t in [home, away]:
+		for p in t.players + t.subbed_off:
+			if p.injury == 2:
+				r.injuries.append({"side": side_of.call(t), "name": p.display_name, "fixtures": randi_range(1, 3)})
+	r.ratings = []  # MatchStats.rating, everyone who played (a Season's best-rated table)
+	for t in [home, away]:
+		for p in t.players + t.subbed_off:
+			r.ratings.append({"side": side_of.call(t), "name": p.display_name, "rating": snappedf(stats.rating(p), 0.1)})
+	return r
+
+
+## Tactic Slot `i` for `t` (keys 1-4): its instructions at once, its formation at the next stoppage
+## (_stoppage_news). Not again for TACTIC_COOLDOWN. Whether it switched.
+func switch_tactic(t: Team, i: int) -> bool:
+	if i == t.tactic or t.tactic_left > 0.0 or i >= t.tactics.size():
+		return false
+	t.tactic = i
+	t.tactic_left = TACTIC_COOLDOWN
+	t.instruct(t.tactics[i].instructions)
+	t.pending_formation = t.tactics[i].formation
+	flash("%s  TACTIC: %s" % [t.short, Team.TACTICS[i]], 1.5)
+	return true
+
+
+## Each human's keys 1-4 (Human's tactic_1 ... tactic_4), and the sides' cooldowns.
+func _tactic_keys(delta: float) -> void:
+	for t in [home, away]:
+		t.tactic_left = maxf(0.0, t.tactic_left - delta)
+	for h in humans:
+		for i in Team.TACTICS.size():
+			if Input.is_action_just_pressed(h.action("tactic_%d" % (i + 1))):
+				switch_tactic(h.team, i)
+
+
+## A human's man hurt or worn out (WORN_OUT): "X MAY NEED SUBSTITUTING" on the banner when it's
+## free, once per man.
+func _sub_alerts() -> void:
+	if _banner_left > 0.0 or autoplay:
+		return
+	for h in humans:
+		for p in h.team.players:
+			if not p.alerted and not p.sent_off and (p.injury > 0 or p.condition < WORN_OUT):
+				p.alerted = true
+				flash("%s\nMAY NEED SUBSTITUTING" % p.display_name, 2.5)
+				return
+
+
+## In a competition, the goals in the round's other fixtures (already simulated: Season) come in
+## on the banner at their minutes, when it's free: "LATEST: X 1-0 Y".
+func _latest_scores() -> void:
+	if _latest == null:
+		_latest = []
+		var others: Array = competition.current().filter(func(f): return f != competition_fixture \
+			and not f.result.is_empty()) if competition else []
+		for f in others:
+			var score := [0, 0]
+			var goals: Array = f.result.scorers.duplicate()
+			goals.sort_custom(func(a, b): return a.minute < b.minute)
+			for g in goals:
+				score[0 if g.side == "home" else 1] += 1
+				_latest.append([float(g.minute), "LATEST\n%s %d-%d %s" % [f.home, score[0], score[1], f.away]])
+		_latest.sort_custom(func(a, b): return a[0] < b[0])
+	if not _latest.is_empty() and _banner_left <= 0.0 and minute() >= _latest[0][0]:
+		flash(_latest.pop_front()[1], 2.5)
+
+
+## The match clock in match minutes: 45 a half, extra time after 90.
+func minute() -> float:
+	return clock / half_seconds * 45.0
 
 
 static func _bind_inputs() -> void:

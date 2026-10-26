@@ -8,6 +8,9 @@ extends RefCounted
 ## shot waits up to SHOT_WAIT for what became of it, so the two are said together. At most
 ## QUEUE_MAX lines wait; the big moments (priority 2) clear the chatter; chatter is dropped
 ## when lines are waiting or it was said just now. Goals and red cards go in the report.
+## Classic football says only the serious lines; Chaos adds each key's "chaos" pool. After LULL
+## seconds of open play with nothing said, a "lull" line: the play, or in Chaos the crowd and the
+## players' odd ways.
 ## The structure follows CM3's match commentary (see the CM3 research notes); every line is ours.
 
 const LINES_SCRIPT := preload("res://scripts/commentary_lines.gd")
@@ -18,6 +21,7 @@ const SHOT_WAIT := 1.6  # seconds a shot waits for its save, goal or woodwork
 const LONG_SHOT_M := 22.0
 const LATE_MINUTE := 80.0
 const OUTCOMES := ["save", "woodwork", "goal"]
+const LULL := 14.0
 
 var line := ""  # what's up now
 var report: Array[String] = []  # "23' GOAL  Vanaken (BRU)": goals and red cards, for full time
@@ -28,6 +32,7 @@ var _time := 0.0
 var _said := {}  # key -> _time it was last said
 var _recent := {}  # key -> the last two lines picked for it
 var _shot := {}  # a shot waiting for its outcome: priority, text, left, age
+var _quiet := 0.0  # seconds nothing has been up or waiting
 
 
 func _init(m) -> void:
@@ -37,6 +42,10 @@ func _init(m) -> void:
 
 func tick(delta: float) -> void:
 	_time += delta
+	_quiet = _quiet + delta if line == "" and _queue.is_empty() and _shot.is_empty() else 0.0
+	if _quiet >= LULL and _m.state == Match.State.PLAY:
+		_quiet = 0.0
+		_lull()
 	if not _shot.is_empty():
 		_shot.age += delta
 		_shot.left -= delta
@@ -121,7 +130,20 @@ func goal_key(team: Team, p1: Footballer) -> String:
 
 
 func minute() -> float:
-	return _m.clock / _m.half_seconds * 45.0
+	return _m.minute()
+
+
+## Quiet open play: a line about the side on the ball ({p1} has it, or had it last), or in Chaos
+## the crowd and the odd ways of somebody else on the pitch ({p2}).
+func _lull() -> void:
+	var p1: Footballer = _m.ball.holder if _m.ball.holder else _m.ball.last_touch
+	if p1 == null or not p1.team in [_m.home, _m.away]:
+		return
+	var others: Array = (_m.home.players + _m.away.players).filter(func(p): return p != p1 and not p.sent_off)
+	var p2: Footballer = others[randi() % others.size()]
+	_queue_line(0, _pick("lull", {"p1": p1.display_name, "p2": p2.display_name, "t": p1.team.name,
+		"opp": _m.opponent(p1.team).name, "score": "%d-%d" % [_m.home.score, _m.away.score],
+		"min": str(int(minute()) + 1)}), "lull")
 
 
 ## A shot still waiting for its outcome goes up first.
@@ -155,7 +177,8 @@ func _pick(key: String, tokens: Dictionary) -> String:
 	var k := _resolve(key)
 	if k == "":
 		return ""
-	var lines: Array = LINES_SCRIPT.LINES[k].lines
+	var entry: Dictionary = LINES_SCRIPT.LINES[k]
+	var lines: Array = entry.lines + (entry.get("chaos", []) if _m.chaos else [])
 	var recent: Array = _recent.get(k, [])
 	var fresh := range(lines.size()).filter(func(i): return not i in recent)
 	var i: int = fresh[randi() % fresh.size()] if not fresh.is_empty() else randi() % lines.size()

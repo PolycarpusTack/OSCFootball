@@ -6,10 +6,11 @@ extends Control
 ## every key back. Esc / B closes. The gamepad's buttons are fixed and listed below.
 
 const NAMES := {"move_up": "Up", "move_down": "Down", "move_left": "Left", "move_right": "Right",
-	"shoot": "Shoot / tackle", "pass": "Pass", "switch": "Switch / dodge / skill", "special": "Special (hold, + a button)"}
+	"shoot": "Shoot / tackle", "pass": "Pass", "switch": "Switch / dodge / skill", "special": "Special (hold, + a button)",
+	"tactic_1": "Tactic 1: balanced", "tactic_2": "Tactic 2: attack", "tactic_3": "Tactic 3: defend", "tactic_4": "Tactic 4: all out"}
 const RESET := "RESET TO DEFAULTS"
 const TOP := 150.0
-const ROW := 40.0
+const ROW := 30.0
 
 var row := 0  # an index of Human.ACTIONS, or ACTIONS.size() for the reset row
 var player := 0
@@ -29,9 +30,9 @@ func _ready() -> void:
 	_add_label(Vector2(760, 105), 20).text = "[color=#bbbbbb]PLAYER 2[/color]"
 	for i in Human.ACTIONS.size() + 1:
 		_labels.append([60.0, 420.0, 760.0].map(func(x): return _add_label(Vector2(x, TOP + i * ROW), 22)))
-	_add_label(Vector2(60, 560), 16).text = ("[color=#bbbbbb]Gamepad (fixed): d-pad or stick move, B shoot, A pass, X / LB switch, Y special.\n"
+	_add_label(Vector2(60, 560), 16).text = ("[color=#bbbbbb]Gamepad (fixed): d-pad or stick move, B shoot, A pass, X / LB switch, Y special; tactics on the keyboard only.\n"
 		+ "Playing alone, player 1 moves with player 2's keys too.[/color]")
-	_add_label(Vector2(60, 680), 14).text = "[color=#bbbbbb]↑/↓ action   ←/→ player   Enter change   Esc / B back[/color]"
+	_add_label(Vector2(60, 680), 14).text = "[color=#bbbbbb]%s[/color]" % UiText.hint([["↑/↓", "action"], ["←/→", "player"], ["ENTER", "change"], ["ESC / B", "back"]])
 	visible = false
 
 

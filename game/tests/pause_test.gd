@@ -36,9 +36,10 @@ func _initialize() -> void:
 	print("Esc, Enter on Resume: paused then %s, now %s" % [was_paused, paused])
 	ok = ok and was_paused and not paused
 
-	# down twice to SUBSTITUTIONS: its screen, still paused; Esc back to the menu; up to MOVES
+	# down three times (past MOVES, REPLAY) to SUBSTITUTIONS: its screen, still paused; Esc back to the menu; up twice to MOVES
 	_press(KEY_ESCAPE)
 	await physics_frame
+	_press(KEY_DOWN)
 	_press(KEY_DOWN)
 	_press(KEY_DOWN)
 	_press(KEY_ENTER)
@@ -51,6 +52,7 @@ func _initialize() -> void:
 	var menu = m.get_children().filter(func(c): return _is(c, "pause_menu.gd"))[0]
 	print("Esc: screen closed %s, menu back %s, paused %s" % [_subs_menu() == null, menu._box.visible, paused])
 	ok = ok and _subs_menu() == null and menu._box.visible and paused
+	_press(KEY_UP)
 	_press(KEY_UP)
 	_press(KEY_ENTER)
 	await process_frame

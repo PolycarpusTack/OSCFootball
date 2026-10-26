@@ -31,7 +31,7 @@ func _ready() -> void:
 	heading.size.x = 1280
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var opponent := "PLAYER 2" if Match.players == 2 else "CPU"
-	var hint := _label("P1: W / S        %s: ↑ / ↓        SPACE: next        ESC: back" % opponent, 16, Color(0.85, 0.85, 0.85))
+	var hint := _label(UiText.hint([["P1", "W / S"], [opponent, "↑/↓"], ["SPACE", "next"], ["ESC", "back"]]), 16, Color(0.85, 0.85, 0.85))
 	hint.position = Vector2(0, 84)
 	hint.size.x = 1280
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -71,12 +71,7 @@ func _ready() -> void:
 
 
 func _label(text: String, font_size: int, colour: Color) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", colour)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 6)
+	var l := UiText.label(text, font_size, colour)
 	add_child(l)
 	return l
 

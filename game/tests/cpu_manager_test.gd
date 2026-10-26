@@ -3,6 +3,7 @@ extends SceneTree
 ## wing-backs when the human plays down the flanks, and packs the middle when they come
 ## through it; after the hour it brings on fresh legs for tired men; with its keeper sent off
 ## an outfield player makes way for the bench keeper; the human's danger man gets a marker.
+## Its style sets the side's instructions too, and the banner says so (EPIC C-5).
 ## godot --headless --path game -s res://tests/cpu_manager_test.gd
 
 var m: Node
@@ -23,9 +24,12 @@ func _initialize() -> void:
 	m.home.score = 2
 	var lines: Array = cpu.at_stoppage()
 	var roles := _roles(t)
-	print("0-2 at 70': style %s, %s, lines up %s" % [cpu.style, t.formation, roles])
+	print("0-2 at 70': style %s, %s, lines up %s; instructions %s; banner %s" % [cpu.style, t.formation, roles,
+		t.instructions, lines])
 	ok = ok and cpu.style == "attack" and t.formation == "4-3-3" and roles == {"G": 1, "D": 4, "M": 3, "F": 3} \
 		and t.players[0].role == "G" and lines.size() >= 1
+	ok = ok and t.instructions.mentality == "attacking" and t.instructions.tempo == "fast" \
+		and lines.any(func(l): return "MENTALITY ATTACKING" in l and "TEMPO FAST" in l)
 	t.pending.clear()
 
 	# two up at 75, the human coming down the wings
@@ -34,9 +38,11 @@ func _initialize() -> void:
 	m.home.score = 0
 	t.score = 2
 	cpu.lanes = [30.0, 5.0, 25.0]
-	cpu.at_stoppage()
-	print("2-0 at 75', human down the wings: style %s, %s" % [cpu.style, t.formation])
+	lines = cpu.at_stoppage()
+	print("2-0 at 75', human down the wings: style %s, %s; instructions %s" % [cpu.style, t.formation, t.instructions])
 	ok = ok and cpu.style == "sit back" and t.formation == "5-3-2"
+	ok = ok and t.instructions.mentality == "defensive" and t.instructions.line == "deep" and t.instructions.tempo == "normal" \
+		and lines.any(func(l): return "MENTALITY DEFENSIVE" in l and "LINE DEEP" in l)
 	t.pending.clear()
 
 	# level at 30, the human through the middle

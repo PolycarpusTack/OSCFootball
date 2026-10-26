@@ -67,7 +67,7 @@ func _initialize() -> void:
 	m.ball.last_touch = scorer
 	m.event.emit("shot", bru)
 	said = await _lines(5.0)
-	var missed: bool = said.size() == 2 and said[1] in LINES.LINES["shot.missed"].lines
+	var missed: bool = said.size() == 2 and said[1] in LINES.LINES["shot.missed"].lines + LINES.LINES["shot.missed"].get("chaos", [])
 	print("shot, nothing: %s" % [said])
 	ok = ok and missed
 
@@ -119,7 +119,7 @@ func _initialize() -> void:
 	# every token in every line is one the commentary fills in
 	var unknown := []
 	for key in LINES.LINES:
-		for text in LINES.LINES[key].lines:
+		for text in LINES.LINES[key].lines + LINES.LINES[key].get("chaos", []):
 			var rest: String = text
 			for t in TOKENS:
 				rest = rest.replace(t, "")
@@ -127,6 +127,43 @@ func _initialize() -> void:
 				unknown.append(key)
 	print("lines with unknown tokens: %s" % [unknown])
 	ok = ok and unknown.is_empty()
+
+
+	# P-3-AC1: the main moments have at least 6 serious lines each
+	var thin := ["goal", "goal.opener", "goal.equaliser", "shot", "shot.missed", "save", "foul", "yellow card", "lull"].filter(
+		func(k): return LINES.LINES[k].lines.size() < 6)
+	print("main keys with fewer than 6 serious lines: %s" % [thin])
+	ok = ok and thin.is_empty()
+
+	# P-4-AC3: Classic football never says a Chaos line; Chaos football does
+	var match_script: GDScript = load("res://scripts/main.gd")
+	var chaos_lines := {}
+	for key in LINES.LINES:
+		for text in LINES.LINES[key].get("chaos", []):
+			chaos_lines[text] = true
+	var seen := {false: 0, true: 0}
+	for mode in [false, true]:
+		match_script.chaos = mode
+		for i in 300:
+			for key in ["foul", "shot.missed", "lull", "save", "corner"]:
+				if c._pick(key, {}) in chaos_lines:
+					seen[mode] += 1
+	match_script.chaos = true
+	print("Chaos lines in 1,500 picks: Classic %d, Chaos %d" % [seen[false], seen[true]])
+	ok = ok and seen[false] == 0 and seen[true] > 300
+
+	# P-3-AC2: LULL seconds of open play with nothing said: a lull line about the side on the ball
+	_reset()
+	var holder = m.home.players[6]
+	m.ball.take(holder)
+	m.state = 1  # PLAY, for one tick
+	c._quiet = c.LULL
+	c.tick(0.0)
+	m.state = 5
+	var lull: String = c.line  # nothing else waiting: it goes straight up
+	print("lull: %s" % lull)
+	ok = ok and lull != "" and not "{" in lull
+	_reset()
 
 	print("COMMENTARY TEST PASSED" if ok else "COMMENTARY TEST FAILED")
 	quit(0 if ok else 1)

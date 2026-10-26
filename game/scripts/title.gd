@@ -2,7 +2,7 @@ extends Control
 ## Boot sequence: the PTE intro video and its end card (any key skips), then the title screen
 ## with the title music until Space / Enter (gamepad A, B or Start) goes to team select.
 ## Left / Right picks Chaos or Classic Football (Match.chaos), Up / Down one or two
-## players (Match.players). M (gamepad Y) shows every move (MoveList), C the keys
+## players (Match.players), a cup (CupScreen), a league season (SeasonScreen), or CONTINUE a saved one. M (gamepad Y) shows every move (MoveList), C the keys
 ## (ControlsMenu); Esc / B goes back.
 ## The menu sits in the dark band along the title card's bottom.
 
@@ -13,6 +13,8 @@ const TITLE := "res://brand/title.png"
 const MUSIC := "res://brand/title_music.ogg"  # "Stadium Breakbeat", cut to end on bar 40 of the loop
 const MUSIC_LOOP_FROM := 52.722  # seconds: after the build-up, 160 beats before the end (139.8 BPM)
 const TEAM_SELECT := "res://scenes/team_select.tscn"
+
+static var cup := ""  # Up / Down past 2 PLAYERS: "cup", "season" or "continue" (a save) instead of a match
 
 var _video := VideoStreamPlayer.new()
 var _end_card := TextureRect.new()
@@ -26,6 +28,7 @@ var _time := 0.0
 
 
 func _ready() -> void:
+	UiText.apply_font(Match.rendered)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var back := ColorRect.new()
 	back.color = Color.BLACK
@@ -104,7 +107,7 @@ func _show_title() -> void:
 
 func _show_mode() -> void:
 	_mode.text = "◀  %s  ▶        ▲  %s  ▼" % ["CHAOS FOOTBALL" if Match.chaos else "CLASSIC FOOTBALL",
-		"1 PLAYER" if Match.players == 1 else "2 PLAYERS"]
+		cup.to_upper() if cup != "" else "1 PLAYER" if Match.players == 1 else "2 PLAYERS"]
 	_mode.add_theme_color_override("font_color", Color(1, 0.85, 0.2) if Match.chaos else Color.WHITE)
 
 
@@ -134,8 +137,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_show_mode()
 	elif (key and event.keycode in [KEY_UP, KEY_DOWN, KEY_W, KEY_S]) \
 			or (button and event.button_index in [JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN]):
-		Match.players = 3 - Match.players
-		_show_mode()
+		_next_mode(1 if event is InputEventKey and event.keycode in [KEY_DOWN, KEY_S] \
+			or event is InputEventJoypadButton and event.button_index == JOY_BUTTON_DPAD_DOWN else -1)
 	elif event is InputEventMouseButton or (key and event.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]) \
 			or (button and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START]):
-		get_tree().change_scene_to_file(TEAM_SELECT)
+		Match.leave_competition()  # a competition left halfway (pause menu → title) comes back from its save
+		CupScreen.continuing = cup == "continue"
+		get_tree().change_scene_to_file(SeasonScreen.SCENE if cup == "season" else CupScreen.SCENE if cup != "" else TEAM_SELECT)
+
+
+## ▲ / ▼ through 1 PLAYER, 2 PLAYERS, CUP, SEASON and, with something saved, CONTINUE.
+func _next_mode(step: int) -> void:
+	var modes := ["1", "2", "cup", "season"] + (["continue"] if CupScreen.any_saved() else [])
+	var now := modes.find(cup if cup != "" else str(Match.players))
+	var next: String = modes[(now + step + modes.size()) % modes.size()]
+	cup = next if next in ["cup", "season", "continue"] else ""
+	Match.players = 1 if cup != "" else int(next)
+	_show_mode()

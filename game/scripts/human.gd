@@ -5,17 +5,20 @@ extends RefCounted
 ## their shot / combo state. Controls are bound by bind_inputs(), with the keys from keys():
 ## KEYS, or as rebound on the Controls screen (ControlsMenu) and saved in save_path.
 
-const ACTIONS := ["move_up", "move_down", "move_left", "move_right", "shoot", "pass", "switch", "special"]
+const ACTIONS := ["move_up", "move_down", "move_left", "move_right", "shoot", "pass", "switch", "special",
+	"tactic_1", "tactic_2", "tactic_3", "tactic_4"]  # the Tactic Slots (Match.switch_tactic)
 const KEYS := [  # the defaults
 	{  # player 1; arrows too when playing alone
 		"move_up": [KEY_W], "move_down": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
 		"shoot": [KEY_SPACE], "pass": [KEY_X, KEY_K], "switch": [KEY_Q],
 		"special": [KEY_E],
+		"tactic_1": [KEY_1], "tactic_2": [KEY_2], "tactic_3": [KEY_3], "tactic_4": [KEY_4],
 	},
 	{  # player 2: arrows, Enter, Right Shift
 		"move_up": [KEY_UP], "move_down": [KEY_DOWN], "move_left": [KEY_LEFT], "move_right": [KEY_RIGHT],
 		"shoot": [KEY_ENTER, KEY_KP_ENTER], "pass": [KEY_SHIFT], "switch": [KEY_CTRL],  # the right-hand Shift and Ctrl
 		"special": [KEY_COMMA],
+		"tactic_1": [KEY_KP_1], "tactic_2": [KEY_KP_2], "tactic_3": [KEY_KP_3], "tactic_4": [KEY_KP_4],
 	},
 ]
 const PAD_BUTTONS := {
@@ -23,6 +26,7 @@ const PAD_BUTTONS := {
 	"move_left": [JOY_BUTTON_DPAD_LEFT], "move_right": [JOY_BUTTON_DPAD_RIGHT],
 	"shoot": [JOY_BUTTON_B], "pass": [JOY_BUTTON_A], "switch": [JOY_BUTTON_X, JOY_BUTTON_LEFT_SHOULDER],
 	"special": [JOY_BUTTON_Y],
+	"tactic_1": [], "tactic_2": [], "tactic_3": [], "tactic_4": [],  # keyboard only: the d-pad moves
 }
 const PAD_STICK := {  # left stick: [axis, direction]
 	"move_up": [JOY_AXIS_LEFT_Y, -1.0], "move_down": [JOY_AXIS_LEFT_Y, 1.0],

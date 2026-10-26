@@ -12,14 +12,58 @@ Football) instead. Boots with the PTE (Polycarpus Tack Experiments) intro video 
 card (any key skips), then the OSCF title screen with
 the title music, Space to kick off. Left/Right on the title screen picks **Chaos Football**
 (energy bars and super-shots, the default) or **Classic Football** (plain FIFA 96 rules:
-same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players.
+same players, ball and AI, no energy, combos are just shots). Up/Down picks 1 or 2 players,
+or **CUP**: a knockout cup of 4, 8 or 16 league clubs (pick the size and your club, then a random
+draw). The bracket shows every round; Space plays your next tie (a knockout match: extra time,
+golden goal, penalties), and at full time Space takes the result back to the bracket, where the
+other ties are simulated from the clubs' ratings (`result_sim.gd`). Knocked out, Space simulates
+the rest. The cup is saved to one of 3 slots (pick it on the setup screen) every time the bracket
+shows; **CONTINUE** (on Up/Down once a save exists) lists the slots and picks a cup up again. A tie
+left in the middle of the match (pause menu) is lost, and the save is from the bracket before it.
+Esc leaves the cup; its save stays.
+Or **SEASON**: the Jupiler Pro League, the 18 clubs twice each, 34 rounds. The season screen
+shows:
+- the table (3 points for a win, then goal difference and goals scored);
+- the round's fixtures and results;
+- your next match, and who is suspended for it.
+
+Space plays your match, and the round's other scores come in on the banner as you play
+("LATEST"). S simulates your match instead. TAB shows the top scorers, the cards and the best
+rated (from your matches on the pitch). A red card costs the next match, as does every fifth
+yellow. A season saves to the same 3 slots as a cup, and CONTINUE picks either up again.
+
+**Injuries** (a match option, on by default):
+- A slide that takes the man, or a Chaos body check, can hurt him. A foul from behind hurts most
+  often, and more again when the Chaos referee didn't see it.
+- A hurt player is slower and plays worse.
+- A bad injury takes him off at the next stoppage. The AI picks his replacement; on your side,
+  the substitutions screen opens. With no subs left, he limps on.
+- Your side is told when a man "may need substituting" (hurt or worn out).
+- In a cup or season, a bad injury keeps him out for 1–3 fixtures, and simulated matches injure
+  too. The season screen lists who is injured.
+
+**Replays** (a match option, on by default):
+- After a goal, an instant replay of the last 6 seconds plays at half speed, with an "R" in the
+  corner. Any key skips it.
+- REPLAY in the pause menu shows the last 10 seconds, stepped: Space plays or pauses, ←/→ moves a
+  frame, S changes the speed (¼, ½, 1×), Esc goes back to the menu.
+- Every goal and save is kept as a highlight. H on the full-time screen plays them in order.
 Gamepads work on the title screen too (d-pad to choose, A/B/Start to go on). Then team select:
-W/S picks player 1's club, ↑/↓ the opponent's, Space goes on, Esc goes back. Then the match
+W/S picks player 1's club, ↑/↓ the opponent's, Space goes on, Esc goes back. Then team
+management (SQUAD and TACTICS pages, TAB switches). On TACTICS, below the formations, are the 8
+Team Instructions: mentality, width, line (with an offside trap), passing, tempo, pressing,
+tackling and shooting. ↑/↓ picks one and ←/→ sets it. They are saved with the club's team sheet,
+and the AI players follow them. The CPU manager sets its own side's instructions to fit its
+style, and the banner says so. The TACTICS page has 4 **Tactic Slots** (1 BALANCED, 2 ATTACK,
+3 DEFEND, 4 ALL OUT): keys 1–4 pick the one you edit, each with its own formation and
+instructions. The first is the team sheet's own. In the match, keys 1–4 (player 2: keypad 1–4)
+switch between them: the instructions change at once, the formation at the next stoppage, and not
+again for 5 seconds. The slot you're playing shows after the clock. Then the match
 options: ↑/↓ picks a row, ←/→ changes it, Space kicks off, Esc goes back. Mode (Chaos or
 Classic, the same setting as on the title screen), pitch (outdoor 11 a side, or indoor 5 a
 side: see Indoor), half length (2, 3, 5, 10, 20 or 45 real
-minutes; the clock always shows 45 match minutes a half), offside, fouls and cards on or
-off, and Friendly or Knockout (extra time and penalties when level). The choices are kept for
+minutes; the clock always shows 45 match minutes a half), offside, fouls, cards, injuries and replays on
+or off, and Friendly or Knockout (extra time and penalties when level). The choices are kept for
 the next match until the game is closed.
 
 ## Chaos special actions
@@ -82,10 +126,21 @@ godot --headless --path game -s res://tests/rules_test.gd                       
 godot --headless --path game -s res://tests/wall_test.gd                         # the free-kick wall: size by distance, holds still, blocks a low shot
 godot --headless --path game -s res://tests/referee_art_test.gd                  # the referee's own sprites, yellow and red card
 godot --headless --path game -s res://tests/pause_test.gd                        # pause menu stops clock, AI and ball
+godot --headless --path game -s res://tests/instructions_test.gd                 # Team Instructions: normal plays as before; each one measured
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/rendered_test.gd                     # player art: Pixel / Rendered, fallback, options and pause menu
 godot --headless --path game -s res://tests/modifiers_test.gd                    # Chaos modifiers: giant players, super goalie, crazy bounce, hot potato, catch-up
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
+godot --headless --path game -s res://tests/result_sim_test.gd                   # simulated results: stronger wins more, 2-3.5 goals, repeatable
+godot --headless --path game -s res://tests/cup_test.gd                          # cup draw, bracket order, knocked out, save round trip
+godot --headless --path game -s res://tests/cup_flow_test.gd                     # a cup tie on the pitch: result back the right way round
+godot --headless --path game -s res://tests/cup_smoke_test.gd                    # a whole cup of 4 to a winner
+godot --headless --path game -s res://tests/season_test.gd                       # season: fixtures, table, scorers, cards, suspensions, save round trip
+godot --headless --path game -s res://tests/season_smoke_test.gd                 # a 4-club season: 2 matches on the pitch, the rest simulated, to a champion
+godot --headless --path game -s res://tests/injury_test.gd                       # injuries: odds by foul, slower and worse, forced subs, missed fixtures
+godot --headless --path game -s res://tests/replay_test.gd                       # replays: 10 s buffer, instant replay after a goal, pause-menu replay, highlights
+godot --headless --path game -s res://tests/tactics_test.gd                      # Tactic Slots: defaults, editing, saving, switching in play, cooldown, HUD
+godot --headless --path game -s res://tests/save_test.gd                         # cup saves: same cup back, a failed write keeps the old one, bad files refused, CONTINUE
 godot --headless --path game -s res://tests/stats_test.gd                        # match stats, Man of the Match, full-time screen
 godot --headless --path game -s res://tests/referee_test.gd                      # Chaos referee: view cone, discipline meter, mood, "Sorry, ref!", dive, captain, whistle stun, bribe
 godot --headless --path game -s res://tests/discipline_test.gd                   # advantage, late whistle, warning, repeat offenders, last man
@@ -100,7 +155,7 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 |---|---|
 | Left / Right on the title screen | Chaos or Classic Football |
 | C on the title screen | **Controls**: rebind both players' keys (saved in `user://controls.cfg`; the gamepad layout is fixed) |
-| Up / Down on the title screen | 1 player (vs the AI) or 2 players (Brugge vs Anderlecht) |
+| Up / Down on the title screen | 1 player (vs the AI), 2 players (Brugge vs Anderlecht), a cup, a league season, or CONTINUE a saved one (saves in `user://saves/`) |
 | WASD / arrows | move (you control the Brugge player nearest the ball, ringed in yellow; the ring empties as he tires) |
 | Space | with the ball: shoot on release, hold for power (aims at goal when you face it). Without: slide tackle |
 | E + Space, or ↓ → (↓ ↘ →) then Space | the line move: a striker's **Fireball** (50 energy): flat rocket, bowls over anyone in the way. Defender: Bulldozer Clear, midfielder: Laser Pass, keeper: Cannon Punt (see Chaos special actions) |
@@ -117,8 +172,9 @@ godot --path game -s res://tests/two_player_demo.gd --write-movie 2p.avi --fixed
 | X from out wide in the last third | to a teammate in (or running into) the box: a cross, at head height |
 | X / Space at a throw-in, corner or goal kick | take it (aim with the stick; a throw-in always goes into the field) |
 | Space / X at a free kick | Space: shoot (aim with the stick, freeKickAccuracy), X: pass |
-| Space at full time | back to the title screen (the full-time screen shows possession, goals, shots, saves, fouls, cards, offsides and corners for each side, and the Man of the Match) |
-| Esc (gamepad Start) | pause: the clock, the AI and the ball stop. ↑/↓ and Space/Enter pick Resume, Moves (every move, see Chaos special actions), Restart match or Quit to title; Esc again resumes |
+| Space at full time | back to the title screen, or in a cup to the bracket (the full-time screen shows possession, goals, shots, saves, fouls, cards, offsides and corners for each side, and the Man of the Match) |
+| 1–4 (player 2: keypad 1–4) | switch Tactic Slot: balanced, attack, defend, all out (keyboard only) |
+| Esc (gamepad Start) | pause: the clock, the AI and the ball stop. ↑/↓ and Space/Enter pick Resume, Moves (every move, see Chaos special actions), Replay (see Replays), Restart match or Quit to title; Esc again resumes |
 | F1 | animation viewer |
 | F2 | hide / show the input trail in front of the prompts |
 | **2 players** | P1 (Brugge, yellow ring): WASD, Space shoot, X pass. P2 (Anderlecht, cyan ring): arrows, Enter shoot, Right Shift pass, Right Ctrl switch. P1 switches with Q |
@@ -388,6 +444,11 @@ our own layout.
 
 ## Player art: Pixel or Rendered
 
+The menus' and the match's text follow the same choice (`UiText.apply_font`, `fonts/README.md`):
+Pixel uses Jersey 10 (scaled up to match) with Pixelify Sans for headings. Rendered, which stands
+in for the 3D edition to come, uses a bold italic Exo 2. All three are under the SIL Open Font
+License, and each licence is in `fonts/`.
+
 Match options (PLAYERS) or the pause menu, mid-match: **Pixel** draws the players with FIFA
 96's sprites; **Rendered** with ours, rendered in Blender from a scripted low-poly footballer
 (`tools/blender/`, see the scripts' notes). They're palette-indexed like FIFA 96's, with their
@@ -442,6 +503,11 @@ and chatter isn't repeated within 4 s or while lines are waiting; no line comes 
 while it's one of the last two for that moment. The goals and red cards, with the minute,
 are listed on the full-time screen. The structure follows CM3's match commentary (priorities,
 a shot held for its outcome, goals told by their context); no CM3 text is used.
+
+Each moment has serious lines, said in both modes. Chaos football adds an over-the-top pool on
+top of them. After 14 s of open play with nothing said comes a lull line: about the play, or
+in Chaos about the crowd (trombones, conga lines, a dog on the loose) and the players' odd
+ways. Classic football never shows a Chaos line (`commentary_test`).
 
 ## Stamina
 

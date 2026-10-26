@@ -26,6 +26,8 @@ var counts := {}  # Team -> {stat: int}
 var possession := {}  # Team -> seconds the ball was theirs in open play
 var points := {}  # Footballer -> rating points (see RATING) on top of RATING_START
 var goals := {}  # Footballer -> goals
+var scorers: Array = []  # [Footballer, match minute, own goal], in order: for a cup or season's result
+var cards: Array = []  # [Footballer, "yellow" or "red", match minute]
 var _m  # the Match
 var _holder: Footballer  # who had the ball last frame
 var _released_by: Footballer  # who had it last, while it's loose
@@ -53,6 +55,8 @@ func _on_event(kind: String, team: Team) -> void:
 	var who: Footballer = ball.holder if kind == "save" and ball.holder else ball.last_touch
 	if kind == "goal":
 		_rate("conceded", _m.opponent(team).keeper())
+		if who:
+			scorers.append([who, _m.minute(), who.team != team])
 		if who == null or who.team != team:
 			_rate("own goal", who)
 			return
@@ -68,6 +72,8 @@ func _on_event(kind: String, team: Team) -> void:
 func _rate(kind: String, p: Footballer) -> void:
 	if p == null or not _m.shootout.is_empty():
 		return
+	if kind in ["yellow card", "red card"]:
+		cards.append([p, kind.get_slice(" ", 0), _m.minute()])
 	var add: float = RATING[kind]
 	if not kind in ["goal", "own goal", "assist", "save", "conceded", "yellow card", "red card"]:
 		add *= SMALL_THINGS_HALF / _m.half_seconds * 60.0

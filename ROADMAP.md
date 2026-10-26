@@ -37,9 +37,9 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 
 | # | Item | Done when | Size |
 |---|---|---|---|
-| 3.1 | Cup (straight knockout, 8 or 16 clubs) | Bracket screen; uses 1.3; the other matches are simulated | M |
-| 3.2 | League season (Jupiler Pro League, 18 clubs) | Fixtures, simulated results, table, top scorers, cards carried over; starts from `league.json` | L |
-| 3.3 | Save / load for cup and season | One save slot per mode | M |
+| 3.1 | Cup (straight knockout, 8 or 16 clubs) | **Done** (`cup_test`, `cup_smoke_test`; GPM EPIC A): 4, 8 or 16 clubs, bracket screen, the other ties simulated (`ResultSim`). Saved since EPIC B. Still open: two legs (EPIC I) | M |
+| 3.2 | League season (Jupiler Pro League, 18 clubs) | **Done** (`season_test`, `season_smoke_test`; GPM EPIC D): 34 rounds, simulated results, table, top scorers, cards and best rated, suspensions, other scores during your match, saved. Still open: injuries (EPIC E), promotion and relegation (no second division in the data) | L |
+| 3.3 | Save / load for cup and season | **Done for the cup** (`save_test`; GPM EPIC B): 3 slots in `user://saves/`, autosave at the bracket, CONTINUE on the title. Done for the season too (EPIC D) | M |
 | 3.4 | Indoor, 5 a side (IDEAS_TO_IMPLEMENT I.1) | **Done** (`indoor_test`): arena with boards, no throw-ins / corners / offside, 1-2-1. Still open: own arena art (floor, boards, low crowd), smaller indoor goals, rolling subs | M |
 
 ## Phase 4: atmosphere (own content first, see the replacement list)
@@ -55,7 +55,7 @@ Every FIFA 96 file the game loads is one more thing to replace before the game c
 
 | # | Item | Size |
 |---|---|---|
-| 5.1 | Instant replay of goals (a buffer of recent positions, no saving) | M |
+| 5.1 | Instant replay of goals (a buffer of recent positions, no saving) | **Done** (`replay_test`; GPM EPIC F): instant replay after a goal, REPLAY in the pause menu, highlights on the full-time screen. Still open: saving a goal (F-5, on hold) | M |
 | 5.2 | Practice mode: corners, free kicks, penalties, the Chaos moves | M |
 | 5.3 | Stadium and pitch variety (own art; FIFA 96 has 4 stadiums and 4 mowing patterns as reference) | S–M |
 | 5.4 | Settings: volume sliders, key rebinding, HUD toggles. **Key rebinding done** (title screen C, `controls_menu_test`); gamepad rebinding, volume and HUD toggles open | S |

@@ -1,13 +1,15 @@
 class_name Lineup
 extends RefCounted
 ## A club's team sheet: the starting XI, one player per slot of its formation (Team.FORMATIONS),
-## and a bench of seven, as EA player ids from data/squads.json. Picked on the team management
+## and a bench of seven, as EA player ids from data/squads.json, and the Team Instructions. Picked on the team management
 ## screen, saved per club in user://lineups.json, and handed to the match through Match's static
 ## vars (the match itself never reads the save, so tests always play the default XI).
 
 const SQUADS := "res://data/squads.json"
 const SAVE := "user://lineups.json"
 const BENCH := 7
+
+static var path := SAVE  # tests point it elsewhere
 ## Squad positions that suit a slot almost as well as its own (CM3 rates every player for every
 ## position; EA gives one position, so this stands in for the rest).
 const GOOD_FIT := {
@@ -18,6 +20,17 @@ const GOOD_FIT := {
 	"RM": ["RW", "RB", "CM"], "LM": ["LW", "LB", "CM"], "RW": ["RM", "ST"], "LW": ["LM", "ST"],
 	"ST": ["CAM", "RW", "LW"],
 }
+
+
+## The Tactic Slots' defaults after the first (the sheet's own): ALL OUT's formation outdoors, and
+## the instructions that differ from normal.
+const TACTIC_DEFAULTS := [
+	{},
+	{"instructions": {"mentality": "attacking", "tempo": "fast", "pressing": "high", "shooting": "on sight"}},
+	{"instructions": {"mentality": "defensive", "width": "narrow", "line": "deep", "pressing": "stand off", "tempo": "slow"}},
+	{"formation": "4-3-3", "instructions": {"mentality": "attacking", "width": "wide", "line": "high", "passing": "direct",
+		"tempo": "fast", "pressing": "high", "shooting": "on sight"}},
+]
 
 
 static func squads() -> Dictionary:
@@ -80,22 +93,43 @@ static func entries(squad: Array, ids: Array) -> Array:
 	return ids.map(func(id): return by_id[int(id)])
 
 
+## The sheet's 4 Tactic Slots (Team.TACTICS), checked: {"formation", "instructions"} each. The
+## first is the sheet's own `formation` and instructions; the others as saved, or their defaults
+## (TACTIC_DEFAULTS) where missing or not valid. A formation must be of the same kind as
+## `formation` (outdoor or indoor).
+static func tactics(sheet: Dictionary, formation: String) -> Array:
+	var kind: Dictionary = Team.FORMATIONS if Team.FORMATIONS.has(formation) else Team.INDOOR_FORMATIONS
+	var saved: Array = sheet.get("tactics", []) if sheet.get("tactics") is Array else []
+	var out := []
+	for i in Team.TACTICS.size():
+		var given: Dictionary = saved[i] if i < saved.size() and saved[i] is Dictionary else {}
+		var fallback: Dictionary = TACTIC_DEFAULTS[i]
+		var f: String = str(given.get("formation", ""))
+		if not kind.has(f):
+			f = fallback.get("formation", formation) if kind.has(fallback.get("formation", "")) else formation
+		var levels = sheet.get("instructions", {}) if i == 0 else given.get("instructions", fallback.get("instructions", {}))
+		out.append({"formation": formation if i == 0 else f,
+			"instructions": Team.checked_instructions(levels if levels is Dictionary else {})})
+	return out
+
+
 ## The saved sheet for `club`: {"formation", "xi", "bench"}, or {} when there is none.
 static func load_saved(club: String) -> Dictionary:
-	if not FileAccess.file_exists(SAVE):
+	if not FileAccess.file_exists(path):
 		return {}
-	var data = JSON.parse_string(FileAccess.get_file_as_string(SAVE))
+	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
 	return data.get(club, {}) if data is Dictionary else {}
 
 
 static func save(club: String, formation: String, sheet: Dictionary) -> void:
 	var data := {}
-	if FileAccess.file_exists(SAVE):
-		var old = JSON.parse_string(FileAccess.get_file_as_string(SAVE))
+	if FileAccess.file_exists(path):
+		var old = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if old is Dictionary:
 			data = old
-	data[club] = {"formation": formation, "xi": sheet.xi, "bench": sheet.bench}
-	var f := FileAccess.open(SAVE, FileAccess.WRITE)
+	data[club] = {"formation": formation, "xi": sheet.xi, "bench": sheet.bench, "instructions": sheet.get("instructions", {}),
+		"tactics": sheet.get("tactics", [])}
+	var f := FileAccess.open(path, FileAccess.WRITE)
 	f.store_string(JSON.stringify(data, "\t"))
 
 

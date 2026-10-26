@@ -16,6 +16,18 @@ const COVER_FROM_M := 22.0  # how close a defender has to be to step up and cove
 const THROUGH_SPACE := 108.0  # px (6 m) ahead of a runner a through ball is played
 const LANE_WATCH := 150.0  # px: an opponent this close to a defender's spot is his to cut off
 const SWERVE_SEE := 90.0  # px: an opponent this close in a dribbler's way is gone around
+# Team Instructions (Team.INSTRUCTIONS), per step from normal:
+const MENTALITY := 0.09  # of the pitch length the outfield moves up (attacking) or back (~9.5 m)
+const WIDTH := 0.25  # wider or narrower across, by this share
+const LINE := [0.04, 0.11]  # of the pitch length the back line moves back (deep: it's deep already) or up (high)
+const TRAP := 0.06  # and up again, with the offside trap, as the other side's pass is played
+const PASS_LENGTH := 0.5  # a pass's score per pixel of its length (direct +, short -)
+const PASS_SIGHT := 0.4  # how much further (direct) or nearer (short) he looks for a teammate
+const PASS_LONG := 15.0  # worth added to a through ball or a cross (direct +, short -)
+const TEMPO := 0.3  # the time on the ball before a decision, shorter (fast) or longer (slow)
+const SHOOT_RANGE := 0.2  # the shooting range, longer (on sight) or shorter (patient)
+const PRESS_SECOND_M := 15.0  # the high press: the next man this close to their man on the ball goes in too
+const TACKLING := 0.6  # the odds of going to ground or barging, higher (hard) or lower (easy)
 ## How far a player's spot follows the ball, by role, [without the ball, with it]: x along the
 ## pitch, y across, per unit of the ball's pitch fraction. Defenders follow it up and down least
 ## (the back line stays together) and the whole side slides across more without the ball.
@@ -40,7 +52,7 @@ static func think(p: Footballer, m: Match, delta: float) -> void:
 	elif p.has_ball():
 		_with_ball(p, m)
 	elif not in_possession(p.team, m):
-		if presser(p.team, m) == p:
+		if presser(p.team, m) == p and not _standing_off(p.team, m) or second_presser(p.team, m) == p:
 			p.ai_state = "chase"
 			p.wish = ((chase_spot(m) - p.position) / 10.0).limit_length(1.0)
 			_maybe_body_check(p, m)
@@ -114,6 +126,29 @@ static func receiver(t: Team, m: Match) -> Footballer:
 				and (best == null or p.time_to(at) < best.time_to(at)):
 			best = p
 	_receivers[t] = [frame, best]
+	return best
+
+
+## Standing off (pressing instruction): their man on the ball in his own half is left alone.
+static func _standing_off(t: Team, m: Match) -> bool:
+	var h := m.ball.holder
+	return t.instruction("pressing") < 0 and h != null and h.team != t and _up(t, h.position) > 0.5
+
+
+## The high press (pressing instruction): with their man on the ball, the nearest of us to him after
+## the presser goes in too, if he's within PRESS_SECOND_M (the cover, in our half, stays goal-side).
+static func second_presser(t: Team, m: Match) -> Footballer:
+	var h := m.ball.holder
+	if t.instruction("pressing") <= 0 or h == null or h.team == t:
+		return null
+	var first := presser(t, m)
+	var covering := cover(t, m)
+	var best: Footballer = null
+	for p in t.players:
+		if p.role != "G" and p != first and p != covering and not p.sent_off \
+				and p.position.distance_to(h.position) < Pitch.m(PRESS_SECOND_M) \
+				and (best == null or p.position.distance_to(h.position) < best.position.distance_to(h.position)):
+			best = p
 	return best
 
 
@@ -234,7 +269,7 @@ static func _maybe_body_check(p: Footballer, m: Match) -> void:
 	var h := m.ball.holder
 	if h == null or h.team == p.team or p.position.distance_to(h.position) > 45.0:
 		return
-	if p.skill("strength", 0.0, 1.0) > h.skill("strength", 0.0, 1.0) and randf() < 0.02:
+	if p.skill("strength", 0.0, 1.0) > h.skill("strength", 0.0, 1.0) and randf() < body_check_chance(p):
 		p.facing = Anims.facing_from(h.position - p.position)
 		m.body_check(p)
 
@@ -245,11 +280,25 @@ static func _maybe_slide(p: Footballer, m: Match) -> void:
 	var h := m.ball.holder
 	if h == null or h.team == p.team or p.busy() or p.position.distance_to(h.position) > 40.0:
 		return
-	if randf() < p.skill("aggression", 0.002, 0.012):
+	if randf() < slide_chance(p):
 		p.facing = Anims.facing_from(m.ball.position - p.position)
 		p.slide()
 		if p.sliding():
 			m.effects.play("dust_puff", p.position)
+
+
+## A frame's chance that a chaser on the dribbler goes to ground: aggression, and the tackling.
+static func slide_chance(p: Footballer) -> float:
+	return p.skill("aggression", 0.002, 0.012) * _tackling(p)
+
+
+## A frame's chance that a stronger chaser barges him (_maybe_body_check), with the tackling.
+static func body_check_chance(p: Footballer) -> float:
+	return 0.02 * _tackling(p)
+
+
+static func _tackling(p: Footballer) -> float:
+	return 1.0 + p.team.instruction("tackling") * TACKLING
 
 
 static func _hold_position(p: Footballer, m: Match, attacking: bool) -> void:
@@ -267,6 +316,14 @@ static func hold_spot(p: Footballer, m: Match, attacking: bool) -> Vector2:
 	else:
 		fy = 1.0 - fy
 	var base := p.attack_spot if attacking else p.defend_spot
+	if p.role != "G":
+		base.x += t.instruction("mentality") * MENTALITY
+		base.y = clampf(0.5 + (base.y - 0.5) * (1.0 + t.instruction("width") * WIDTH), 0.03, 0.97)
+	if p.role == "D":
+		var line := t.instruction("line")
+		base.x += -LINE[0] if line < 0 else mini(line, 1) * LINE[1]
+		if not attacking and t.instruction("line") == 2 and m.ball.holder == null and in_possession(m.opponent(t), m):
+			base.x += TRAP
 	var pull: Vector2 = PULL[p.role][1 if attacking else 0]
 	var spot := base + Vector2((fx - 0.5) * pull.x, (fy - 0.5) * pull.y)
 	spot.x = clampf(spot.x, 0.06, 0.94)
@@ -282,7 +339,7 @@ static func hold_spot(p: Footballer, m: Match, attacking: bool) -> Vector2:
 ## best. In between he dribbles at goal.
 static func _with_ball(p: Footballer, m: Match) -> void:
 	if p.think_timer <= 0.0:
-		p.think_timer = p.skill("reactions", 0.35, 0.15)
+		p.think_timer = think_time(p)
 		var choice := choose(p, m)
 		match choice[0]:
 			"shoot":
@@ -325,14 +382,21 @@ static func choose(p: Footballer, m: Match) -> Array:
 	return best
 
 
+## How long he's on the ball before he weighs his options again: reactions, and the tempo.
+static func think_time(p: Footballer) -> float:
+	return p.skill("reactions", 0.35, 0.15) * (1.0 - p.team.instruction("tempo") * TEMPO)
+
+
 ## How good his decisions are, 0..1: vision, composure and reactions.
 static func decisions(p: Footballer) -> float:
 	return (p.skill("vision", 0.0, 1.0) + p.skill("composure", 0.0, 1.0) + p.skill("reactions", 0.0, 1.0)) / 3.0
 
 
-## How far out he'll shoot (pixels): longShots decides; never from his own half (indoors).
+## How far out he'll shoot (pixels): longShots decides, and the shooting instruction; never
+## from his own half (indoors).
 static func shooting_range(p: Footballer) -> float:
-	return minf(Pitch.m(p.skill("longShots", RANGE_M[0], RANGE_M[1])), Pitch.m(Pitch.length_m() / 2.0 - 2.0))
+	var reach := p.skill("longShots", RANGE_M[0], RANGE_M[1]) * (1.0 + p.team.instruction("shooting") * SHOOT_RANGE)
+	return minf(Pitch.m(reach), Pitch.m(Pitch.length_m() / 2.0 - 2.0))
 
 
 ## [option, worth, target] for everything `p` could do with the ball now.
@@ -347,16 +411,18 @@ static func options(p: Footballer, m: Match) -> Array:
 		var stat := p.skill("finishing" if d < Pitch.m(16.0) else "longShots", 0.7, 1.1)
 		var worth := 100.0 * q * stat + (20.0 if d < Pitch.m(11.0) else 0.0) - 25.0 * _blockers(p, goal, m)
 		out.append(["shoot", worth, null])
-	var passing := pass_option(p, m, Vector2.ZERO)
+	var direct := p.team.instruction("passing")
+	var passing := pass_option(p, m, Vector2.ZERO, direct)
 	if passing[0]:
-		out.append(["pass", clampf(passing[1] * 0.3, -40.0, 90.0) + (20.0 if pressed else 0.0), passing[0]])
+		var score: float = passing[1] - p.position.distance_to(passing[0].position) * direct * PASS_LENGTH  # the length decides who, not whether
+		out.append(["pass", clampf(score * 0.3, -40.0, 90.0) + (20.0 if pressed else 0.0), passing[0]])
 	var runner := through_ball(p, m)
 	if runner:
-		out.append(["through ball", p.skill("vision", 20.0, 55.0), runner])  # level with a long shot: it mustn't crowd them out
+		out.append(["through ball", p.skill("vision", 20.0, 55.0) + direct * PASS_LONG, runner])  # level with a long shot: it mustn't crowd them out
 	if m.wide_in_final_third(p):
 		var target := _cross_target(p, m)
 		if target:
-			out.append(["cross", 55.0 + minf(m.nearest_opponent_distance(target), 120.0) / 6.0, target])
+			out.append(["cross", 55.0 + minf(m.nearest_opponent_distance(target), 120.0) / 6.0 + direct * PASS_LONG, target])
 	var space := minf(m.nearest_opponent_distance(p), 150.0)
 	var dribble := 20.0 + space / 5.0 - (25.0 if pressed else 0.0)
 	if _winger(p) and m.wide_within(p, Pitch.length_m() / 2.0):
@@ -540,13 +606,15 @@ static func best_pass(p: Footballer, m: Match, aim: Vector2) -> Footballer:
 	return pass_option(p, m, aim)[0]
 
 
-## [best teammate to pass to or null, his score] (see best_pass).
-static func pass_option(p: Footballer, m: Match, aim: Vector2) -> Array:
+## [best teammate to pass to or null, his score] (see best_pass). `direct`: the AI's passing
+## instruction, steps from normal: he looks further and likes it longer, or nearer and shorter
+## (the human's passes leave it at 0).
+static func pass_option(p: Footballer, m: Match, aim: Vector2, direct := 0) -> Array:
 	var goal := p.team.goal_attacked()
 	var best: Footballer = null
 	var best_score := -INF
 	var offside: Array = m.offside_players(p) if Match.offside_rule() else []
-	var sight := p.skill("vision", 400.0, 560.0)
+	var sight := p.skill("vision", 400.0, 560.0) * (1.0 + direct * PASS_SIGHT)
 	for mate in p.team.players:
 		if mate == p or mate.role == "G":
 			continue
@@ -558,7 +626,7 @@ static func pass_option(p: Footballer, m: Match, aim: Vector2) -> Array:
 			continue
 		var progress := p.position.distance_to(goal) - mate.position.distance_to(goal)
 		var space := minf(m.nearest_opponent_distance(mate), 120.0)
-		var score := progress * 0.6 + space - dist * 0.15
+		var score := progress * 0.6 + space - dist * 0.15 + dist * direct * PASS_LENGTH
 		if _winger(mate) and m.wide_within(mate, Pitch.length_m() / 2.0) and not _winger(p):
 			score += 60.0  # get it out wide: a winger in their half can go down the line and cross
 		if _lane_blocked(p, mate, m):

@@ -91,12 +91,12 @@ func _initialize() -> void:
 	match_script.modifiers.clear()
 	options._refresh()
 	var chaos_rows: int = options._rows().size()
-	options._row = 9
+	options._row = 11
 	options._change(1)
 	var on: Array = match_script.modifiers.duplicate()
 	options._change(1)
-	print("options: %d rows in Classic, %d in Chaos; row 9 toggled on %s, off %s" % [classic_rows, chaos_rows, on, match_script.modifiers])
-	ok = ok and classic_rows == 9 and chaos_rows == 14 and on == ["giant players"] and match_script.modifiers.is_empty()
+	print("options: %d rows in Classic, %d in Chaos; row 11 toggled on %s, off %s" % [classic_rows, chaos_rows, on, match_script.modifiers])
+	ok = ok and classic_rows == 11 and chaos_rows == 16 and on == ["giant players"] and match_script.modifiers.is_empty()
 	options.queue_free()
 
 	print("MODIFIERS TEST PASSED" if ok else "MODIFIERS TEST FAILED")

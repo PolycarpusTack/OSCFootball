@@ -126,12 +126,7 @@ func _close() -> void:
 
 func _label(text: String, font_size: int, colour: Color, pos: Vector2, width := 0.0,
 		align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", colour)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 5)
+	var l := UiText.label(text, font_size, colour, 5)
 	l.position = pos
 	if width > 0.0:
 		l.size.x = width
@@ -174,7 +169,7 @@ func _refresh() -> void:
 			_pitch_row(t.players[r], r, x, y)
 		else:
 			_bench_row(t.bench[r - _xi()], x, y)
-	var hint := "↑/↓ choose   SPACE player off, then a sub on   DEL call it off   ESC back"
+	var hint := UiText.hint([["↑/↓", "choose"], ["SPACE", "player off, then a sub on"], ["DEL", "call it off"], ["ESC", "back"]])
 	if _teams.size() > 1:
 		hint += "   TAB other side"
 	_label(hint, 15, GREY, Vector2(0, 690), 1280, HORIZONTAL_ALIGNMENT_CENTER)

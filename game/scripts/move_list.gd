@@ -114,7 +114,7 @@ func _ready() -> void:
 	_who.add_theme_font_size_override("font_size", 14)
 	_who.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	add_child(_who)
-	var help := _label("←/→ page   ↑/↓ move   Esc / B back   Directions: → is toward the goal you attack", 14, Color(0.75, 0.75, 0.75))
+	var help := _label(UiText.hint([["←/→", "page"], ["↑/↓", "move"], ["ESC / B", "back"]]) + "     Directions: → is toward the goal you attack", 14, Color(0.75, 0.75, 0.75))
 	help.position = Vector2(60, 680)
 	add_child(help)
 	visible = false
@@ -276,10 +276,4 @@ func _process(delta: float) -> void:
 
 
 func _label(text: String, font_size: int, colour: Color) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", colour)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 6)
-	return l
+	return UiText.label(text, font_size, colour)

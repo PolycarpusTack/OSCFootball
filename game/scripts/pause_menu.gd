@@ -2,11 +2,12 @@ class_name PauseMenu
 extends CanvasLayer
 ## Esc (gamepad Start) pauses the match: the whole tree stops (clock, AI, ball, wind-ups)
 ## while this layer keeps running. Up / Down picks, Space / Enter (A) chooses, Esc / Start
-## (B) resumes. MOVES shows the command list (MoveList), SUBSTITUTIONS the human sides' SubsMenu,
+## (B) resumes. MOVES shows the command list (MoveList), REPLAY the last 10 s (Replay, stepped),
+## SUBSTITUTIONS the human sides' SubsMenu,
 ## PLAYERS switches the player art (Pixel / Rendered).
 
 const TITLE := "res://scenes/title.tscn"
-const ITEMS := ["RESUME", "MOVES", "SUBSTITUTIONS", "PLAYERS", "RESTART MATCH", "QUIT TO TITLE"]
+const ITEMS := ["RESUME", "MOVES", "REPLAY", "SUBSTITUTIONS", "PLAYERS", "RESTART MATCH", "QUIT TO TITLE"]
 
 var _pick := 0
 var _box := Control.new()  # the menu: shown and hidden as one
@@ -44,13 +45,8 @@ func _ready() -> void:
 
 
 func _label(text: String, font_size: int, colour: Color) -> Label:
-	var l := Label.new()
-	l.text = text
+	var l := UiText.label(text, font_size, colour, 8)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", colour)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 8)
 	return l
 
 
@@ -59,8 +55,17 @@ func _refresh() -> void:
 		var text: String = ITEMS[i]
 		if text == "PLAYERS":  # the player art, switched on the spot
 			text = "PLAYERS: %s" % ("RENDERED" if Match.rendered else "PIXEL")
+		elif text == "QUIT TO TITLE" and Match.competition:  # the cup is saved as it was before this tie
+			text = "QUIT TO TITLE (THIS %s IS LOST)" % ("TIE" if Match.competition is Cup else "MATCH")
 		_rows[i].text = ("▶  %s  ◀" if i == _pick else "%s") % text
 		_rows[i].modulate.a = 1.0 if i == _pick else 0.7
+
+
+## Paused straight into SUBSTITUTIONS (a man badly hurt: Match._injury_subs).
+func open_subs() -> void:
+	set_paused(true)
+	_pick = ITEMS.find("SUBSTITUTIONS")
+	_choose()
 
 
 func set_paused(on: bool) -> void:
@@ -74,7 +79,7 @@ func set_paused(on: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	var key: bool = event is InputEventKey and event.pressed and not event.echo
 	var button: bool = event is InputEventJoypadButton and event.pressed
-	if not key and not button:
+	if not key and not button or get_parent().replay.playing:  # a replay takes the keys
 		return
 	var toggle: bool = (key and event.physical_keycode == KEY_ESCAPE) or (button and event.button_index == JOY_BUTTON_START)
 	if not get_tree().paused:
@@ -113,6 +118,9 @@ func _choose() -> void:
 		"MOVES":
 			_box.visible = false
 			_open_moves()
+		"REPLAY":  # the last 10 s, stepped; Esc comes back here
+			_box.visible = false
+			get_parent().replay.play(Replay.SECONDS, 0.5, false, func(): _box.visible = true)
 		"SUBSTITUTIONS":
 			var menu := SubsMenu.new(get_parent(), get_parent().humans.map(func(h): return h.team))
 			menu.on_close = func():
@@ -123,6 +131,7 @@ func _choose() -> void:
 			add_sibling(menu)
 		"PLAYERS":
 			Match.rendered = not Match.rendered
+			UiText.apply_font(Match.rendered)
 			_refresh()
 		"RESTART MATCH":
 			get_tree().paused = false

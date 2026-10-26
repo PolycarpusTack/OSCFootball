@@ -10,6 +10,7 @@ var m: Node
 
 func _initialize() -> void:
 	seed(SEED)
+	load("res://scripts/main.gd").replays_on = false  # an instant replay holds up each kick-off: replay_test covers them
 	m = load("res://scenes/main.tscn").instantiate()
 	m.referee_cone = false  # he sees every foul: this test isn't about him (referee_test is)
 	root.add_child(m)

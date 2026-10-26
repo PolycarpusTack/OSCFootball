@@ -58,15 +58,30 @@ func _ready() -> void:
 ## `to_screen` is Stadium.to_screen (pitch point, height -> screen x, y and scale).
 func place(to_screen: Callable) -> void:
 	_to_screen = to_screen
-	var ground: Vector3 = to_screen.call(position, 0.0)
-	var at: Vector3 = to_screen.call(position, z + 2.0)
+	_place_at(position, z, in_hands, to_screen)
+	_fx.visible = not in_hands
+	_fx.queue_redraw()
+
+
+func _place_at(at_pitch: Vector2, height: float, hidden: bool, to_screen: Callable) -> void:
+	var ground: Vector3 = to_screen.call(at_pitch, 0.0)
+	var at: Vector3 = to_screen.call(at_pitch, height + 2.0)
 	_sprite.position = Vector2(at.x, at.y)
 	_sprite.scale = Vector2.ONE * at.z * DRAW_SCALE
 	_sprite.z_index = clampi(int(ground.y) + 1, -2000, 2000)
 	_fx.z_index = _sprite.z_index - 1
-	_sprite.visible = not in_hands
-	_fx.visible = not in_hands
-	_fx.queue_redraw()
+	_sprite.visible = not hidden
+
+
+## For a replay: [where, how high, in someone's hands].
+func look() -> Array:
+	return [position, z, in_hands]
+
+
+## Drawn as it was (`l` from look()); the ball itself stays where it is. No shadow or trail.
+func show_look(l: Array, to_screen: Callable) -> void:
+	_place_at(l[0], l[1], l[2], to_screen)
+	_fx.visible = false
 
 
 func kick(v: Vector2, up: float) -> void:

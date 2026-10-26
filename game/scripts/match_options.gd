@@ -7,9 +7,9 @@ const MATCH := "res://scenes/main.tscn"
 const TEAM_MANAGER := "res://scenes/team_manager.tscn"
 const BACKGROUND := "res://brand/title.png"
 const HALF_LENGTHS := [2, 3, 5, 10, 20, 45]  # real minutes per half
-const TOP := 180.0
-const ROW := 37.0
-const ROWS := 9  # the rows before the Chaos modifiers, shown in Chaos Football only
+const TOP := 172.0
+const ROW := 31.0
+const ROWS := 11  # the rows before the Chaos modifiers, shown in Chaos Football only
 
 var _row := 0
 var _labels: Array[Label] = []
@@ -28,24 +28,19 @@ func _ready() -> void:
 	heading.position.y = 40
 	var fixture := _label("%s  v  %s" % [Match.home_club, Match.away_club], 22, Color.WHITE)
 	fixture.position.y = 96
-	var hint := _label("↑ / ↓: choose        ← / →: change        SPACE: kick off        ESC: back", 16, Color(0.85, 0.85, 0.85))
+	var hint := _label(UiText.hint([["↑/↓", "choose"], ["←/→", "change"], ["SPACE", "kick off"], ["ESC", "back"]]), 16, Color(0.85, 0.85, 0.85))
 	hint.position.y = 140
 	for i in ROWS + Match.MODIFIERS.size():
-		var l := _label("", 26, Color.WHITE)
+		var l := _label("", 24, Color.WHITE)
 		l.position.y = TOP + i * ROW
 		_labels.append(l)
 	_refresh()
 
 
 func _label(text: String, font_size: int, colour: Color) -> Label:
-	var l := Label.new()
-	l.text = text
+	var l := UiText.label(text, font_size, colour)
 	l.size.x = 1280
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", colour)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 6)
 	add_child(l)
 	return l
 
@@ -62,6 +57,8 @@ func _rows() -> Array:
 		["MATCH", "KNOCKOUT (EXTRA TIME, PENALTIES)" if Match.knockout else "FRIENDLY"],
 		["REFEREE", Match.STRICTNESS[Match.strictness][0]],
 		["PLAYERS", "RENDERED" if Match.rendered else "PIXEL"],
+		["INJURIES", "ON" if Match.injuries_on else "OFF"],
+		["REPLAYS", "ON" if Match.replays_on else "OFF"],
 	] + (Match.MODIFIERS.map(func(m): return [m.to_upper(), "ON" if m in Match.modifiers else "OFF"]) if Match.chaos else [])
 
 
@@ -90,7 +87,11 @@ func _change(step: int) -> void:
 		5: Match.cards_on = not Match.cards_on
 		6: Match.knockout = not Match.knockout
 		7: Match.strictness = clampi(Match.strictness + step, 0, Match.STRICTNESS.size() - 1)
-		8: Match.rendered = not Match.rendered
+		8:
+			Match.rendered = not Match.rendered
+			UiText.apply_font(Match.rendered)
+		9: Match.injuries_on = not Match.injuries_on
+		10: Match.replays_on = not Match.replays_on
 		_:
 			var m: String = Match.MODIFIERS[_row - ROWS]
 			if m in Match.modifiers:

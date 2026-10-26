@@ -102,6 +102,17 @@ func _initialize() -> void:
 	var after_options: bool = match_script.rendered
 	print("match options, PLAYERS row: %s" % [options._rows()[8]])
 	ok = ok and options._rows()[8][0] == "PLAYERS" and not after_options
+	# P-1-AC2: the font follows it, on a Label already on screen: Pixelify Sans for Pixel, Exo 2 for Rendered
+	var shown: Label = options._labels[0]
+	var font = shown.get_theme_font("font")
+	var pixel_font: String = font.resource_path if font is FontFile else font.base_font.resource_path
+	options._change(1)
+	var rendered_font: String = shown.get_theme_font("font").base_font.resource_path
+	options._change(1)
+	var heading = options.get_child(1).get_theme_font("font")  # MATCH OPTIONS
+	print("font: Pixel %s (heading %s), Rendered %s" % [pixel_font.get_file(), heading.base_font.resource_path.get_file(), rendered_font.get_file()])
+	ok = ok and pixel_font.ends_with("OSCFJersey.ttf") and rendered_font.ends_with("Exo2-Italic.ttf") \
+		and heading.base_font.resource_path.ends_with("PixelifySans.ttf")
 	options.queue_free()
 
 	# and so does the pause menu, mid-match

@@ -30,6 +30,8 @@ const RECOVERY := 0.004  # per second at walking pace or standing
 const WEAR := [0.012, 0.0042]  # condition lost per match minute running (a quarter of it walking): stamina 40 .. 95
 const HALF_TIME_REST := 0.06
 const TIRED_SPEED := 0.15  # top speed lost when spent
+const INJURED_SPEED := 0.8  # an injured man's top speed, of his own
+const INJURED_SKILL := 0.85  # ... and he plays as if rated this much of his ratings
 const TIRED_ACCEL := 0.2
 const DIZZY_SPEED := 0.5
 const SKILL_MOVES := {"nutmeg": [0.4, 0.7], "rainbow": [0.45, 0.75], "bckheel": [0.4, 0.7]}
@@ -61,6 +63,9 @@ var ai_state := ""  # AI: what it last decided to do, for the debug overlay
 var charge := 0.0  # 0..1 while the shoot button is held; drawn as a ring
 var fatigue := 0.0  # 0 fresh .. 1 spent (see TIRING); the control ring empties with it
 var condition := 1.0  # 1 fresh .. 0 spent over the match (see WEAR): fatigue stays at least 1 - condition
+var injury := 0  # 0 fit, 1 a knock (he limps on), 2 badly hurt (he goes off at the next stoppage)
+var alerted := false  # the human was told he may need substituting (Match._sub_alerts)
+var injury_seen := false  # his bad injury was dealt with at a stoppage (Match._injury_subs)
 var marking: Footballer = null  # AI: the opponent he man-marks when defending (see CpuManager)
 var yellow := false  # booked: a second yellow is a red
 var sent_off := false  # red card: parked off the pitch for the rest of the match (see Match.book)
@@ -110,6 +115,29 @@ func _ready() -> void:
 	add_child(_sprite)
 
 
+## For a replay, what he looks like now: [where, animation, how far into it, looping, facing,
+## Chaos rotation and lift, shown].
+func look() -> Array:
+	return [position, _anim, _anim_time, not busy(), facing, chaos_rotation, chaos_lift, visible]
+
+
+## Drawn as he looked (`l` from look()) at `screen`; nothing of his own state changes.
+func show_look(l: Array, screen: Vector3) -> void:
+	var f := Anims.frame_at(l[1], l[4], l[2], l[3])
+	_sprite.texture = f.tex
+	_sprite.offset = f.offset
+	_sprite.flip_h = f.flip
+	if not art_material:
+		_sprite.material = art_for(l[1])
+	var now := [chaos_rotation, chaos_lift]
+	chaos_rotation = l[5]
+	chaos_lift = l[6]
+	place(screen)
+	chaos_rotation = now[0]
+	chaos_lift = now[1]
+	visible = l[7]
+
+
 ## `screen` from Stadium.to_screen(): x, y on screen and the scale there in z.
 func place(screen: Vector3) -> void:
 	var at := Vector2(screen.x, screen.y)
@@ -140,8 +168,13 @@ func feet_front() -> Vector2:
 
 ## A rating (EA SPORTS FC, 0-99) mapped onto lo..hi: 40 or less gives lo, 95 or more hi.
 ## Without ratings (no squad loaded) a player is average: halfway, today's behaviour.
+## Injured, he plays as if rated INJURED_SKILL of it.
 func skill(stat: String, lo: float, hi: float) -> float:
-	var v: float = stats.get(stat, 67.5)
+	return _rated(stat, lo, hi, INJURED_SKILL if injury > 0 else 1.0)
+
+
+func _rated(stat: String, lo: float, hi: float, share: float) -> float:
+	var v: float = stats.get(stat, 67.5) * share
 	return lerpf(lo, hi, clampf((v - 40.0) / 55.0, 0.0, 1.0))
 
 
@@ -151,9 +184,10 @@ func wear(match_minutes: float) -> void:
 	condition = maxf(0.0, condition - rate * match_minutes)
 
 
-## Running flat out, without the ball: sprintSpeed, less when tired.
+## Running flat out, without the ball: sprintSpeed, less when tired; injured, INJURED_SPEED of it.
 func top_speed() -> float:
-	return RUN_SPEED * speed_factor * skill("sprintSpeed", 0.86, 1.14) * (1.0 - TIRED_SPEED * fatigue)
+	return RUN_SPEED * speed_factor * _rated("sprintSpeed", 0.86, 1.14, 1.0) * (1.0 - TIRED_SPEED * fatigue) \
+		* (INJURED_SPEED if injury > 0 else 1.0)
 
 
 ## How fast he gets going and turns (px/s per s): acceleration and agility, less when tired.
