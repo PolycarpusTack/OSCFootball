@@ -484,6 +484,9 @@ feet don't slide. FIFA 96's animations without a pose show the nearest one (`Pup
 A light from the sprites' light direction casts the bodies' shadows on the grass
 (`Stadium.light_bodies()`).
 
+Indoors (5 a side) is a hall: an even turf carpet, perspex above the boards, a low stand in
+front of the hall's dark walls and lamp gantries over it (`Stadium._build_roof()`).
+
 In all three, a player's run, jog and walk hold a moment past their speeds and for at least
 0.3 s, so they don't flicker; the cycle keeps its place from one to the other, and its pace
 follows his speed (`Footballer.GAIT_*`). His facing holds until he's well past the line

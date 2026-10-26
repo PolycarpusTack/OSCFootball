@@ -126,6 +126,59 @@ func _initialize() -> void:
 	hk.controlled = null
 	pest._action_left = 0.0
 
+	# ... but out of his box it's at his feet, as anyone's: with an opponent beside him he plays it
+	# at once, and the opponent can take it off him (the bug: the ball glued to his feet)
+	await _play()
+	_park_except([k, pest])
+	pest._action_left = 0.0
+	k.position = m.home.goal_defended() + Vector2(bru.side * Pitch.m(30.0), 0.0)
+	m.ball.stop_at(k.feet_front())
+	m.ball.take(k)
+	pest.position = k.position + Vector2(bru.side * 20.0, 0.0)
+	pest._play_action("fall")  # beside him, but no tackle yet
+	pest._action_left = 10.0
+	await physics_frame
+	var may_outside: bool = m.keeper_may_release(k)
+	m.autoplay = false
+	hk.controlled = k
+	k.controlled = true
+	hk.switch_lock = 10.0
+	var played_at := -1.0
+	t2 = 0.0
+	while t2 < 2.0 and played_at < 0.0:
+		Input.action_press("pass")
+		await physics_frame
+		Input.action_release("pass")
+		await physics_frame
+		t2 += 2.0 / 60.0
+		if m.ball.holder != k:
+			played_at = t2
+	print("keeper out of his box, opponent alongside: may release %s; human's pass played at %.2f s" % [may_outside, played_at])
+	ok = ok and may_outside and played_at >= 0.0 and played_at < 0.5
+	# and standing still with the ball out there, an opponent tackles him
+	await _play()
+	_park_except([k, pest])
+	k.position = m.home.goal_defended() + Vector2(bru.side * Pitch.m(30.0), 0.0)
+	k.velocity = Vector2.ZERO
+	m.ball.stop_at(k.feet_front())
+	m.ball.take(k)
+	pest._action_left = 0.0
+	pest.stats = {}
+	pest.position = m.ball.position + Vector2(bru.side * 6.0, 0.0)
+	var lost_at := -1.0
+	t2 = 0.0
+	while t2 < 6.0 and lost_at < 0.0:
+		pest.wish = (m.ball.position - pest.position).normalized()
+		await physics_frame
+		t2 += 1.0 / 60.0
+		if m.ball.holder != k:
+			lost_at = t2
+	print("keeper out of his box, standing with it: lost it at %.1f s" % lost_at)
+	ok = ok and lost_at >= 0.0
+	m.autoplay = true
+	k.controlled = false
+	hk.controlled = null
+
 	# a free kick 22 m out: the AI shoots, a curler at goal
 	await _play()
 	var fouled = bru.players[9]

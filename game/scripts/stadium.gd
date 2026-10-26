@@ -19,11 +19,18 @@ const CROWD_TILES_UP := 5.0  # a club crowd texture (six rows of fans, 4:1) repe
 const CAM_OFFSET := Vector3(0.0, 15.0, 42.0)  # TV camera relative to what it looks at
 const CAM_FOV := 30.0
 const SUN := Vector3(-0.45, 0.7, 0.55)  # toward the light (tools/blender/footballer.py LIGHT, y up, z to the camera)
+const SUN_ENERGY := 0.6  # with AMBIENT, a surface facing the light a little over its colour on screen, as the sprites; more and light skin washes out to white
+const AMBIENT := 0.25  # the light in the shade
 const SHADOW := 0.4  # how dark the bodies' shadows are on the grass
+const HALL := Color("17181e")  # indoors: the dark of the hall's roof, where outdoors there's sky
+const GLASS_H := 1.4  # indoors: perspex above the boards, metres
+const CEILING := 16.0  # indoors: the roof, metres up (the hall's walls reach it)
+const GANTRY := 8.5  # indoors: the lamp gantries over the stands, metres up
 const CAM_FOLLOW := 3.0  # how quickly the camera catches up, 1/s
 
 var camera := Camera3D.new()
 var _sun: DirectionalLight3D  # the 3D edition's light (light_bodies), made when first needed
+var _env := Environment.new()
 var shake := 0.0  # seconds of camera shake left; set by the match
 var club_boards: Array[Texture2D] = []  # the two clubs' boards, mixed in with the originals; set before adding
 var club_crowds: Array[Texture2D] = []  # home and away supporters (null: the original crowd); set before adding
@@ -41,9 +48,9 @@ var _cam_offset := CAM_OFFSET * (0.75 if Pitch.indoor else 1.0)
 
 func _ready() -> void:
 	var env := WorldEnvironment.new()
-	env.environment = Environment.new()
-	env.environment.background_mode = Environment.BG_COLOR
-	env.environment.background_color = Color("7a9ccc")
+	env.environment = _env
+	_env.background_mode = Environment.BG_COLOR
+	_env.background_color = HALL if Pitch.indoor else Color("7a9ccc")
 	add_child(env)
 	camera.fov = CAM_FOV
 	camera.far = 600.0
@@ -53,6 +60,8 @@ func _ready() -> void:
 	_build_stands()
 	for side in [0, 1]:
 		_build_goal(side)
+	if Pitch.indoor:
+		_build_roof()
 	follow(Pitch.field_rect().get_center(), 0.0)
 
 
@@ -65,6 +74,11 @@ func light_bodies() -> void:
 	_sun = DirectionalLight3D.new()
 	add_child(_sun)
 	_sun.look_at_from_position(Vector3.ZERO, -SUN, Vector3.UP)
+	_sun.light_energy = SUN_ENERGY
+	# the ambient is the background's sky blue unless set: it washed the bodies out pale
+	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	_env.ambient_light_color = Color.WHITE
+	_env.ambient_light_energy = AMBIENT
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_sun.directional_shadow_max_distance = 80.0
@@ -122,7 +136,7 @@ func _build_ground() -> void:
 	_bake_ground(vp, mat)
 	# the strip between the boards and the stands
 	var track := _material(null)
-	track.albedo_color = Color("3e6b2a")
+	track.albedo_color = Pitch.CONCRETE if Pitch.indoor else Color("3e6b2a")
 	var m := _stand_dist + 1.0
 	_quad([Vector3(-m - 20, -0.02, -m), Vector3(_length + m + 20, -0.02, -m),
 		Vector3(_length + m + 20, -0.02, _width + m), Vector3(-m - 20, -0.02, _width + m)], track)
@@ -146,6 +160,11 @@ func _build_boards() -> void:
 		boards.append(load(OWN_BOARDS.get(i, TEX + "board%d.png" % i)))
 	var back := _material(null)
 	back.albedo_color = Color("202020")
+	var glass := _material(null)
+	glass.albedo_color = Color(0.75, 0.88, 1.0, 0.16)
+	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var rail := _material(null)
+	rail.albedo_color = Color("9a9da6")
 	var d := _board_dist
 	# each side as a run of boards facing the pitch: start, direction along, count
 	var runs := [
@@ -170,6 +189,11 @@ func _build_boards() -> void:
 				tex = club_boards[(i / 3) % club_boards.size()]
 			_quad([a + top, b + top, b, a], _material(tex))
 			_quad([b + top + behind, a + top + behind, a + behind, b + behind], back)
+			if Pitch.indoor:  # dasher boards: perspex above, in a frame with a rail on top
+				var up := Vector3.UP * GLASS_H
+				_quad([a + top + up, b + top + up, b + top, a + top], glass)
+				_box((a + b) / 2.0 + top + up + Vector3.UP * 0.04, (b - a).abs() + Vector3(0.08, 0.08, 0.08), rail)
+				_box(a + top + up / 2.0, Vector3(0.06, GLASS_H, 0.06), rail)
 			n += 3  # step through the set so neighbours differ
 
 
@@ -201,7 +225,8 @@ func _build_stands() -> void:
 		var length: float = st[2]
 		var out := Vector3.UP.cross(along)  # away from the pitch
 		var wall_h := 2.2
-		var rise := Vector3.UP * 14.0 + out * 22.0  # crowd terraces from the wall top
+		# crowd terraces from the wall top; indoors a lower, steeper hall stand, so its roof shows
+		var rise := Vector3.UP * 3.5 + out * 4.5 if Pitch.indoor else Vector3.UP * 14.0 + out * 22.0
 		var seg := 12.0  # one crowd texture, metres wide (two tiers tall)
 		var count := ceili(length / seg)
 		var fans: Texture2D = st[4]
@@ -221,11 +246,43 @@ func _build_stands() -> void:
 				var mat := crowd[i % crowd.size()] if i % 2 == 0 else crowd[0]
 				_quad([a + up + rise, b + up + rise, b + up, a + up], mat, Vector2(k, 2.0))
 			var top := up + rise
-			_quad([a + top + Vector3.UP * 5.0, b + top + Vector3.UP * 5.0, b + top, a + top], dark)
-			if st[3]:  # roof: sloping underside from the back of the stand out over the front rows
+			if not Pitch.indoor:  # indoors the hall's roof shows over the back row
+				_quad([a + top + Vector3.UP * 5.0, b + top + Vector3.UP * 5.0, b + top, a + top], dark)
+			if st[3] and not Pitch.indoor:  # roof: sloping underside from the back of the stand out over the front rows
 				var r0 := top + Vector3.UP * 5.0
 				var r1 := up + Vector3.UP * 14.5 + out * 2.0
 				_quad([a + r1, b + r1, b + r0, a + r0], roof, Vector2(k * 3.0, 2.0))
+
+
+## Indoors: the hall's back walls behind the stands, up to the roof, and lamp gantries hung
+## over the stands. The TV camera looks down from below the roof, so the roof itself never shows.
+func _build_roof() -> void:
+	var wall := _material(null)
+	wall.albedo_color = HALL.lightened(0.05)
+	var steel := _material(null)
+	steel.albedo_color = Color("44464f")
+	var lamp := _material(null)
+	lamp.albedo_color = Color(1.0, 0.97, 0.86)
+	var back := _stand_dist + 4.5 + 0.5  # behind the stand's back row (_build_stands' indoor rise)
+	var x0 := -back - 30.0
+	var x1 := _length + back + 30.0
+	var far := -back
+	_quad([Vector3(x0, CEILING, far), Vector3(x1, CEILING, far), Vector3(x1, 0, far), Vector3(x0, 0, far)], wall)
+	for x in [-back, _length + back]:  # behind the stands at the ends
+		_quad([Vector3(x, CEILING, far), Vector3(x, CEILING, _width + back + 30.0), Vector3(x, 0, _width + back + 30.0), Vector3(x, 0, far)], wall)
+	# a gantry along the far stand, and one over each end: a girder with lamps under it
+	var gantries := [[Vector3(x0 + 20.0, GANTRY, -back + 2.0), Vector3(x1 - 20.0, GANTRY, -back + 2.0)],
+		[Vector3(-back + 2.0, GANTRY, -back + 2.0), Vector3(-back + 2.0, GANTRY, _width)],
+		[Vector3(_length + back - 2.0, GANTRY, -back + 2.0), Vector3(_length + back - 2.0, GANTRY, _width)]]
+	for g in gantries:
+		var a: Vector3 = g[0]
+		var b: Vector3 = g[1]
+		var along := (b - a).normalized()
+		_box((a + b) / 2.0, (b - a).abs() + Vector3(0.35, 0.35, 0.35), steel)
+		var n := int((b - a).length() / 4.0)
+		for k in n:
+			var at := a + along * (4.0 * k + 2.0) + Vector3.DOWN * 0.35
+			_box(at, Vector3(1.2, 0.3, 1.2) if along.x == 0.0 else Vector3(1.2, 0.3, 0.8), lamp)
 
 
 func _build_goal(side: int) -> void:

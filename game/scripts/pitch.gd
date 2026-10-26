@@ -12,6 +12,9 @@ const MARGIN_M := 6.0
 const INDOOR_M := Vector2(44.0, 28.0)
 const INDOOR_MARGIN_M := 3.0  # floor between the boards and the stands
 const LINE := Color(1, 1, 1, 0.85)
+const CARPET := Color("2f8f5b")  # indoors: an even artificial turf, bluer than grass and without stripes
+const CARPET_GRAIN := Color(1, 1, 1, 0.3)  # ... with a little of the grass texture's grain
+const CONCRETE := Color("6b6d72")  # indoors: the hall floor outside the walls
 
 ## Indoor or outdoor; set on the match options screen, kept between matches.
 static var indoor := false
@@ -60,12 +63,17 @@ func _ready() -> void:
 func _draw() -> void:
 	var f := field_rect()
 	var outer := f.grow(m(margin_m()))
-	draw_texture_rect(grass, outer, true)
-	# mowing stripes
-	var stripe := m(length_m()) / 14.0
-	for i in 14:
-		if i % 2 == 0:
-			draw_rect(Rect2(i * stripe, 0, stripe, f.size.y), Color(0, 0, 0, 0.08))
+	if indoor:  # a hall: turf carpet inside the walls, concrete outside them
+		draw_rect(outer, CONCRETE)
+		draw_rect(f, CARPET)
+		draw_texture_rect(grass, f, true, CARPET_GRAIN)
+	else:
+		draw_texture_rect(grass, outer, true)
+		# mowing stripes
+		var stripe := m(length_m()) / 14.0
+		for i in 14:
+			if i % 2 == 0:
+				draw_rect(Rect2(i * stripe, 0, stripe, f.size.y), Color(0, 0, 0, 0.08))
 	var w := 2.0
 	draw_rect(f, LINE, false, w)
 	var cx := f.size.x / 2.0

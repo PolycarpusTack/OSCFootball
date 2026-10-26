@@ -991,7 +991,7 @@ func _resolve_possession(delta: float) -> void:
 			_take(best)
 		return
 	var holder := ball.holder
-	if holder.role == "G":
+	if keeper_holds(holder):
 		return
 	for o in opponent(holder.team).players:
 		if o.chaos_lock:
@@ -1279,7 +1279,7 @@ func steal_rate(tackler: Footballer, holder: Footballer) -> float:
 ## walk out of his penalty area until he has played it.
 func _clear_keepers_box(delta: float) -> void:
 	var k := ball.holder
-	if k == null or k.role != "G" or not in_penalty_area(k.position, k.team):
+	if k == null or not keeper_holds(k):
 		_keeper_held = 0.0
 		return
 	_keeper_held += delta
@@ -1288,10 +1288,16 @@ func _clear_keepers_box(delta: float) -> void:
 			p.wish = Vector2(k.team.side, 0.0)  # away from the keeper's goal
 
 
-## A keeper holding the ball may play it once opponents are KEEPER_CLEAR away, or after
-## KEEPER_MAX_HOLD seconds (the AI and a human alike).
+## A keeper holding the ball in his box may play it once opponents are KEEPER_CLEAR away, or
+## after KEEPER_MAX_HOLD seconds (the AI and a human alike). Out of his box it's at his feet,
+## as anyone's: he plays it when he likes.
 func keeper_may_release(k: Footballer) -> bool:
-	return nearest_opponent_distance(k) >= KEEPER_CLEAR or _keeper_held >= KEEPER_MAX_HOLD
+	return not keeper_holds(k) or nearest_opponent_distance(k) >= KEEPER_CLEAR or _keeper_held >= KEEPER_MAX_HOLD
+
+
+## `k` is a keeper with the ball in his hands: in his own penalty area. Nobody may challenge him.
+func keeper_holds(k: Footballer) -> bool:
+	return k.role == "G" and k.has_ball() and in_penalty_area(k.position, k.team)
 
 
 ## Fireball / Thunder: anyone in the way is knocked flat. A keeper can sometimes

@@ -109,3 +109,19 @@ right and away from the camera.
     kicks, which set it directly). A wider `FACING_HOLD` would cut it further.
   - TD-S2: `Puppet.NEAREST` shows a keeper holding the ball as `gmdctch`, a get-up as standing,
     and the referee's gestures as standing. New poses would fix it; out of scope.
+
+## After your playtest, 2026-10-26
+
+| You reported | Cause | Fix | Test |
+|---|---|---|---|
+| The ball sometimes glued to the keeper's feet: no pass or shot, run the length of the pitch, walk it in | `Match.keeper_may_release()` held any keeper with the ball until opponents were 9.15 m away or 6 s had passed, but the 6 s count reset to 0 every frame out of his box; and nobody could tackle a keeper, anywhere | `Match.keeper_holds()`: the hold, the 6 s and the no-challenge rule apply only with the ball in his hands in his own box. Out of it, it's at his feet as anyone's | `rules_test`: out of his box, opponent alongside: he passes at once (0.17 s) and is tackled (0.2 s); in it, as before (6.2 s) |
+| 3D players very pale | The ambient light was the sky-blue background's, on top of the sun: colours came out about 1.4× (the sprites about 1.2×), and light skin clipped to white | Ambient set neutral (`Stadium.AMBIENT` 0.25), sun 0.6 (`SUN_ENERGY`), the kit shader matte | stills: the away shirt shows at its own colour; skin keeps its hue |
+| Indoors looks like a pitch | Only the size, the board distance and the camera changed | Indoors: an even turf carpet with no stripes, concrete outside the walls (`Pitch.CARPET`, `CONCRETE`); perspex in a frame above the boards; a low hall stand in front of the hall's dark walls, a lamp gantry over it (`Stadium._build_roof`); a dark hall where outdoors there's sky | stills, Pixel and 3D |
+
+- The roof itself never shows: the TV camera looks down from below it. The lamps hang lower, over
+  the stands, where it does see.
+- Noted, not changed: the 3D players are smaller on screen than the sprites (FIFA 96's sprites
+  are larger than life) and have no outline.
+- Suite after these fixes: 44 of 45 in the paired run. `chaos_actions_test` failed once on "AI
+  dives near goal" (a random 50-try check of a move the AI takes only sometimes; the diver is an
+  outfield player, untouched by the keeper fix) and passed three times alone. TD-S3: worth seeding.

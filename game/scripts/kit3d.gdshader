@@ -1,4 +1,5 @@
 shader_type spatial;
+render_mode specular_disabled;  // matte, as the sprites are: a highlight washed the skin out white
 // One kit slot of the 3D footballer (Puppet): a plain colour, or the shirt in stripes of two
 // across the body, as the sprites have them (tools/blender/footballer.py, STRIPE).
 
@@ -18,6 +19,5 @@ void fragment() {
 		c = colour2;
 	}
 	ALBEDO = c;
-	ROUGHNESS = 0.85;
-	SPECULAR = 0.2;
+	ROUGHNESS = 1.0;
 }
