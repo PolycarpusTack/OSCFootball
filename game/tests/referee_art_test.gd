@@ -23,6 +23,7 @@ func _initialize() -> void:
 	var looks := []  # what his locomotion plays at a run, a jog, a walk and standing still
 	for speed in [200.0, 80.0, 20.0, 0.0]:  # the match steers him every frame, so not via wish
 		ref.velocity = Vector2(speed, 0.0)
+		ref._gait = ""  # each speed on its own: no gait held from the one before (Footballer.GAIT_MIN)
 		ref._play(ref._locomotion_anim())
 		looks.append(ref._anim)
 	print("run, jog, walk, stand: %s" % [looks])

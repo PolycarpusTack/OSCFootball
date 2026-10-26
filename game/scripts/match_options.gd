@@ -56,7 +56,7 @@ func _rows() -> Array:
 		["CARDS", "ON" if Match.cards_on else "OFF"],
 		["MATCH", "KNOCKOUT (EXTRA TIME, PENALTIES)" if Match.knockout else "FRIENDLY"],
 		["REFEREE", Match.STRICTNESS[Match.strictness][0]],
-		["PLAYERS", "RENDERED" if Match.rendered else "PIXEL"],
+		["PLAYERS", Match.PLAYER_ART[Match.player_art()]],
 		["INJURIES", "ON" if Match.injuries_on else "OFF"],
 		["REPLAYS", "ON" if Match.replays_on else "OFF"],
 	] + (Match.MODIFIERS.map(func(m): return [m.to_upper(), "ON" if m in Match.modifiers else "OFF"]) if Match.chaos else [])
@@ -87,9 +87,7 @@ func _change(step: int) -> void:
 		5: Match.cards_on = not Match.cards_on
 		6: Match.knockout = not Match.knockout
 		7: Match.strictness = clampi(Match.strictness + step, 0, Match.STRICTNESS.size() - 1)
-		8:
-			Match.rendered = not Match.rendered
-			UiText.apply_font(Match.rendered)
+		8: Match.set_player_art(posmod(Match.player_art() + step, Match.PLAYER_ART.size()))
 		9: Match.injuries_on = not Match.injuries_on
 		10: Match.replays_on = not Match.replays_on
 		_:

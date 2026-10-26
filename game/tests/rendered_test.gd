@@ -98,10 +98,13 @@ func _initialize() -> void:
 	root.add_child(options)
 	await process_frame
 	options._row = 8
-	options._change(1)
-	var after_options: bool = match_script.rendered
-	print("match options, PLAYERS row: %s" % [options._rows()[8]])
-	ok = ok and options._rows()[8][0] == "PLAYERS" and not after_options
+	options._change(1)  # Rendered -> 3D (slice 2: PIXEL, RENDERED, 3D)
+	var three_d: Array = options._rows()[8]
+	var solid: bool = match_script.solid and match_script.rendered
+	options._change(1)  # -> Pixel
+	var after_options: bool = match_script.rendered or match_script.solid
+	print("match options, PLAYERS row: %s, then %s" % [three_d, options._rows()[8]])
+	ok = ok and three_d == ["PLAYERS", "3D"] and solid and options._rows()[8] == ["PLAYERS", "PIXEL"] and not after_options
 	# P-1-AC2: the font follows it, on a Label already on screen: Pixelify Sans for Pixel, Exo 2 for Rendered
 	var shown: Label = options._labels[0]
 	var font = shown.get_theme_font("font")
@@ -109,6 +112,7 @@ func _initialize() -> void:
 	options._change(1)
 	var rendered_font: String = shown.get_theme_font("font").base_font.resource_path
 	options._change(1)
+	options._change(1)  # past 3D, back to Pixel
 	var heading = options.get_child(1).get_theme_font("font")  # MATCH OPTIONS
 	print("font: Pixel %s (heading %s), Rendered %s" % [pixel_font.get_file(), heading.base_font.resource_path.get_file(), rendered_font.get_file()])
 	ok = ok and pixel_font.ends_with("OSCFJersey.ttf") and rendered_font.ends_with("Exo2-Italic.ttf") \

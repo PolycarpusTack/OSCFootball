@@ -837,4 +837,5 @@ def main():
 
 
 WANTED = ARGS[1:] or list(ANIMS)
-main()
+if __name__ == "__main__":  # footballer_gltf.py imports the figure and its poses
+    main()

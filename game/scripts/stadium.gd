@@ -18,9 +18,12 @@ const OWN_BOARDS := {5: "res://brand/board_oscf_full.png", 8: "res://brand/board
 const CROWD_TILES_UP := 5.0  # a club crowd texture (six rows of fans, 4:1) repeats this many times up the terrace
 const CAM_OFFSET := Vector3(0.0, 15.0, 42.0)  # TV camera relative to what it looks at
 const CAM_FOV := 30.0
+const SUN := Vector3(-0.45, 0.7, 0.55)  # toward the light (tools/blender/footballer.py LIGHT, y up, z to the camera)
+const SHADOW := 0.4  # how dark the bodies' shadows are on the grass
 const CAM_FOLLOW := 3.0  # how quickly the camera catches up, 1/s
 
 var camera := Camera3D.new()
+var _sun: DirectionalLight3D  # the 3D edition's light (light_bodies), made when first needed
 var shake := 0.0  # seconds of camera shake left; set by the match
 var club_boards: Array[Texture2D] = []  # the two clubs' boards, mixed in with the originals; set before adding
 var club_crowds: Array[Texture2D] = []  # home and away supporters (null: the original crowd); set before adding
@@ -51,6 +54,32 @@ func _ready() -> void:
 	for side in [0, 1]:
 		_build_goal(side)
 	follow(Pitch.field_rect().get_center(), 0.0)
+
+
+## The 3D edition's light (Puppet, ADR-005), from where the Rendered sprites' light comes (up,
+## from the left, toward the camera), and a sheet over the ground that shows only the shadows
+## on it: the stadium itself is unshaded, so it takes none. Once.
+func light_bodies() -> void:
+	if _sun:
+		return
+	_sun = DirectionalLight3D.new()
+	add_child(_sun)
+	_sun.look_at_from_position(Vector3.ZERO, -SUN, Vector3.UP)
+	_sun.shadow_enabled = true
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	_sun.directional_shadow_max_distance = 80.0
+	var sheet := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	var outer := Pitch.field_rect().grow(Pitch.m(Pitch.margin_m()))
+	plane.size = outer.size / Pitch.PX_PER_M
+	sheet.mesh = plane
+	sheet.position = Vector3(outer.get_center().x / Pitch.PX_PER_M, 0.01, outer.get_center().y / Pitch.PX_PER_M)
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://scripts/shadow_sheet.gdshader")
+	m.set_shader_parameter("strength", SHADOW)
+	sheet.material_override = m
+	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(sheet)
 
 
 ## Screen position of a pitch point (pixels) at `height_px` above the grass, plus how

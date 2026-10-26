@@ -25,6 +25,7 @@ const PIXEL_LINE_MOVES := {
 }
 const TICKS_PER_SECOND := 30.0
 const DRAWN_DIR := [0, 2, 4, 6, 8, 6, 4, 2]
+const FACING_HOLD := deg_to_rad(8.0)  # past the line between two directions before the facing turns
 const FACING_VECTORS := [
 	Vector2(0, -1), Vector2(0.7071, -0.7071), Vector2(1, 0), Vector2(0.7071, 0.7071),
 	Vector2(0, 1), Vector2(-0.7071, 0.7071), Vector2(-1, 0), Vector2(-0.7071, -0.7071),
@@ -110,9 +111,13 @@ func length_seconds(anim: String) -> float:
 	return _length_ticks(anim) / TICKS_PER_SECOND
 
 
-func facing_from(v: Vector2) -> int:
+## The nearest of the 8 directions to `v`; or `held` until `v` is well past the line between
+## them (FACING_HOLD), so a heading on that line doesn't flicker.
+func facing_from(v: Vector2, held := -1) -> int:
 	# angle 0 = up, clockwise
 	var a := fposmod(atan2(v.x, -v.y), TAU)
+	if held >= 0 and absf(angle_difference(a, held * TAU / 8.0)) < TAU / 16.0 + FACING_HOLD:
+		return held
 	return int(round(a / (TAU / 8.0))) % 8
 
 

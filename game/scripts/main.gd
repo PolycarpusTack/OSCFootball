@@ -123,6 +123,8 @@ static var competition: Competition = null  # the cup this match is a tie of (Cu
 static var competition_fixture := {}  # that tie, from the cup's current round
 static var _knockout_before := false  # the match option, put back when the competition is left
 static var rendered := false  # player art: Pixel (FIFA 96's sprites) or Rendered (ours, tools/blender; see AnimLibrary)
+static var solid := false  # the 3D edition: players and ball as 3D bodies (Puppet, ADR-005); `rendered` is on with it
+const PLAYER_ART := ["PIXEL", "RENDERED", "3D"]
 ## How hard the referee is (match options): his card odds in Classic and how fast the
 ## discipline meter fills in Chaos, times this. [name, factor]; strictness is the index.
 const STRICTNESS := [["LENIENT", 0.6], ["NORMAL", 1.0], ["STRICT", 1.5]]
@@ -549,6 +551,7 @@ func _make_subs() -> String:
 			p.facing = off.facing
 			t.players[s[0]] = p
 			off.add_sibling(p)
+			off.drop_puppet()
 			t.bench.erase(s[1])
 			t.subs_left -= 1
 			t.subbed_off.append(off)
@@ -679,12 +682,38 @@ func _process(delta: float) -> void:
 			p.place(stadium.to_screen(p.position))
 	referee.place(stadium.to_screen(referee.position))
 	ball.place(stadium.to_screen)
+	_make_puppets()
+	for p in home.players + away.players + [referee]:
+		p.pose_puppet()
 	_aim_arrows.queue_redraw()
 	_mood_meter.queue_redraw()
 	_update_energy_hud()
 
 
 ## Where the camera looks: the ball, a little toward the one human's man (two players: the ball).
+## The player art (PLAYER_ART): 0 Pixel, 1 Rendered, 2 3D.
+static func player_art() -> int:
+	return 2 if solid else 1 if rendered else 0
+
+
+static func set_player_art(art: int) -> void:
+	rendered = art >= 1
+	solid = art == 2
+	UiText.apply_font(rendered)
+
+
+## The 3D edition's bodies, made when it's first on and for each player who comes on after.
+func _make_puppets() -> void:
+	if not solid:
+		return
+	stadium.light_bodies()
+	for p in home.players + away.players + [referee]:
+		if p.puppet == null:
+			stadium.add_child(p.make_puppet())
+	if ball.puppet == null:
+		stadium.add_child(ball.make_puppet())
+
+
 func camera_focus() -> Vector2:
 	var focus := ball.position
 	if humans.size() == 1 and humans[0].controlled:

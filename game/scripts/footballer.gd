@@ -34,6 +34,12 @@ const INJURED_SPEED := 0.8  # an injured man's top speed, of his own
 const INJURED_SKILL := 0.85  # ... and he plays as if rated this much of his ratings
 const TIRED_ACCEL := 0.2
 const DIZZY_SPEED := 0.5
+const GAITS := ["run", "jog", "walk", "xstandd"]
+const GAIT_FLOORS := [120.0, 50.0, 5.0]  # px/s above which each of the first three gaits plays
+const GAIT_BAND := 0.1  # a gait holds this much of its floor past it, either way, so it doesn't flicker
+const GAIT_MIN := 0.3  # seconds a gait plays at least: a dip in speed on a turn doesn't flick it
+const GAIT_PACE := {"run": 165.0, "jog": 78.0, "walk": 32.0}  # px/s at which each plays at its drawn pace: its typical speed in play
+const GAIT_RATE := [0.6, 1.6]  # ... and the pace follows the speed this far either way
 const SKILL_MOVES := {"nutmeg": [0.4, 0.7], "rainbow": [0.45, 0.75], "bckheel": [0.4, 0.7]}
 
 var team: Team
@@ -84,12 +90,15 @@ var art_material: Material = null
 
 var _anim := "xstandd"
 var _anim_time := 0.0
+var _gait := ""  # the gait playing (GAITS), "" during a one-shot animation
+var _gait_for := 0.0  # seconds it has played
 var _action_left := 0.0  # while > 0 a one-shot animation plays and movement is ignored
 var _actions := 0  # counts one-shot animations started: a wind-up knows if it was cut short
 var _sprite := Sprite2D.new()
 var _kit: Material  # the kit shader, for the palette-indexed FIFA 96 frames
 var _own_kit: Material  # the same kit for our own RGBA art (Team.own_art_material)
 var _rendered_kit: Material  # and for the Rendered player art (Team.rendered_material)
+var puppet: Puppet = null  # his body in the 3D edition (Match.solid), made by the match
 var _marks := Node2D.new()  # shadow, control ring and charge meter, drawn under the sprite
 
 
@@ -136,6 +145,29 @@ func show_look(l: Array, screen: Vector3) -> void:
 	chaos_rotation = now[0]
 	chaos_lift = now[1]
 	visible = l[7]
+	pose_puppet(l)
+
+
+## His 3D body for the 3D edition, coloured as his kit.
+func make_puppet() -> Puppet:
+	puppet = Puppet.new(_kit)
+	return puppet
+
+
+func drop_puppet() -> void:
+	if puppet:
+		puppet.queue_free()
+		puppet = null
+
+
+## The 3D body posed as `l` shows him (live: as he is now). The sprite is drawn without one.
+func pose_puppet(l := look()) -> void:
+	var solid := Match.solid and puppet != null
+	_sprite.visible = not solid
+	if solid:
+		puppet.show_look(l, GIANT if Match.modifier("giant players") else 1.0)
+	elif puppet:
+		puppet.visible = false
 
 
 ## `screen` from Stadium.to_screen(): x, y on screen and the scale there in z.
@@ -221,7 +253,7 @@ func _physics_process(delta: float) -> void:
 	velocity = velocity.move_toward(w * top, accel() * delta)
 	position += velocity * delta
 	if velocity.length() > 10.0 and not diving():  # a keeper dives sideways, still facing the ball
-		facing = Anims.facing_from(velocity)
+		facing = Anims.facing_from(velocity, facing)
 	elif wish.length() > 0.1 and not busy():
 		facing = Anims.facing_from(wish)
 
@@ -233,7 +265,8 @@ func _physics_process(delta: float) -> void:
 		ball.position = ball.position.lerp(position + Anims.FACING_VECTORS[facing] * skill("dribbling", 16.0, 8.0), 0.6)
 		ball.velocity = velocity
 
-	_anim_time += delta
+	_anim_time += delta * _pace()
+	_gait_for += delta
 	var f := Anims.frame_at(_anim, facing, _anim_time, not busy())
 	_sprite.texture = f.tex
 	_sprite.offset = f.offset
@@ -253,7 +286,8 @@ func _draw_marks() -> void:
 		var c := Supers.LIST.thunder.colour if full else Color(1.0, 0.5 + 0.4 * charge, 0.1)
 		_marks.draw_arc(Vector2(0, -56), 9.0, -PI / 2.0, -PI / 2.0 + TAU * minf(charge, 1.0), 32, c, 3.0 if full else 2.0)
 	_marks.draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.4))
-	_marks.draw_circle(Vector2.ZERO, 9.0, Color(0, 0, 0, 0.3))
+	if not (Match.solid and puppet):  # the 3D body casts its own (Stadium.light_bodies)
+		_marks.draw_circle(Vector2.ZERO, 9.0, Color(0, 0, 0, 0.3))
 	if controlled:  # empties as he tires
 		_marks.draw_arc(Vector2.ZERO, 12.0, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - 0.75 * fatigue), 24, marker, 2.0)
 	_marks.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)  # undo the shadow's squash
@@ -534,24 +568,37 @@ func perform(anim: String) -> void:
 func _play_action(anim: String, from := 0.0) -> void:
 	anim = anim_names.get(anim, anim)
 	_actions += 1
+	_gait = ""
 	_anim = anim
 	_anim_time = from
 	_action_left = Anims.length_seconds(anim) - from
 
 
 func _locomotion_anim() -> String:
+	if _gait_for < GAIT_MIN and GAITS.has(_gait):
+		return _gait
 	var speed := velocity.length()
-	if speed > 120.0:
-		return "run"
-	if speed > 50.0:
-		return "jog"
-	if speed > 5.0:
-		return "walk"
+	var now := GAITS.find(_gait)
+	for k in GAIT_FLOORS.size():
+		var band := 0.0 if now == -1 else (-GAIT_BAND if now <= k else GAIT_BAND)
+		if speed > GAIT_FLOORS[k] * (1.0 + band):
+			return GAITS[k]
 	return "xstandd"
 
 
-func _play(anim: String) -> void:
-	anim = anim_names.get(anim, anim)
+## How fast the gait's cycle plays: with his speed, so the feet keep pace with the ground.
+func _pace() -> float:
+	if not GAIT_PACE.has(_gait):
+		return 1.0
+	return clampf(velocity.length() / GAIT_PACE[_gait], GAIT_RATE[0], GAIT_RATE[1])
+
+
+func _play(gait: String) -> void:
+	var anim: String = anim_names.get(gait, gait)
 	if anim != _anim:
+		if not (GAIT_PACE.has(gait) and GAIT_PACE.has(_gait)):  # run, jog and walk share their cycle: keep its place
+			_anim_time = 0.0
 		_anim = anim
-		_anim_time = 0.0
+	if gait != _gait:
+		_gait_for = 0.0
+	_gait = gait

@@ -14,6 +14,8 @@ const ZIG_ZAG := 9.5  # px either side: what the old 6 px a tick at 60 ticks/s s
 signal kicked(speed: float)
 signal bounced(speed: float)
 
+const RADIUS_3D := 0.2  # metres: the 3D edition's ball, about twice real like the sprite, to be seen
+const BALL_SHADER := preload("res://scripts/ball3d.gdshader")
 const DRAW_SCALE := 0.5  # drawing only: the 16 px frames at full scale were a ball 0.9 m across (4x real)
 var velocity := Vector2.ZERO
 var z := 0.0
@@ -41,6 +43,9 @@ var _trail: Array[Vector3] = []  # recent positions: pitch x, y and height z
 var _sprite := Sprite2D.new()
 var _fx := Node2D.new()  # shadow, glow and trail
 var _to_screen: Callable
+var puppet: MeshInstance3D = null  # the 3D edition's ball (Match.solid), made by the match
+var _spin := Basis.IDENTITY  # its roll
+var _was := Vector2.INF  # where it was drawn last, for the roll
 
 
 ## Simulated in pitch pixels like the players; place() puts the visuals on screen.
@@ -70,7 +75,34 @@ func _place_at(at_pitch: Vector2, height: float, hidden: bool, to_screen: Callab
 	_sprite.scale = Vector2.ONE * at.z * DRAW_SCALE
 	_sprite.z_index = clampi(int(ground.y) + 1, -2000, 2000)
 	_fx.z_index = _sprite.z_index - 1
-	_sprite.visible = not hidden
+	var solid := Match.solid and puppet != null
+	_sprite.visible = not hidden and not solid
+	if puppet:
+		puppet.visible = solid and not hidden
+		_roll_puppet(at_pitch, height)
+
+
+## The 3D ball, at `at_pitch` and `height` (pitch pixels), turned by how far it has gone.
+func _roll_puppet(at_pitch: Vector2, height: float) -> void:
+	var r := RADIUS_3D
+	var moved := (at_pitch - _was) / Pitch.PX_PER_M if _was != Vector2.INF else Vector2.ZERO
+	_was = at_pitch
+	if moved.length() > 0.0001 and moved.length() < 5.0:  # a jump (a reset, a replay's cut) doesn't spin it
+		_spin = Basis(Vector3(-moved.y, 0.0, moved.x).normalized(), -moved.length() / r) * _spin
+		_spin = _spin.orthonormalized()
+	puppet.transform = Transform3D(_spin, Vector3(at_pitch.x, height, at_pitch.y) / Pitch.PX_PER_M + Vector3.UP * r)
+
+
+func make_puppet() -> MeshInstance3D:
+	puppet = MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = RADIUS_3D
+	sphere.height = RADIUS_3D * 2.0
+	puppet.mesh = sphere
+	var m := ShaderMaterial.new()
+	m.shader = BALL_SHADER
+	puppet.material_override = m
+	return puppet
 
 
 ## For a replay: [where, how high, in someone's hands].
@@ -256,4 +288,5 @@ func _draw_fx() -> void:
 		_fx.draw_circle(_sprite.position, 11.0 * s, Color(c, 0.35))
 	var r := 5.0 * s * clampf(1.0 - z / 300.0, 0.4, 1.0)
 	_fx.draw_set_transform(Vector2(ground.x, ground.y), 0.0, Vector2(1.0, 0.45))
-	_fx.draw_circle(Vector2.ZERO, r, Color(0, 0, 0, 0.35))
+	if not (Match.solid and puppet):  # the 3D ball casts its own (Stadium.light_bodies)
+		_fx.draw_circle(Vector2.ZERO, r, Color(0, 0, 0, 0.35))

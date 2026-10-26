@@ -1,12 +1,14 @@
 # Original game and everything derived from it: rebuilt from the ISO with tools/
 # (see game/README.md "Rebuilding the assets"). EA's property, kept out of history.
 # game/assets/ is all of that, except sprites/oscf_starter/, oscf_roles/ and oscf_rendered/
-# (tools/blender): our own original art (generated player sprites), tracked.
+# (tools/blender): our own original art (generated player sprites), tracked; and models/,
+# the 3D edition's footballer (tools/blender/footballer_gltf.py), ours too.
 FIFA96.ISO
 extracted/
 downloads/
 decoded/
 game/assets/*
+!game/assets/models/
 !game/assets/sprites/
 game/assets/sprites/*
 !game/assets/sprites/oscf_starter/

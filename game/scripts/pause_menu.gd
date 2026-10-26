@@ -54,7 +54,7 @@ func _refresh() -> void:
 	for i in _rows.size():
 		var text: String = ITEMS[i]
 		if text == "PLAYERS":  # the player art, switched on the spot
-			text = "PLAYERS: %s" % ("RENDERED" if Match.rendered else "PIXEL")
+			text = "PLAYERS: %s" % Match.PLAYER_ART[Match.player_art()]
 		elif text == "QUIT TO TITLE" and Match.competition:  # the cup is saved as it was before this tie
 			text = "QUIT TO TITLE (THIS %s IS LOST)" % ("TIE" if Match.competition is Cup else "MATCH")
 		_rows[i].text = ("▶  %s  ◀" if i == _pick else "%s") % text
@@ -130,8 +130,7 @@ func _choose() -> void:
 			_box.visible = false
 			add_sibling(menu)
 		"PLAYERS":
-			Match.rendered = not Match.rendered
-			UiText.apply_font(Match.rendered)
+			Match.set_player_art((Match.player_art() + 1) % Match.PLAYER_ART.size())
 			_refresh()
 		"RESTART MATCH":
 			get_tree().paused = false

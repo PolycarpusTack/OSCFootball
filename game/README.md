@@ -129,6 +129,8 @@ godot --headless --path game -s res://tests/pause_test.gd                       
 godot --headless --path game -s res://tests/instructions_test.gd                 # Team Instructions: normal plays as before; each one measured
 godot --headless --path game -s res://tests/options_test.gd                      # half length, offside / fouls / cards off
 godot --headless --path game -s res://tests/rendered_test.gd                     # player art: Pixel / Rendered, fallback, options and pause menu
+godot --headless --path game -s res://tests/solid_test.gd                        # 3D: bodies placed and in kit, every animation posed, turns, stride, blends, replays
+godot --headless --path game -s res://tests/gait_test.gd                         # run / jog / walk don't flicker, keep their place, pace follows speed; facing holds
 godot --headless --path game -s res://tests/modifiers_test.gd                    # Chaos modifiers: giant players, super goalie, crazy bounce, hot potato, catch-up
 godot --headless --path game -s res://tests/knockout_test.gd                     # extra time, golden goal, shoot-out
 godot --headless --path game -s res://tests/result_sim_test.gd                   # simulated results: stronger wins more, 2-3.5 goals, repeatable
@@ -442,11 +444,11 @@ and the camera sits nearer. The goals and keepers are the outdoor ones for now, 
 goals. After FIFA 97's and RTWC 98's indoor modes (IDEAS_TO_IMPLEMENT.md I.1); the arena is
 our own layout.
 
-## Player art: Pixel or Rendered
+## Player art: Pixel, Rendered or 3D
 
 The menus' and the match's text follow the same choice (`UiText.apply_font`, `fonts/README.md`):
-Pixel uses Jersey 10 (scaled up to match) with Pixelify Sans for headings. Rendered, which stands
-in for the 3D edition to come, uses a bold italic Exo 2. All three are under the SIL Open Font
+Pixel uses Jersey 10 (scaled up to match) with Pixelify Sans for headings. Rendered and 3D use a
+bold italic Exo 2. All three are under the SIL Open Font
 License, and each licence is in `fonts/`.
 
 Match options (PLAYERS) or the pause menu, mid-match: **Pixel** draws the players with FIFA
@@ -471,6 +473,21 @@ tools/.venv/bin/python -I tools/blender/pack_sprites.py /tmp/renders game/assets
   throwin jump chest stumble push bodychk divehed ghdsa ghdsb gldsa gldsb glwctch gmdctch gjmctch gdkick \
   bckheel rainbow aeropla victrun celdnce celdnc2 celdpnc duckflp vctflip
 ```
+
+**3D** (ADR-005, `docs/gpm/backlog-polish.md`) draws the players, the referee and the ball as 3D
+bodies in the stadium, under the same TV camera; the match itself plays exactly as in the other
+two. The body is the same Blender footballer, exported to `assets/models/footballer.glb`
+(`tools/blender/footballer_gltf.py`), coloured in each kit by `scripts/kit3d.gdshader`. `Puppet`
+poses it each frame from what the sprite would show (`Footballer.look()`), so replays work too;
+the run is the model's own `sprint`, and the run and jog go on by the ground covered, so the
+feet don't slide. FIFA 96's animations without a pose show the nearest one (`Puppet.NEAREST`).
+A light from the sprites' light direction casts the bodies' shadows on the grass
+(`Stadium.light_bodies()`).
+
+In all three, a player's run, jog and walk hold a moment past their speeds and for at least
+0.3 s, so they don't flicker; the cycle keeps its place from one to the other, and its pace
+follows his speed (`Footballer.GAIT_*`). His facing holds until he's well past the line
+between two of the 8 directions (`Anims.facing_from()`).
 
 ## Chaos modifiers (Chaos Football only)
 
